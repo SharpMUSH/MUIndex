@@ -176,7 +176,11 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 lines,
                 seen,
                 cursors,
-                answeredAPrompt,
+                // Either kind of answer above was a line through the server's buffer, so either one
+                // has already done the flushing. Computed here rather than read off
+                // whoAlreadyAnswered inside, so that flag keeps its one meaning: if WHO ever comes to
+                // be answered by a route that sends nothing, the flush must not silently go with it.
+                alreadyFlushed: answeredAPrompt || whoFromMenu is not null,
                 whoAlreadyAnswered: whoFromMenu is not null,
                 markAsked: () => asked = true,
                 target,
@@ -325,7 +329,15 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
         var menuBaseline = arrived();
         await telnet.SendAsync(Encoding.ASCII.GetBytes(menu.Answer));
-        await SettleAsync(telnet, arrived, menuBaseline, _options.QuietPeriod, cancellationToken);
+
+        // WhoGrace, not QuietPeriod: this selection asks the same question the literal WHO does, so
+        // it earns the same patience. A codebase that throttles a login-screen WHO throttles the menu
+        // route to it too, and giving up after QuietPeriod would read the roster as absent — our
+        // timing published as a fact about their server (rule 5), the exact failure WhoGrace was
+        // introduced for. Costs nothing in the ordinary case: grace applies only while the reply has
+        // produced no line at all, and nothing here stacks — a menu that answers means the literal
+        // WHO below is skipped, so the worst-case run of graces is unchanged.
+        await SettleAsync(telnet, arrived, menuBaseline, _options.WhoGrace, cancellationToken);
 
         var menuReply = BannerSoFar(lines, menuBaseline, arrived());
         return (new WhoParser().Parse(menuReply), PayloadRedaction.Replayable(menuReply));
@@ -347,7 +359,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         List<byte[]> lines,
         Observations seen,
         PhaseCursors cursors,
-        bool answeredAPrompt,
+        bool alreadyFlushed,
         bool whoAlreadyAnswered,
         Action markAsked,
         ProbeTarget target,
@@ -385,12 +397,18 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
             // …unless there is no residue for it to clear, which is the only thing it is for.
             //
-            // Two ways to know that. A prompt answer above was itself a line through the server's
-            // buffer and has already done the flushing. And a server that negotiated an option
-            // *interpreted* our IAC bytes rather than leaving them in its line buffer as typing —
-            // so nothing is stuck behind them. Either way the empty line buys nothing, and it is
-            // not free: a game sitting at its name prompt reads it as a goodbye and ends the
-            // session before WHO can be asked.
+            // Three ways to know that. A prompt answer above was itself a line through the server's
+            // buffer and has already done the flushing — and so was a who's-online menu selection,
+            // which is sent by the identical path and is the later of the two when both happen. And
+            // a server that negotiated an option *interpreted* our IAC bytes rather than leaving
+            // them in its line buffer as typing — so nothing is stuck behind them. Any of the three
+            // and the empty line buys nothing, and it is not free: a game sitting at its name prompt
+            // reads it as a goodbye and ends the session before WHO can be asked.
+            //
+            // The menu case was missed when the menu was added: a game that offers one, negotiates
+            // nothing, and hangs up on a blank line kept its WHO (that much whoAlreadyAnswered
+            // already protected) but lost INFO and VERSION to a goodbye it need never have been
+            // sent.
             //
             // Measured both ways across sixteen live games (docs/codebase-survey-2026-07-30.md):
             // none of the eight that negotiate an option needed the flush, while four of the
@@ -403,7 +421,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // parsed nothing, and is flushed exactly as it is today.
             var parsedOurNegotiation = seen.Supported.Count > 0;
 
-            if (!answeredAPrompt && !parsedOurNegotiation)
+            if (!alreadyFlushed && !parsedOurNegotiation)
             {
                 await telnet.SendAsync([]);
                 await SettleAsync(telnet, arrived, cursors.Banner, _options.QuietPeriod, cancellationToken);
