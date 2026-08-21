@@ -85,7 +85,8 @@ public static class PostgresData
 
         services.TryAddSingleton<IGameQueries>(s => new NpgsqlGameQueries(
             s.GetRequiredService<NpgsqlDataSource>(),
-            s.GetRequiredService<IFieldRegistry>()));
+            s.GetRequiredService<IFieldRegistry>(),
+            s.GetRequiredService<TimeProvider>()));
 
         // Migration 0017's cycle log, registered on the web side too: a replica that does no crawling
         // still renders the strip, since the answer comes from the database rather than this process.

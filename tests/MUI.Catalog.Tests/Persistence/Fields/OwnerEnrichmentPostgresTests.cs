@@ -747,7 +747,7 @@ public class OwnerEnrichmentPostgresTests
                 new OwnerEnrichment(
                     claimStore, fields, new FieldReconciler(fields), FieldRegistry.Instance, clock),
                 fields,
-                new NpgsqlGameQueries(db.DataSource) { Clock = () => Now });
+                new NpgsqlGameQueries(db.DataSource, time: clock));
 
             var owner = await world.UserAsync("owner");
             var claim = await claims.IssueAsync(game, owner);

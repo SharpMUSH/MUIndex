@@ -17,7 +17,7 @@ public class GameQueriesPostgresTests
     private static readonly Guid Owner = Guid.Parse("cccccccc-0000-0000-0000-000000000001");
 
     private static NpgsqlGameQueries QueriesOn(TestDatabase db) =>
-        new(db.DataSource) { Clock = () => Now };
+        new(db.DataSource, time: new FixedClock(Now));
 
     [Test]
     public async Task ArchivedGamesLeaveTheDefaultListingAndNothingElse()
@@ -918,4 +918,9 @@ public class GameQueriesPostgresTests
 
     private static ActivityCell Cell(IReadOnlyList<ActivityCell> cells, DateTimeOffset at) =>
         cells.Single(c => c.DayOfWeek == (int)at.UtcDateTime.DayOfWeek && c.Hour == at.UtcDateTime.Hour);
+
+    private sealed class FixedClock(DateTimeOffset at) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => at;
+    }
 }

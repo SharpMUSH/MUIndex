@@ -123,7 +123,9 @@ public static class CrawlerServiceCollectionExtensions
 
         // The read side. TryAdd, so a host that already chose the fixture keeps it.
         services.TryAddSingleton<IGameQueries>(s => new NpgsqlGameQueries(
-            s.GetRequiredService<NpgsqlDataSource>(), s.GetRequiredService<IFieldRegistry>()));
+            s.GetRequiredService<NpgsqlDataSource>(),
+            s.GetRequiredService<IFieldRegistry>(),
+            s.GetRequiredService<TimeProvider>()));
 
         // Discovery: the registry, the graph, the review queue, and the identity matcher's three
         // narrow reads.

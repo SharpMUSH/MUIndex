@@ -21,7 +21,7 @@ public class DailyGrowthPostgresTests
     private static readonly DateTimeOffset Now = Seed.Now;
 
     private static NpgsqlGameQueries QueriesOn(TestDatabase db) =>
-        new(db.DataSource) { Clock = () => Now };
+        new(db.DataSource, time: new FixedClock(Now));
 
     private static DateOnly Today(int offset) => DateOnly.FromDateTime(Now.AddDays(offset).UtcDateTime);
 
@@ -203,5 +203,10 @@ public class DailyGrowthPostgresTests
         var listing = await QueriesOn(db).ListAsync(new GameFilter { IncludeArchived = true });
 
         return listing.Single(g => g.Slug == slug).Growth;
+    }
+
+    private sealed class FixedClock(DateTimeOffset at) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => at;
     }
 }
