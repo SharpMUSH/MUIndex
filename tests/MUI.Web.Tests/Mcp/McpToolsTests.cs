@@ -14,7 +14,7 @@ using Npgsql;
 namespace MUI.Web.Tests.Mcp;
 
 /// <summary>
-/// Each of the nine <see cref="MuiMcpTools"/> tools, called over the real MCP transport against a
+/// Each of the nine <see cref="CrawlAdminTools"/>/<see cref="GameAdminTools"/> tools, called over the real MCP transport against a
 /// real Postgres — the properties under test are the ones a caller cannot see from the tool's C#
 /// alone: what actually landed in the database, and what the tool refuses.
 /// </summary>

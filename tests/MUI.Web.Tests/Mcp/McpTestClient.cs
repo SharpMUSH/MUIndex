@@ -13,7 +13,7 @@ namespace MUI.Web.Tests.Mcp;
 /// <summary>
 /// Wires a real MCP client at a running <see cref="SiteHost"/>, so these tests exercise the same
 /// Streamable HTTP transport and bearer-token authentication pipeline a real caller (Claude Code)
-/// would — rather than resolving <see cref="MuiMcpTools"/> out of the container and skipping the
+/// would — rather than resolving <see cref="CrawlAdminTools"/>/<see cref="GameAdminTools"/> out of the container and skipping the
 /// protocol and the auth handler entirely.
 /// </summary>
 internal static class McpTestClient
@@ -54,7 +54,7 @@ internal static class McpTestClient
         }
 
         // StructuredContent is only populated when the tool advertises a JSON output schema; the
-        // ordinary path — and the one every one of MuiMcpTools' seven tools takes — is a single
+        // ordinary path — and the one every one of the nine tools takes — is a single
         // TextContentBlock carrying the same JSON the tool method returned, serialized.
         if (result.StructuredContent is { } structured)
         {

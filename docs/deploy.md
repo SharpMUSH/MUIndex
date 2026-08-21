@@ -570,7 +570,8 @@ Set `MUI_MCP_TOKEN` (`openssl rand -hex 32`, never committed) and point a client
 `https://<site>/mcp` with `Authorization: Bearer <token>`. Unset, every request gets a 401 and MUI.Web
 says so once at startup — this endpoint fails closed, never open.
 
-The nine tools (`src/MUI.Web/Mcp/MuiMcpTools.cs`) mirror `mui-crawl`'s CLI surface — `crawl_seed_add`,
+The nine tools (`src/MUI.Web/Mcp/CrawlAdminTools.cs`, `src/MUI.Web/Mcp/GameAdminTools.cs`) mirror
+`mui-crawl`'s CLI surface — `crawl_seed_add`,
 `crawl_opt_out_record`, `crawl_opt_out_check`, `crawl_due_targets`, `crawl_run_cycle`,
 `crawl_summary` — plus three new capabilities. `game_field_set` is a staff override of a single
 `GameField` row (`FieldSource.Staff`, spec §5.1) for fixing a mis-parsed value by hand without raw
