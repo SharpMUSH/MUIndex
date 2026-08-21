@@ -2,7 +2,6 @@ using MUI.Catalog;
 using MUI.Discovery;
 using MUI.I3;
 
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 using Npgsql;
@@ -93,12 +92,11 @@ public sealed record I3ServiceOptions
 /// (spec §12).
 /// </summary>
 /// <remarks>
-/// The same shape as <see cref="CrawlerService"/> and <see cref="PresenceMaintenanceService"/>, and
-/// for the same reason: N web replicas must run exactly one of these, or two would ask every mud
-/// twice as often as promised. Its own key, not the crawl lease's, so neither pass can delay the
-/// other and a deployment with the crawler off can still keep I3 bindings current. Never lets an
-/// exception escape <c>ExecuteAsync</c>, and every wait goes through the injected
-/// <see cref="TimeProvider"/>.
+/// Shares <see cref="LeasedBackgroundService"/> with <see cref="CrawlerService"/> and
+/// <see cref="PresenceMaintenanceService"/>, and for the same reason: N web replicas must run exactly
+/// one of these, or two would ask every mud twice as often as promised. Its own key, not the crawl
+/// lease's, so neither pass can delay the other and a deployment with the crawler off can still keep
+/// I3 bindings current.
 /// </remarks>
 public sealed class I3Service(
     NpgsqlDataSource source,
@@ -110,7 +108,8 @@ public sealed class I3Service(
     I3ServiceOptions options,
     TimeProvider time,
     ILogger<I3Service> logger,
-    ILoggerFactory? loggers = null) : BackgroundService
+    ILoggerFactory? loggers = null)
+    : LeasedBackgroundService(source, options.AdvisoryLockKey, options.LeaseRetryInterval, time, logger)
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -122,86 +121,34 @@ public sealed class I3Service(
 
         options.Validate();
 
-        AdvisoryLease? lease = null;
-        var announced = false;
-
-        try
-        {
-            while (!stoppingToken.IsCancellationRequested)
-            {
-                try
-                {
-                    if (lease is not null && !await lease.IsHeldAsync(stoppingToken))
-                    {
-                        logger.LogWarning("The Intermud-3 lease was lost; asking again");
-                        await lease.DisposeAsync();
-                        lease = null;
-                    }
-
-                    lease ??= await AdvisoryLease.TryAcquireAsync(
-                        source, options.AdvisoryLockKey, stoppingToken);
-
-                    if (lease is null)
-                    {
-                        if (!announced)
-                        {
-                            logger.LogInformation(
-                                "Another replica holds the Intermud-3 lease; this one will keep asking");
-                            announced = true;
-                        }
-
-                        await Task.Delay(options.LeaseRetryInterval, time, stoppingToken);
-                        continue;
-                    }
-
-                    announced = false;
-
-                    await PassAsync(stoppingToken);
-
-                    await Task.Delay(options.Interval, time, stoppingToken);
-                }
-                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-                {
-                    break;
-                }
-                catch (Exception error)
-                {
-                    // Never fault out of here. The commonest failure by far is the sidecar not being
-                    // up, which is a container to start rather than a site to take down.
-                    logger.LogError(error, "The Intermud-3 pass failed; retrying after the lease interval");
-
-                    try
-                    {
-                        await Task.Delay(options.LeaseRetryInterval, time, stoppingToken);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        break;
-                    }
-                }
-            }
-        }
-        finally
-        {
-            if (lease is not null)
-            {
-                await lease.DisposeAsync();
-            }
-        }
+        await RunLeaseLoopAsync(stoppingToken);
     }
 
-    private async Task PassAsync(CancellationToken cancellationToken)
+    protected override async Task<TimeSpan> RunPassAsync(CancellationToken stoppingToken)
     {
-        await using var gateway = await gateways.ConnectAsync(cancellationToken);
+        await using var gateway = await gateways.ConnectAsync(stoppingToken);
 
         var result = await new I3Cycle(
-                gateway, targets, bindings, presence, fields, options.Pass, time,
+                gateway, targets, bindings, presence, fields, options.Pass, Time,
                 loggers?.CreateLogger<I3Cycle>())
-            .RunAsync(cancellationToken);
+            .RunAsync(stoppingToken);
 
         if (result.Listed > 0)
         {
             logger.LogInformation("Intermud-3 pass complete: {Result}", result);
         }
+
+        return options.Interval;
     }
+
+    protected override string LeaseLostMessage => "The Intermud-3 lease was lost; asking again";
+
+    protected override string LeaseWaitingMessage =>
+        "Another replica holds the Intermud-3 lease; this one will keep asking";
+
+    /// <remarks>
+    /// Never fault out of here. The commonest failure by far is the sidecar not being up, which is a
+    /// container to start rather than a site to take down.
+    /// </remarks>
+    protected override string FailureMessage => "The Intermud-3 pass failed; retrying after the lease interval";
 }

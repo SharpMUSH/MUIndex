@@ -2,7 +2,6 @@ using MUI.Catalog;
 using MUI.Catalog.Persistence;
 using MUI.Discovery;
 
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 using Npgsql;
@@ -15,10 +14,11 @@ namespace MUI.Crawler;
 /// </summary>
 /// <remarks>
 /// One ASP.NET Core deployable serves the site and runs the crawler; <see cref="AdvisoryLease"/> is
-/// what keeps N replicas from becoming N crawlers. This loop must never let an exception escape
-/// <see cref="ExecuteAsync"/> — a hosted service that faults takes the whole host down with it — must
-/// re-check the lease every cycle rather than trust a connection it took once, and must do every wait
-/// through the injected <see cref="TimeProvider"/> so a test can drive it without sleeping.
+/// what keeps N replicas from becoming N crawlers. The lease loop itself is
+/// <see cref="LeasedBackgroundService"/>, shared with <see cref="DnsClaimSweeper"/>,
+/// <see cref="PresenceMaintenanceService"/> and <see cref="I3Service"/>; what's here is what only the
+/// crawl loop owns — applying migrations and planting seeds the first time its lease is taken, and
+/// recording each cycle's report.
 /// </remarks>
 public sealed class CrawlerService(
     NpgsqlDataSource source,
@@ -32,7 +32,8 @@ public sealed class CrawlerService(
     ICrawlCycles? cycles = null,
     // Optional for the same reason, and because a crawl with no gap guard is a crawl that keeps its
     // old behaviour rather than one that fails to start.
-    CrawlGapGuard? gaps = null) : BackgroundService
+    CrawlGapGuard? gaps = null)
+    : LeasedBackgroundService(source, options.AdvisoryLockKey, options.Discovery.LeaseRetryInterval, time, logger)
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -44,91 +45,33 @@ public sealed class CrawlerService(
 
         options.Validate();
 
-        AdvisoryLease? lease = null;
-        var migrated = false;
-        var announced = false;
-
-        try
-        {
-            while (!stoppingToken.IsCancellationRequested)
-            {
-                try
-                {
-                    if (lease is not null && !await lease.IsHeldAsync(stoppingToken))
-                    {
-                        // The session that held the lock has gone. Believing otherwise is how two
-                        // replicas end up crawling at once.
-                        logger.LogWarning("The crawl lease was lost; standing down and asking again");
-                        await lease.DisposeAsync();
-                        lease = null;
-                        migrated = false;
-                    }
-
-                    lease ??= await AdvisoryLease.TryAcquireAsync(
-                        source, options.AdvisoryLockKey, stoppingToken);
-
-                    if (lease is null)
-                    {
-                        if (!announced)
-                        {
-                            logger.LogInformation(
-                                "Another replica holds the crawl lease; this one will keep asking");
-                            announced = true;
-                        }
-
-                        await Task.Delay(options.Discovery.LeaseRetryInterval, time, stoppingToken);
-                        continue;
-                    }
-
-                    announced = false;
-
-                    if (!migrated)
-                    {
-                        await StartCrawlingAsync(stoppingToken);
-                        migrated = true;
-                    }
-
-                    var startedAt = time.GetUtcNow();
-                    var report = await cycle.RunAsync(stoppingToken);
-
-                    if (report.Considered > 0)
-                    {
-                        logger.LogInformation("Crawl cycle complete: {Report}", report);
-                    }
-
-                    await RecordAsync(startedAt, report, stoppingToken);
-
-                    await Task.Delay(options.Discovery.PollInterval, time, stoppingToken);
-                }
-                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-                {
-                    break;
-                }
-                catch (Exception error)
-                {
-                    // Never fault out of here. A crawl cycle that threw is a cycle to retry, and a
-                    // hosted service that faults takes the web tier down with it.
-                    logger.LogError(error, "The crawl loop failed; retrying after the lease interval");
-
-                    try
-                    {
-                        await Task.Delay(options.Discovery.LeaseRetryInterval, time, stoppingToken);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        break;
-                    }
-                }
-            }
-        }
-        finally
-        {
-            if (lease is not null)
-            {
-                await lease.DisposeAsync();
-            }
-        }
+        await RunLeaseLoopAsync(stoppingToken);
     }
+
+    protected override Task OnLeaseAcquiredAsync(CancellationToken cancellationToken) =>
+        StartCrawlingAsync(cancellationToken);
+
+    protected override async Task<TimeSpan> RunPassAsync(CancellationToken stoppingToken)
+    {
+        var startedAt = Time.GetUtcNow();
+        var report = await cycle.RunAsync(stoppingToken);
+
+        if (report.Considered > 0)
+        {
+            logger.LogInformation("Crawl cycle complete: {Report}", report);
+        }
+
+        await RecordAsync(startedAt, report, stoppingToken);
+
+        return options.Discovery.PollInterval;
+    }
+
+    protected override string LeaseLostMessage => "The crawl lease was lost; standing down and asking again";
+
+    protected override string LeaseWaitingMessage =>
+        "Another replica holds the crawl lease; this one will keep asking";
+
+    protected override string FailureMessage => "The crawl loop failed; retrying after the lease interval";
 
     /// <summary>
     /// Stores what the cycle just did, so the site can show its own instrument running.
@@ -153,7 +96,7 @@ public sealed class CrawlerService(
             await cycles.RecordAsync(
                 new CrawlCycleRecord(
                     startedAt,
-                    time.GetUtcNow(),
+                    Time.GetUtcNow(),
                     report.Considered,
                     report.Probed,
                     report.Answered,
@@ -188,7 +131,7 @@ public sealed class CrawlerService(
     {
         if (options.ApplyMigrations)
         {
-            var applied = await new MigrationRunner(source, logger).ApplyAsync(cancellationToken);
+            var applied = await new MigrationRunner(Source, logger).ApplyAsync(cancellationToken);
 
             if (applied.Count > 0)
             {
@@ -196,7 +139,7 @@ public sealed class CrawlerService(
             }
         }
 
-        var added = await CrawlSeeds.PlantAsync(targets, options.Seeds, time, cancellationToken);
+        var added = await CrawlSeeds.PlantAsync(targets, options.Seeds, Time, cancellationToken);
 
         logger.LogInformation(
             "Holding the crawl lease. {Added} of {Total} configured seeds were new",
