@@ -206,7 +206,19 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // due. Ask the token which one cancelled, never the exception.
             throw;
         }
-        catch (Exception error)
+        // Narrowed to the shapes DialFailure.Classify actually names meaningfully — SocketException
+        // and OperationCanceledException, its two pattern-matched types — plus IOException and
+        // ObjectDisposedException, the rest of HungUp's "the far end went away" shape, which can
+        // surface here too (e.g. a disconnect during SettleInitialBannerAsync, before
+        // AskFollowUpsAsync's own narrower catch is even reached). Anything else is a defect in our
+        // own code, not a measurement of theirs (rule 5): handing it to DialFailure.Classify would
+        // land it in the catch-all and get misfiled as a measured game timeout downstream, so it is
+        // left to propagate — CrawlCycle.VisitAsync catches it one level up, logs it loudly as an
+        // error, and moves on to the next target without publishing anything about this one.
+        catch (Exception error) when (error is SocketException
+            or OperationCanceledException
+            or IOException
+            or ObjectDisposedException)
         {
             return new ProbeResult
             {
