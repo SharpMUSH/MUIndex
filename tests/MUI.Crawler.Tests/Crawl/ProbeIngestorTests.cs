@@ -374,6 +374,36 @@ public class ProbeIngestorTests
     }
 
     [Test]
+    public async Task ARenameThatFailsForAnUnexpectedReasonAlsoNeverCostsTheMeasurement()
+    {
+        // Not the game_slug_key race the mint expects — a dropped connection, or a bug in the rename
+        // path itself. SlugMinter.MintAsync's second catch must still absorb it rather than letting it
+        // escape into the caller: this write happens after the probe's own reachability is already
+        // durably recorded, so propagating here would mark an already-successful probe as errored in
+        // the crawl cycle's own tally, which is the same rule-5 violation the narrowed first catch
+        // exists to prevent, just arriving from the failure side instead of the success side.
+        var catalogue = new Catalogue();
+        var game = catalogue.Listed(LifecycleState.Archived);
+        var ingestor = catalogue.Ingestor(grace: TimeSpan.FromDays(14), renamesFailUnexpectedly: true);
+
+        await ingestor.IngestAsync(game, Probes.Answered(mssp: Probes.Mssp(("NAME", "Harbourlight"))));
+
+        await catalogue.Games.SetStateAsync(game, LifecycleState.Archived, Probes.Observed.AddDays(2));
+
+        var settled = await ingestor.IngestAsync(
+            game,
+            Probes.Answered(
+                mssp: Probes.Mssp(("NAME", "Harbourlight")), at: Probes.Observed.AddDays(30)));
+
+        await Assert.That(settled.Renamed).IsNull();
+        await Assert.That(settled.Restored).IsTrue();
+        await Assert.That((await catalogue.Games.ByIdAsync(game))!.LastReachableAt)
+            .IsEqualTo(Probes.Observed.AddDays(30));
+        await Assert.That((await catalogue.Games.ByIdAsync(game))!.State)
+            .IsEqualTo(LifecycleState.Active);
+    }
+
+    [Test]
     public async Task AFailedProbeRenamesNothing()
     {
         // A dial that never got in confirmed nothing, so it has no opinion about what a game is
