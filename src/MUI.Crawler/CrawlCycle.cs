@@ -19,7 +19,7 @@ namespace MUI.Crawler;
 /// <remarks>
 /// Every bound spec §12 asks for is here, none of it hygiene: the crawler shares a process with the
 /// web tier, so a probe wedged on a black-holed host is a request thread that never comes back — a
-/// global concurrency cap, per-host serialisation (<see cref="HostGate"/>, keyed on host alone since
+/// global concurrency cap, per-host serialisation (<see cref="HostConcurrencyGate"/>, keyed on host alone since
 /// a game on six ports is one machine), a rate floor via <see cref="CrawlRateLimiter"/>, and a hard
 /// timeout linked to the cycle's own token, applied on top of whatever the probe promises. The order
 /// per target is deliberate: consent (§11) before scope, since a game that asked us to stop is owed
@@ -42,7 +42,7 @@ public sealed class CrawlCycle(
     CatalogueBinder binder,
     ReferralGraphWriter referrals,
     CrawlRateLimiter limiter,
-    HostGate gate,
+    HostConcurrencyGate gate,
     DiscoveryOptions options,
     TimeProvider time,
     // Optional, and null on every path that has no database behind it. A crawl that cannot settle

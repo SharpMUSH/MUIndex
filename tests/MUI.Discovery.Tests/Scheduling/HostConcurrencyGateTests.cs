@@ -4,14 +4,14 @@ namespace MUI.Discovery.Tests;
 /// Per-host serialisation (spec §7.7): "prevents a multi-port game from being hit concurrently". Keyed
 /// on the host alone, because six advertised ports are one machine.
 /// </summary>
-public class HostGateTests
+public class HostConcurrencyGateTests
 {
     private static readonly CancellationToken None = CancellationToken.None;
 
     [Test]
     public async Task TwoPortsOnOneMachineAreSerialised()
     {
-        var gate = new HostGate();
+        var gate = new HostConcurrencyGate();
 
         var first = await gate.EnterAsync("mud.example.org", None);
         var second = gate.EnterAsync("mud.example.org", None);
@@ -28,7 +28,7 @@ public class HostGateTests
     [Test]
     public async Task DifferentHostsDoNotWaitForEachOther()
     {
-        var gate = new HostGate();
+        var gate = new HostConcurrencyGate();
 
         var first = await gate.EnterAsync("a.example.org", None);
         var second = await gate.EnterAsync("b.example.org", None).WaitAsync(TimeSpan.FromSeconds(5));
@@ -43,7 +43,7 @@ public class HostGateTests
     {
         // Otherwise a game advertising MUD.Example.ORG on one port and mud.example.org on another would
         // be two gates and one machine, which is the thing this type exists to prevent.
-        var gate = new HostGate();
+        var gate = new HostConcurrencyGate();
 
         var first = await gate.EnterAsync("MUD.Example.ORG.", None);
         var second = gate.EnterAsync("mud.example.org", None);
@@ -59,7 +59,7 @@ public class HostGateTests
     {
         // The loop disposes through a `using`, and a retry path could dispose again. Double-releasing a
         // semaphore would silently let two probes into one host.
-        var gate = new HostGate();
+        var gate = new HostConcurrencyGate();
         var held = await gate.EnterAsync("a.example.org", None);
 
         held.Dispose();
