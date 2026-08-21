@@ -103,6 +103,13 @@ public static class WireEncoding
     }
 
     /// <summary>Whether every line is well-formed UTF-8. Nothing to read is nothing against it.</summary>
+    /// <remarks>
+    /// A yes/no question answered without throwing or allocating: <see cref="System.Text.Unicode.Utf8.IsValid"/>
+    /// applies the same strict-UTF-8 rule as <see cref="Utf8"/>'s decoder (a lead byte must be
+    /// followed by well-formed continuation bytes, no substitution), which matters because most
+    /// sessions this asks about are not UTF-8 — an exception per line was the normal, expected case
+    /// on every server that isn't, not the rare one.
+    /// </remarks>
     private static bool IsUtf8(IReadOnlyList<byte[]>? lines)
     {
         if (lines is null)
@@ -112,11 +119,7 @@ public static class WireEncoding
 
         foreach (var line in lines)
         {
-            try
-            {
-                Utf8.GetString(line);
-            }
-            catch (DecoderFallbackException)
+            if (!System.Text.Unicode.Utf8.IsValid(line))
             {
                 return false;
             }
