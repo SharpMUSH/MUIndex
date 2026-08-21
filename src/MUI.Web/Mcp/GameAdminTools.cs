@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
@@ -223,23 +224,22 @@ public sealed class GameAdminTools(
         var loser = await games.BySlugAsync(loserSlug.Trim(), cancellationToken)
             ?? throw new McpException($"No game with slug '{loserSlug}'.");
 
-        ReviewMergeResult result;
+        var verdict = await merge.MergeAsync(winner.Id, loser.Id, because, cancellationToken);
 
-        try
+        // merge_log's own guards firing at the moment somebody would create the shape they refuse -- an
+        // absorbed-elsewhere loser or a redirect chain. The database's message is more specific than
+        // anything worth restating here (see Program.cs's --merge handling).
+        var result = verdict switch
         {
-            result = await merge.MergeAsync(winner.Id, loser.Id, because, cancellationToken);
-        }
-        catch (Exception error) when (error is ArgumentException or InvalidOperationException)
-        {
-            throw new McpException(error.Message, error);
-        }
-        catch (PostgresException error)
-        {
-            // merge_log's own guards firing at the moment somebody would create the shape they refuse
-            // -- an absorbed-elsewhere loser or a redirect chain. The database's message is more
-            // specific than anything worth restating here (see Program.cs's --merge handling).
-            throw new McpException($"refused by the database: {error.MessageText}", error);
-        }
+            MergeVerdict.Merged(var merged) => merged,
+            MergeVerdict.SelfMerge => throw new McpException("A game cannot be merged into itself."),
+            MergeVerdict.UnknownGame(var id) => throw new McpException($"{id} does not name a game."),
+            MergeVerdict.AlreadyAbsorbed(var databaseMessage) =>
+                throw new McpException($"refused by the database: {databaseMessage}"),
+            MergeVerdict.RedirectChain(var databaseMessage) =>
+                throw new McpException($"refused by the database: {databaseMessage}"),
+            _ => throw new UnreachableException($"Unhandled {nameof(MergeVerdict)}: {verdict}"),
+        };
 
         logger?.LogInformation(
             "game_merge: {Loser} -> {Winner} (merge {MergeId}) -- {Because}",
