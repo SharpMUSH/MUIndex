@@ -250,6 +250,41 @@ public enum ClaimVerdict
     Assumed,
 }
 
+/// <summary>What happened when a claimant asked for an on-demand recheck (spec §8.1).</summary>
+public enum RequestCheckOutcome
+{
+    /// <summary>
+    /// The schedule moved — or, for a claim on a game with no crawl target, the ask was recorded
+    /// anyway, since that is not the claimant's mistake to log.
+    /// </summary>
+    Checked,
+
+    /// <summary>No such claim.</summary>
+    NotFound,
+
+    /// <summary>
+    /// A claim exists, but asked again before <see cref="Persistence.ClaimService.RecheckInterval"/>
+    /// has elapsed since the last ask.
+    /// </summary>
+    TooSoon,
+}
+
+/// <summary>What happened when an owner tried to give up a claim (spec §8.4, §8.5).</summary>
+public enum ResignOutcome
+{
+    /// <summary>The claim was revoked.</summary>
+    Resigned,
+
+    /// <summary>No such claim.</summary>
+    NotFound,
+
+    /// <summary>A claim exists, but not for the account asking — a claim id is not a credential.</summary>
+    NotYours,
+
+    /// <summary>A claim exists and belongs to the account, but has never been verified.</summary>
+    NotVerified,
+}
+
 /// <summary>
 /// Brings a game's next probe forward, for §8.1's on-demand check.
 /// </summary>

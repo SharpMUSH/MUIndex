@@ -203,11 +203,18 @@ public sealed class ClaimService(
     /// only from <c>crawl_target.next_probe_at</c> — this must actually move it, or the recorded ask
     /// is a no-op dressed as a real check.
     /// </remarks>
-    public async Task<bool> RequestCheckAsync(Guid claimId, CancellationToken cancellationToken = default)
+    public async Task<RequestCheckOutcome> RequestCheckAsync(
+        Guid claimId,
+        CancellationToken cancellationToken = default)
     {
-        if (await claims.FindAsync(claimId, cancellationToken) is not { } claim || !MayRecheck(claim))
+        if (await claims.FindAsync(claimId, cancellationToken) is not { } claim)
         {
-            return false;
+            return RequestCheckOutcome.NotFound;
+        }
+
+        if (!MayRecheck(claim))
+        {
+            return RequestCheckOutcome.TooSoon;
         }
 
         var now = time.GetUtcNow();
@@ -224,7 +231,7 @@ public sealed class ClaimService(
             await probes.BringForwardAsync(claim.GameId, now, cancellationToken);
         }
 
-        return true;
+        return RequestCheckOutcome.Checked;
     }
 
     /// <summary>
@@ -234,21 +241,29 @@ public sealed class ClaimService(
     /// Scoped to the account: <see cref="RevokeAsync"/> takes a claim id, and a claim id is not a
     /// credential — anybody who learns one could otherwise unclaim somebody else's game.
     /// </remarks>
-    public async Task<bool> ResignAsync(
+    public async Task<ResignOutcome> ResignAsync(
         Guid claimId,
         Guid userId,
         CancellationToken cancellationToken = default)
     {
-        if (await claims.FindAsync(claimId, cancellationToken) is not { } claim
-            || claim.UserId != userId
-            || !claim.IsVerified)
+        if (await claims.FindAsync(claimId, cancellationToken) is not { } claim)
         {
-            return false;
+            return ResignOutcome.NotFound;
+        }
+
+        if (claim.UserId != userId)
+        {
+            return ResignOutcome.NotYours;
+        }
+
+        if (!claim.IsVerified)
+        {
+            return ResignOutcome.NotVerified;
         }
 
         await RevokeAsync(claimId, "the owner gave up this claim", cancellationToken);
 
-        return true;
+        return ResignOutcome.Resigned;
     }
 
     /// <summary>Every account that has proved control of a game, newest first (spec §8.5).</summary>
