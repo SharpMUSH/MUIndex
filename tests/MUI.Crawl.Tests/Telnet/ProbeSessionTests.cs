@@ -552,24 +552,38 @@ public class ProbeSessionTests
             WhoReply = "Player Name        On For Idle\r\n7 Players logged in, 22 record, no maximum.\r\n",
         };
 
-        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+        // A longer QuietPeriod than Fast() gives, for one specific reason. This test's precondition is
+        // that negotiation has landed *before* the flush decision reads seen.Supported — and the probe
+        // deliberately does not guarantee that ordering, since a server that negotiates late is
+        // treated exactly like one that negotiated nothing. Fast()'s 120ms banner settle sits inside
+        // the margin a loaded CI runner can take to finish the MSSP exchange (Windows' default timer
+        // granularity is ~15.6ms, so a 15ms poll is really 15-31ms and 120ms buys only a handful of
+        // them). When it lost that race the flush went out, HangsUpOnBlankLine ended the session, and
+        // WHO came back NotAsked — a red build about runner timing rather than about the branch under
+        // test. Observed once on windows-latest and green on the retry of the same commit.
+        var options = Fast() with { QuietPeriod = TimeSpan.FromMilliseconds(500) };
+
+        var result = await new TelnetProbe(options).ProbeAsync(game.Target);
 
         // Diagnostic first: if this is empty the fixture never negotiated, which is a different
         // problem from the flush decision.
         await Assert.That(result.OfferedOptions.Count).IsGreaterThan(0);
 
+        // Then the mechanism, before its consequence: the blank line is the thing under test, and a
+        // failure here names the cause outright instead of leaving WHO's confidence to imply it.
+        await Assert.That(game.Received).DoesNotContain(string.Empty);
+
         // FakeGame's telnet mode negotiates, so the flush is withheld and the goodbye never happens.
         await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.Count);
         await Assert.That(result.Who.Count).IsEqualTo(7);
 
-        // Pin *which* branch withheld the flush. Both `answeredAPrompt` and `parsedOurNegotiation`
-        // suppress it, and only the second is under test here — so assert nothing but the permitted
-        // commands went out. Were this banner ever classified as a prompt, the probe would answer it,
-        // the flush would be withheld for the other reason, and this test would stay green while the
-        // negotiation branch it guards quietly stopped being exercised.
+        // Pin *which* branch withheld the flush. All three of `alreadyFlushed`'s sources and
+        // `parsedOurNegotiation` suppress it, and only the last is under test here — so assert nothing
+        // but the permitted commands went out. Were this banner ever classified as a prompt or a menu,
+        // the probe would answer it, the flush would be withheld for the other reason, and this test
+        // would stay green while the negotiation branch it guards quietly stopped being exercised.
         await Assert.That(game.Received.Where(line => line.Trim().Length > 0)
             .All(line => TelnetProbe.PermittedCommands.Contains(line.Trim()))).IsTrue();
-        await Assert.That(game.Received).DoesNotContain(string.Empty);
     }
 
     /// <summary>
@@ -655,6 +669,82 @@ public class ProbeSessionTests
         // reply harvested from selecting "W" must not pollute it.
         await Assert.That(result.Banner).Contains("who is online");
         await Assert.That(result.Banner).DoesNotContain("12 players connected");
+    }
+
+    /// <summary>
+    /// A menu selection is a line through the server's buffer exactly as a prompt answer is, so the
+    /// residue flush that follows it buys nothing — and on a DIKU descendant costs the rest of the
+    /// session.
+    /// </summary>
+    /// <remarks>
+    /// The gap this closes: <c>whoAlreadyAnswered</c> already kept the literal <c>WHO</c> from being
+    /// asked twice, so the count survived — but the blank line still went out, the game read it as a
+    /// goodbye, and <c>INFO</c>/<c>VERSION</c> were lost to a flush that was never needed. Negotiates
+    /// nothing on purpose, so the negotiation branch cannot be what withholds the flush and this test
+    /// pins the menu branch specifically.
+    /// </remarks>
+    [Test]
+    public async Task AMenuSelectionSpendsTheFlushSoADikuKeepsItsFollowUps()
+    {
+        // Default mode on purpose: it frames telnet correctly, so the menu reaches the gate
+        // unpolluted, but attaches no plugin and so agrees to nothing — leaving OfferedOptions empty
+        // and the negotiation branch unable to be what withholds the flush.
+        await using var game = new FakeGame
+        {
+            BannerTail = "(C)onnect\r\n(N)ew character\r\nW - See who is online\r\n(Q)uit",
+            Replies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["W"] = "There are 12 players connected.\r\n",
+            },
+            HangsUpOnBlankLine = true,
+            InfoReply = "Harbourlight, a world of small boats.\r\n",
+            VersionReply = "Harbourlight 2.4.1\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        // Diagnostic first: if the fixture negotiated after all, the flush would be withheld for the
+        // *other* reason and this test would pass without exercising the menu branch at all.
+        await Assert.That(result.OfferedOptions).IsEmpty();
+
+        await Assert.That(game.Received).DoesNotContain(string.Empty);
+        await Assert.That(result.Who.Count).IsEqualTo(12);
+
+        // The point of the fix: the session outlived the menu, so the questions after it still landed.
+        await Assert.That(result.Info).IsNotNull();
+        await Assert.That(result.Info!).Contains("small boats");
+        await Assert.That(result.Version!).Contains("2.4.1");
+    }
+
+    /// <summary>
+    /// A throttled who's-online menu gets the same patience a throttled literal <c>WHO</c> does — it
+    /// is the same question by another route, and the same rung of the count ladder (spec §5.2).
+    /// </summary>
+    /// <remarks>
+    /// Modelled on the measured case WhoGrace was introduced for: <c>twyst.org:3333</c> and
+    /// <c>rupert.twyst.org:6666</c> both answer <c>WHO</c> after 5.05 seconds on purpose. Settling the
+    /// menu on QuietPeriod instead read that silence as "no roster" and published our own timing as a
+    /// fact about their server. The delay here sits past <c>Fast()</c>'s QuietPeriod and inside its
+    /// WhoGrace, so it fails on the former and passes on the latter.
+    /// </remarks>
+    [Test]
+    public async Task AThrottledWhosOnlineMenuIsWaitedForRatherThanReadAsEmpty()
+    {
+        await using var game = new FakeGame
+        {
+            BannerTail = "(C)onnect\r\n(N)ew character\r\nW - See who is online\r\n(Q)uit",
+            Replies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["W"] = "There are 12 players connected.\r\n",
+            },
+            ReplyDelay = TimeSpan.FromMilliseconds(350),
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(game.Received).Contains("W");
+        await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.Count);
+        await Assert.That(result.Who.Count).IsEqualTo(12);
     }
 
     /// <summary>
@@ -1215,6 +1305,14 @@ public class ProbeSessionTests
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
+        /// How long a <see cref="Replies"/> answer is withheld — the counterpart to
+        /// <see cref="WhoDelay"/>, which reaches only the literal <c>WHO</c> branch. A throttled
+        /// who's-online <em>menu</em> answers through this dictionary, so without it there is no way
+        /// to model the very server WhoGrace exists for arriving by the menu route.
+        /// </summary>
+        public TimeSpan ReplyDelay { get; init; }
+
+        /// <summary>
         /// Whether an empty line at the name prompt is a goodbye — true for every DIKU descendant,
         /// which is what makes the probe's own flush line fatal to them.
         /// </summary>
@@ -1478,6 +1576,11 @@ public class ProbeSessionTests
 
             if (Replies.TryGetValue(command, out var configured))
             {
+                if (ReplyDelay > TimeSpan.Zero)
+                {
+                    await Task.Delay(ReplyDelay, _stopping.Token);
+                }
+
                 await reply(configured);
                 return true;
             }
