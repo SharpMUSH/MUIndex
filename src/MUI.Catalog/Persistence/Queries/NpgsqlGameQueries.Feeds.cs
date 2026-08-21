@@ -10,7 +10,7 @@ public sealed partial class NpgsqlGameQueries
 
     public async Task<LivenessFeeds> FeedsAsync(CancellationToken cancellationToken = default)
     {
-        var now = Clock();
+        var now = _time.GetUtcNow();
         var since = now - RecentlyReachable;
 
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
@@ -122,7 +122,7 @@ public sealed partial class NpgsqlGameQueries
             {
                 limit,
                 perGameLimit,
-                since = (Clock() - FacetedSearch.RecentlyReachable).ToUniversalTime(),
+                since = (_time.GetUtcNow() - FacetedSearch.RecentlyReachable).ToUniversalTime(),
                 @internal = InternalFields.ExactNames.ToArray(),
                 internalPrefix = InternalFields.ConnectScreen + "%",
             },

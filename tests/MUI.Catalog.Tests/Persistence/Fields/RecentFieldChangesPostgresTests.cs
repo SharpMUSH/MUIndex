@@ -14,7 +14,7 @@ public class RecentFieldChangesPostgresTests
     private static readonly DateTimeOffset Now = Seed.Now;
 
     private static NpgsqlGameQueries QueriesOn(TestDatabase db) =>
-        new(db.DataSource) { Clock = () => Now };
+        new(db.DataSource, time: new FixedClock(Now));
 
     private static async Task TransitionAsync(
         TestDatabase db, Guid game, string field, string from, string to, DateTimeOffset at)
@@ -125,5 +125,10 @@ public class RecentFieldChangesPostgresTests
 
         await Assert.That(changes.Count(c => c.Slug == "flappy")).IsEqualTo(2);
         await Assert.That(changes.Any(c => c.Slug == "quiet-one")).IsTrue();
+    }
+
+    private sealed class FixedClock(DateTimeOffset at) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => at;
     }
 }

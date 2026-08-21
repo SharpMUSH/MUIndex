@@ -21,7 +21,7 @@ public sealed partial class NpgsqlGameQueries
     {
         ArgumentNullException.ThrowIfNull(filter);
 
-        var now = Clock();
+        var now = _time.GetUtcNow();
 
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 

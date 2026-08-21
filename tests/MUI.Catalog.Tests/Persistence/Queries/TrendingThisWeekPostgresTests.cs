@@ -13,7 +13,7 @@ public class TrendingThisWeekPostgresTests
     private static readonly DateTimeOffset Now = Seed.Now;
 
     private static NpgsqlGameQueries QueriesOn(TestDatabase db) =>
-        new(db.DataSource) { Clock = () => Now };
+        new(db.DataSource, time: new FixedClock(Now));
 
     private static DateOnly Today(int offset) => DateOnly.FromDateTime(Now.AddDays(offset).UtcDateTime);
 
@@ -144,5 +144,10 @@ public class TrendingThisWeekPostgresTests
         var trending = (await QueriesOn(db).RankingsAsync()).TrendingThisWeek;
 
         await Assert.That(trending.Any(g => g.Slug == "backfilled")).IsTrue();
+    }
+
+    private sealed class FixedClock(DateTimeOffset at) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => at;
     }
 }

@@ -41,7 +41,7 @@ public sealed partial class NpgsqlGameQueries
             return null;
         }
 
-        var now = Clock();
+        var now = _time.GetUtcNow();
 
         Guid[] ids = [row.Id];
         var fields = (await FieldsForAsync(connection, ids, cancellationToken))
@@ -105,7 +105,7 @@ public sealed partial class NpgsqlGameQueries
         GameRow row,
         CancellationToken cancellationToken)
     {
-        var now = Clock();
+        var now = _time.GetUtcNow();
 
         Guid[] ids = [row.Id];
         var fields = (await FieldsForAsync(connection, ids, cancellationToken))

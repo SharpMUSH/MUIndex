@@ -17,7 +17,7 @@ public class FacetQueriesPostgresTests
     private static readonly DateTimeOffset Now = Seed.Now;
 
     private static NpgsqlGameQueries QueriesOn(TestDatabase db) =>
-        new(db.DataSource) { Clock = () => Now };
+        new(db.DataSource, time: new FixedClock(Now));
 
     private static FacetGroup? Group(GameListing listing, string key) =>
         listing.Facets.FirstOrDefault(f => f.Key == key);
@@ -378,5 +378,10 @@ public class FacetQueriesPostgresTests
     {
         FacetTokens.TryLastSeen(token, out var seen);
         return seen;
+    }
+
+    private sealed class FixedClock(DateTimeOffset at) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => at;
     }
 }

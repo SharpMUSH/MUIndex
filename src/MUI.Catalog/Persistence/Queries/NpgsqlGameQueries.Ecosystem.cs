@@ -27,7 +27,7 @@ public sealed partial class NpgsqlGameQueries
     /// </remarks>
     public async Task<EcosystemDashboard> EcosystemAsync(CancellationToken cancellationToken = default)
     {
-        var now = Clock();
+        var now = _time.GetUtcNow();
 
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 

@@ -17,7 +17,8 @@ namespace MUI.Catalog.Persistence;
 /// by <c>array_position(@ladder, source)</c> using <see cref="SourceLadder"/>, generated from the same
 /// enum order, for the same reason.
 /// </remarks>
-public sealed partial class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? registry = null)
+public sealed partial class NpgsqlGameQueries(
+    NpgsqlDataSource source, IFieldRegistry? registry = null, TimeProvider? time = null)
     : IGameQueries
 {
     /// <summary>
@@ -124,10 +125,10 @@ public sealed partial class NpgsqlGameQueries(NpgsqlDataSource source, IFieldReg
     private readonly IFieldRegistry _registry = registry ?? FieldRegistry.Instance;
 
     /// <summary>
-    /// Overridable so a test can render a fixed frame. Everything time-dependent on this class reads
-    /// it, and nothing calls <c>DateTimeOffset.UtcNow</c> directly.
+    /// So a test can render a fixed frame. Everything time-dependent on this class reads it, and
+    /// nothing calls <see cref="DateTimeOffset.UtcNow"/> directly.
     /// </summary>
-    public Func<DateTimeOffset> Clock { get; init; } = () => DateTimeOffset.UtcNow;
+    private readonly TimeProvider _time = time ?? TimeProvider.System;
 
     private static GameField? Winner(IReadOnlyList<GameField> fields, string name) =>
         FieldPrecedence.Winner(fields.Where(f => string.Equals(f.Field, name, StringComparison.Ordinal)));

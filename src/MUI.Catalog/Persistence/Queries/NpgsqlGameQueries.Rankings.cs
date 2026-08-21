@@ -34,7 +34,7 @@ public sealed partial class NpgsqlGameQueries
         RankingSpan span = RankingSpan.Week,
         CancellationToken cancellationToken = default)
     {
-        var now = Clock();
+        var now = _time.GetUtcNow();
 
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 

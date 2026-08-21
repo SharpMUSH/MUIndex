@@ -24,7 +24,7 @@ public class SubmittedGameTests
     public async Task AnUnclaimedSubmissionIsOnNoPublicSurface()
     {
         await using var db = await PostgresFixture.MigratedAsync();
-        var queries = new NpgsqlGameQueries(db.DataSource) { Clock = () => Now };
+        var queries = new NpgsqlGameQueries(db.DataSource, time: new FixedClock(Now));
 
         var found = await Seed.GameAsync(
             db, slug: "found", name: "Found By Us", firstSeenAt: Now.AddHours(-2));
@@ -220,5 +220,10 @@ public class SubmittedGameTests
             await presence.AppendAsync(
                 PresenceSample.Counted(gameId, Now.AddHours(-hour - 1), 40, FieldSource.Who));
         }
+    }
+
+    private sealed class FixedClock(DateTimeOffset at) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => at;
     }
 }
