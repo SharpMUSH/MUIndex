@@ -70,7 +70,7 @@ public class OptOutPostgresTests
                 time),
             new ReferralGraphWriter(new NpgsqlReferralRepository(source), targets, discovery, time),
             new CrawlRateLimiter(discovery, time),
-            new HostGate(),
+            new HostConcurrencyGate(),
             discovery,
             time);
     }
@@ -245,7 +245,7 @@ public class OptOutPostgresTests
                 time),
             new ReferralGraphWriter(new NpgsqlReferralRepository(source), targets, options, time),
             new CrawlRateLimiter(options, time),
-            new HostGate(),
+            new HostConcurrencyGate(),
             options,
             time);
 

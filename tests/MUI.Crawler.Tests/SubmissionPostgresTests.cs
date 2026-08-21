@@ -90,7 +90,7 @@ public class SubmissionPostgresTests
                 time),
             new ReferralGraphWriter(new NpgsqlReferralRepository(source), targets, discovery, time),
             new CrawlRateLimiter(discovery, time),
-            new HostGate(),
+            new HostConcurrencyGate(),
             discovery,
             time,
             claims);

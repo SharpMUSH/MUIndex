@@ -414,7 +414,7 @@ var cycle = new CrawlCycle(
         loggerFactory.CreateLogger<CatalogueBinder>()),
     new ReferralGraphWriter(new NpgsqlReferralRepository(source), targets, discovery, time),
     new CrawlRateLimiter(discovery, time),
-    new HostGate(),
+    new HostConcurrencyGate(),
     discovery,
     time,
     // §8 — a probe of a claimed game refreshes what we last saw; a probe of one whose owner just

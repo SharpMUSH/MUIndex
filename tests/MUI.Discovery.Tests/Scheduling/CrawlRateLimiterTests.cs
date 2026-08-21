@@ -56,7 +56,7 @@ public class CrawlRateLimiterTests
     [Test]
     public async Task PortsOnOneMachineShareTheHostLimitBecauseTheKeyIsTheHost()
     {
-        // HostGate owns "not two at once" and the limiter owns "not two in quick succession", and both
+        // HostConcurrencyGate owns "not two at once" and the limiter owns "not two in quick succession", and both
         // mean the machine rather than the socket — six advertised ports are one operator's box, and
         // politeness is owed to the operator.
         var limiter = new CrawlRateLimiter(Options, new ManualTimeProvider());

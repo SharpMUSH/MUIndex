@@ -161,7 +161,7 @@ public static class CrawlerServiceCollectionExtensions
 
         services.TryAddSingleton<IdentityMatcher>();
         services.TryAddSingleton<ReferralGraphWriter>();
-        services.TryAddSingleton<HostGate>();
+        services.TryAddSingleton<HostConcurrencyGate>();
         services.TryAddSingleton<CrawlRateLimiter>();
 
         // The gate is on the resolved address, not the name (spec §7.2). SystemHostResolver is the

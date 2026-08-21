@@ -12,7 +12,7 @@ namespace MUI.Discovery;
 /// in the crawl loop, because that is a fact about connections rather than about hosts, and folding
 /// the two together would make neither assertable.
 /// </remarks>
-public sealed class HostGate
+public sealed class HostConcurrencyGate
 {
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _gates = new(StringComparer.Ordinal);
 
