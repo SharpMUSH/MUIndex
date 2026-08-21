@@ -199,7 +199,27 @@ public enum ProbeOutcome
 }
 
 /// <summary>Why a probe failed, in the vocabulary the availability writer stores (spec §5.3).</summary>
-public sealed record FailureDetail(string Cause, string? Detail = null);
+public sealed record FailureDetail(DialFailureCause Cause, string? Detail = null);
+
+/// <summary>
+/// The closed set of causes <see cref="DialFailure.Classify"/> produces.
+/// </summary>
+/// <remarks>
+/// A type here rather than a string, so a cause added to <see cref="DialFailure.Classify"/> without
+/// updating every consumer's switch is a compiler error rather than a silent misclassification —
+/// <c>MUI.Crawler</c>'s <c>ProbeIngestor.CauseOf</c> is the one place that maps this to
+/// <c>MUI.Catalog</c>'s own <c>FailureCause</c>. Deliberately not that type, nor a reference to it:
+/// <c>MUI.Crawl</c> does not take a dependency inward toward the catalogue (see the "MUIndex owns its
+/// crawler" note), so this repeats the small piece of vocabulary it needs instead.
+/// </remarks>
+public enum DialFailureCause
+{
+    Dns,
+    Refused,
+    Timeout,
+    NoRoute,
+    Error,
+}
 
 /// <summary>
 /// How much of a <c>WHO</c> response the structural parser could make sense of.

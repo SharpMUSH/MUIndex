@@ -316,7 +316,7 @@ public sealed class CrawlCycle(
         Port = target.Port,
         ObservedAt = time.GetUtcNow(),
         Outcome = ProbeOutcome.Failed,
-        Failure = new FailureDetail("dns", decision.Detail),
+        Failure = new FailureDetail(DialFailureCause.Dns, decision.Detail),
     };
 
     /// <summary>
@@ -391,7 +391,7 @@ public sealed class CrawlCycle(
                 "{Host}:{Port} did not answer — {Cause}: {Detail}",
                 result.Host,
                 result.Port,
-                result.Failure?.Cause ?? "unknown",
+                result.Failure?.Cause.ToString() ?? "unknown",
                 result.Failure?.Detail ?? "no detail recorded");
         }
 

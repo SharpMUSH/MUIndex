@@ -225,23 +225,32 @@ public static class FailureReading
     }
 
     /// <summary>
-    /// <c>TelnetProbe.Classify</c>'s vocabulary, read back into the schema's.
+    /// <c>DialFailure.Classify</c>'s vocabulary, read back into the schema's.
     /// </summary>
     /// <remarks>
-    /// An unrecognised cause becomes <see cref="FailureCause.Timeout"/> rather than throwing, because
-    /// the alternative is a crawl cycle that dies on a socket error nobody anticipated. It is the
-    /// closest honest reading of "the dial did not complete and we do not know why", and the raw
-    /// string is logged at the call site. It is emphatically not <see cref="FailureCause.Refused"/>,
-    /// which means the far end sent an RST and is a measurement in its own right.
+    /// <see cref="DialFailureCause.Error"/> — <c>DialFailure.Classify</c>'s own catch-all, for a real
+    /// dial failure with no more specific name in its vocabulary — becomes
+    /// <see cref="FailureCause.Timeout"/> rather than a made-up specific cause: the closest honest
+    /// reading of "the dial did not complete and we do not know why", and the raw detail is logged at
+    /// the call site. It is emphatically not <see cref="FailureCause.Refused"/>, which means the far
+    /// end sent an RST and is a measurement in its own right.
+    /// <para>
+    /// Unlike the string this replaced, a value that is none of <see cref="DialFailureCause"/>'s named
+    /// members cannot arrive here silently — the switch names every member explicitly, and the
+    /// discard arm throws rather than defaulting to <see cref="FailureCause.Timeout"/>, so a cause
+    /// added to <c>DialFailure.Classify</c> without a matching arm here fails loudly instead of being
+    /// misfiled as a measured game timeout.
+    /// </para>
     /// </remarks>
-    private static FailureCause CauseOf(string? cause) => cause switch
+    private static FailureCause CauseOf(DialFailureCause? cause) => cause switch
     {
-        "dns" => FailureCause.Dns,
-        "refused" => FailureCause.Refused,
-        "tls" => FailureCause.Tls,
-        "timeout" => FailureCause.Timeout,
-        "handshake_stalled" => FailureCause.HandshakeStalled,
-        "no_route" => FailureCause.NoRoute,
-        _ => FailureCause.Timeout,
+        null => FailureCause.Timeout,
+        DialFailureCause.Dns => FailureCause.Dns,
+        DialFailureCause.Refused => FailureCause.Refused,
+        DialFailureCause.Timeout => FailureCause.Timeout,
+        DialFailureCause.NoRoute => FailureCause.NoRoute,
+        DialFailureCause.Error => FailureCause.Timeout,
+        _ => throw new ArgumentOutOfRangeException(
+            nameof(cause), cause, "an unrecognised DialFailureCause reached ProbeIngestor.CauseOf"),
     };
 }

@@ -31,9 +31,10 @@ public static class DialFailure
                     or SocketError.TryAgain
                     or SocketError.NoData
                     or SocketError.NoRecovery,
-            } => new("dns", error.Message),
-            SocketException { SocketErrorCode: SocketError.ConnectionRefused } => new("refused", error.Message),
-            SocketException { SocketErrorCode: SocketError.TimedOut } => new("timeout", error.Message),
+            } => new(DialFailureCause.Dns, error.Message),
+            SocketException { SocketErrorCode: SocketError.ConnectionRefused } =>
+                new(DialFailureCause.Refused, error.Message),
+            SocketException { SocketErrorCode: SocketError.TimedOut } => new(DialFailureCause.Timeout, error.Message),
 
             // One word for all three: reachability is measured from one vantage point, so "no route
             // from here" is the honest sentence regardless of which errno produced it.
@@ -42,9 +43,9 @@ public static class DialFailure
                 SocketErrorCode: SocketError.NetworkUnreachable
                     or SocketError.HostUnreachable
                     or SocketError.NetworkDown,
-            } => new("no_route", error.Message),
-            OperationCanceledException => new("timeout", "probe budget exhausted"),
-            _ => new("error", error.Message),
+            } => new(DialFailureCause.NoRoute, error.Message),
+            OperationCanceledException => new(DialFailureCause.Timeout, "probe budget exhausted"),
+            _ => new(DialFailureCause.Error, error.Message),
         };
     }
 }

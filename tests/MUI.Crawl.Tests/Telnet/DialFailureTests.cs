@@ -23,28 +23,28 @@ public class DialFailureTests
     {
         // TryAgain is EAI_AGAIN — "temporary failure in name resolution". Left in the catch-all it
         // becomes "timeout", publishing a resolver fault as a game that did not answer.
-        await Assert.That(DialFailure.Classify(new SocketException((int)code)).Cause).IsEqualTo("dns");
+        await Assert.That(DialFailure.Classify(new SocketException((int)code)).Cause).IsEqualTo(DialFailureCause.Dns);
     }
 
     [Test]
     public async Task ARefusalIsTheFarEndSpeakingAndSaysSo()
     {
         await Assert.That(DialFailure.Classify(new SocketException((int)SocketError.ConnectionRefused)).Cause)
-            .IsEqualTo("refused");
+            .IsEqualTo(DialFailureCause.Refused);
     }
 
     [Test]
     [Arguments(SocketError.TimedOut)]
     public async Task ADialThatRanOutOfTimeIsATimeout(SocketError code)
     {
-        await Assert.That(DialFailure.Classify(new SocketException((int)code)).Cause).IsEqualTo("timeout");
+        await Assert.That(DialFailure.Classify(new SocketException((int)code)).Cause).IsEqualTo(DialFailureCause.Timeout);
     }
 
     [Test]
     public async Task TheProbeBudgetExpiringIsATimeoutAndSaysWhose()
     {
         await Assert.That(DialFailure.Classify(new OperationCanceledException()))
-            .IsEqualTo(new FailureDetail("timeout", "probe budget exhausted"));
+            .IsEqualTo(new FailureDetail(DialFailureCause.Timeout, "probe budget exhausted"));
     }
 
     [Test]
@@ -75,7 +75,7 @@ public class DialFailureTests
     {
         // Left in the catch-all these become "timeout" — a missing route published as a game that
         // did not answer in time. Collapsed to one word here; the errno stays in the detail.
-        await Assert.That(DialFailure.Classify(new SocketException((int)code)).Cause).IsEqualTo("no_route");
+        await Assert.That(DialFailure.Classify(new SocketException((int)code)).Cause).IsEqualTo(DialFailureCause.NoRoute);
     }
 
     [Test]
@@ -85,7 +85,7 @@ public class DialFailureTests
         // errors were quietly landing. Whatever falls here keeps its message.
         var unknown = DialFailure.Classify(new IOException("the peer went away"));
 
-        await Assert.That(unknown.Cause).IsEqualTo("error");
+        await Assert.That(unknown.Cause).IsEqualTo(DialFailureCause.Error);
         await Assert.That(unknown.Detail).IsEqualTo("the peer went away");
     }
 

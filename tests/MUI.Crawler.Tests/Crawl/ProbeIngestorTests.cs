@@ -42,7 +42,7 @@ public class ProbeIngestorTests
         var game = catalogue.Listed();
 
         await catalogue.Ingestor().IngestAsync(
-            game, Probes.Failed(cause: "timeout", detail: "Network is unreachable [203.0.113.9]:4000"));
+            game, Probes.Failed(cause: DialFailureCause.Timeout, detail: "Network is unreachable [203.0.113.9]:4000"));
 
         var interval = catalogue.Availability.Intervals.Single();
 
@@ -60,7 +60,7 @@ public class ProbeIngestorTests
         var game = catalogue.Listed();
 
         await catalogue.Ingestor().IngestAsync(
-            game, Probes.Failed(cause: "no_route", detail: "Network is unreachable"));
+            game, Probes.Failed(cause: DialFailureCause.NoRoute, detail: "Network is unreachable"));
 
         var interval = catalogue.Availability.Intervals.Single();
 
@@ -78,8 +78,8 @@ public class ProbeIngestorTests
         var game = catalogue.Listed();
         var ingestor = catalogue.Ingestor();
 
-        await ingestor.IngestAsync(game, Probes.Failed(cause: "timeout", detail: "first"));
-        var second = await ingestor.IngestAsync(game, Probes.Failed(cause: "timeout", detail: "second"));
+        await ingestor.IngestAsync(game, Probes.Failed(cause: DialFailureCause.Timeout, detail: "first"));
+        var second = await ingestor.IngestAsync(game, Probes.Failed(cause: DialFailureCause.Timeout, detail: "second"));
 
         await Assert.That(second.Availability).IsEqualTo(AvailabilityOutcome.Extended);
         await Assert.That(catalogue.Availability.Intervals.Single().Detail).IsEqualTo("first");
@@ -166,7 +166,7 @@ public class ProbeIngestorTests
         var catalogue = new Catalogue();
         var game = catalogue.Listed();
 
-        var ingestion = await catalogue.Ingestor().IngestAsync(game, Probes.Failed(cause: "refused"));
+        var ingestion = await catalogue.Ingestor().IngestAsync(game, Probes.Failed(cause: DialFailureCause.Refused));
 
         var interval = catalogue.Availability.Intervals.Single();
 
@@ -205,7 +205,7 @@ public class ProbeIngestorTests
         for (var hour = 0; hour < 100; hour++)
         {
             await ingestor.IngestAsync(
-                game, Probes.Failed(cause: "timeout", at: Probes.Observed.AddHours(hour)));
+                game, Probes.Failed(cause: DialFailureCause.Timeout, at: Probes.Observed.AddHours(hour)));
         }
 
         await Assert.That(catalogue.Availability.Intervals).Count().IsEqualTo(1);
@@ -220,7 +220,7 @@ public class ProbeIngestorTests
         var game = catalogue.Listed();
 
         await catalogue.Ingestor().IngestAsync(
-            game, Probes.Failed(cause: "timeout", offered: Probes.Offered("MSSP", "CHARSET")));
+            game, Probes.Failed(cause: DialFailureCause.Timeout, offered: Probes.Offered("MSSP", "CHARSET")));
 
         var interval = catalogue.Availability.Intervals.Single();
 
@@ -234,7 +234,7 @@ public class ProbeIngestorTests
         var catalogue = new Catalogue();
         var game = catalogue.Listed();
 
-        await catalogue.Ingestor().IngestAsync(game, Probes.Failed(cause: "timeout"));
+        await catalogue.Ingestor().IngestAsync(game, Probes.Failed(cause: DialFailureCause.Timeout));
 
         await Assert.That(catalogue.Availability.Intervals.Single().State)
             .IsEqualTo(AvailabilityState.Unreachable);

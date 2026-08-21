@@ -65,7 +65,7 @@ public static class Probes
     public static ProbeResult Failed(
         string host = "mud.example.org",
         int port = 4201,
-        string cause = "refused",
+        DialFailureCause cause = DialFailureCause.Refused,
         IReadOnlySet<string>? offered = null,
         DateTimeOffset? at = null,
         string? detail = null) => new()
