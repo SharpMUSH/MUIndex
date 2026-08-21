@@ -50,6 +50,25 @@ public class ReviewMergeServiceTests
             throw new InvalidOperationException("Simulated failure resolving the review.");
     }
 
+    /// <summary>
+    /// An <see cref="IMergeLog"/> whose <see cref="RecordAsync"/> always throws
+    /// <see cref="MergeAlreadyAbsorbedException"/>, standing in for what
+    /// <c>NpgsqlMergeLog.RecordAsync</c> throws once it recognises
+    /// <c>merge_log_absorbed_once_idx</c> refusing the insert.
+    /// </summary>
+    private sealed class AlreadyAbsorbedMergeLog : IMergeLog
+    {
+        public Task<Guid> RecordAsync(MergeRecord record, CancellationToken ct, IUnitOfWork? unitOfWork = null) =>
+            throw new MergeAlreadyAbsorbedException(
+                "duplicate key value violates unique constraint \"merge_log_absorbed_once_idx\"");
+
+        public Task RevertAsync(Guid mergeId, DateTimeOffset at, CancellationToken ct) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<MergeRecord>> ForGameAsync(Guid gameId, CancellationToken ct) =>
+            throw new NotSupportedException();
+    }
+
     [Test]
     public async Task AnOpenReviewIsResolvedAndItsSignalsCarryOntoTheMergeLog()
     {
@@ -60,8 +79,10 @@ public class ReviewMergeServiceTests
         var score = new IdentityScore(loser, 0.5, [new IdentitySignal("BannerHash", 0.5, true)]);
         var reviewId = await world.Reviews.OpenAsync(winner, loser, score, world.Time.GetUtcNow(), None);
 
-        var result = await world.Service.MergeAsync(winner, loser, "confirmed: same connect screen", None);
+        var verdict = await world.Service.MergeAsync(winner, loser, "confirmed: same connect screen", None);
 
+        await Assert.That(verdict).IsTypeOf<MergeVerdict.Merged>();
+        var result = ((MergeVerdict.Merged)verdict).Result;
         await Assert.That(result.ResolvedReviewId).IsEqualTo(reviewId);
         await Assert.That(world.Merges.RedirectedTo[loser]).IsEqualTo(winner);
 
@@ -86,9 +107,10 @@ public class ReviewMergeServiceTests
         var score = new IdentityScore(loser, 0.5, [new IdentitySignal("BannerHash", 0.5, true)]);
         await world.Reviews.OpenAsync(loser, winner, score, world.Time.GetUtcNow(), None);
 
-        var result = await world.Service.MergeAsync(winner, loser, "same game", None);
+        var verdict = await world.Service.MergeAsync(winner, loser, "same game", None);
 
-        await Assert.That(result.ResolvedReviewId).IsNotNull();
+        await Assert.That(verdict).IsTypeOf<MergeVerdict.Merged>();
+        await Assert.That(((MergeVerdict.Merged)verdict).Result.ResolvedReviewId).IsNotNull();
     }
 
     [Test]
@@ -100,9 +122,10 @@ public class ReviewMergeServiceTests
         var winner = world.Games.Add();
         var loser = world.Games.Add();
 
-        var result = await world.Service.MergeAsync(winner, loser, "obviously the same game, I run both", None);
+        var verdict = await world.Service.MergeAsync(winner, loser, "obviously the same game, I run both", None);
 
-        await Assert.That(result.ResolvedReviewId).IsNull();
+        await Assert.That(verdict).IsTypeOf<MergeVerdict.Merged>();
+        await Assert.That(((MergeVerdict.Merged)verdict).Result.ResolvedReviewId).IsNull();
         await Assert.That(world.Merges.RedirectedTo[loser]).IsEqualTo(winner);
 
         var record = world.Merges.All.Single();
@@ -162,13 +185,14 @@ public class ReviewMergeServiceTests
     }
 
     [Test]
-    public async Task AGameCannotBeMergedIntoItself()
+    public async Task AGameCannotBeMergedIntoItselfAndThatIsAVerdictNotAThrow()
     {
         var world = new World();
         var game = world.Games.Add();
 
-        await Assert.That(async () => await world.Service.MergeAsync(game, game, "typo", None))
-            .Throws<ArgumentException>();
+        var verdict = await world.Service.MergeAsync(game, game, "typo", None);
+
+        await Assert.That(verdict).IsTypeOf<MergeVerdict.SelfMerge>();
     }
 
     [Test]
@@ -178,8 +202,10 @@ public class ReviewMergeServiceTests
         var loser = world.Games.Add();
         var ghost = Guid.CreateVersion7();
 
-        await Assert.That(async () => await world.Service.MergeAsync(ghost, loser, "typo", None))
-            .Throws<InvalidOperationException>();
+        var verdict = await world.Service.MergeAsync(ghost, loser, "typo", None);
+
+        await Assert.That(verdict).IsTypeOf<MergeVerdict.UnknownGame>();
+        await Assert.That(((MergeVerdict.UnknownGame)verdict).Id).IsEqualTo(ghost);
     }
 
     [Test]
@@ -189,8 +215,64 @@ public class ReviewMergeServiceTests
         var winner = world.Games.Add();
         var ghost = Guid.CreateVersion7();
 
-        await Assert.That(async () => await world.Service.MergeAsync(winner, ghost, "typo", None))
-            .Throws<InvalidOperationException>();
+        var verdict = await world.Service.MergeAsync(winner, ghost, "typo", None);
+
+        await Assert.That(verdict).IsTypeOf<MergeVerdict.UnknownGame>();
+        await Assert.That(((MergeVerdict.UnknownGame)verdict).Id).IsEqualTo(ghost);
+    }
+
+    /// <summary>
+    /// merge_log_absorbed_once_idx refusing the insert (migration 0018) is a schema guard, not this
+    /// service's own logic -- so this proves MergeAsync recognises the Npgsql-agnostic exception the
+    /// persistence layer translates it into (NpgsqlMergeLog.RecordAsync), rather than proving the
+    /// constraint itself, which ReviewMergePostgresTests and MergeLogPostgresTests do against real
+    /// Postgres.
+    /// </summary>
+    [Test]
+    public async Task ALoserAlreadyAbsorbedElsewhereIsANamedVerdictNotAThrow()
+    {
+        var world = new World();
+        var winner = world.Games.Add();
+        var loser = world.Games.Add();
+
+        var service = new ReviewMergeService(
+            world.Games,
+            world.Reviews,
+            new MergeApplier(world.Endpoints, world.Fields, new AlreadyAbsorbedMergeLog(), world.Time),
+            world.Time,
+            world.UnitOfWorks);
+
+        var verdict = await service.MergeAsync(winner, loser, "already absorbed elsewhere", None);
+
+        await Assert.That(verdict).IsTypeOf<MergeVerdict.AlreadyAbsorbed>();
+        await Assert.That(((MergeVerdict.AlreadyAbsorbed)verdict).DatabaseMessage)
+            .Contains("merge_log_absorbed_once_idx");
+    }
+
+    /// <summary>
+    /// merge_log_no_chains is DEFERRABLE INITIALLY DEFERRED, so the real violation surfaces at commit,
+    /// not at the insert -- <see cref="InMemoryUnitOfWork.ThrowOnCommit"/> exists to simulate exactly
+    /// that timing, and this proves MergeAsync's own commit-time catch, the counterpart to
+    /// <see cref="ALoserAlreadyAbsorbedElsewhereIsANamedVerdictNotAThrow"/>'s insert-time one.
+    /// </summary>
+    [Test]
+    public async Task ARedirectChainIsANamedVerdictNotAThrowAndNothingLands()
+    {
+        var world = new World();
+        var winner = world.Games.Add();
+        var loser = world.Games.Add();
+        world.UnitOfWorks.ThrowOnCommit = new MergeWouldChainException("simulated: merge_log_no_chains");
+
+        var verdict = await world.Service.MergeAsync(winner, loser, "would form a chain", None);
+
+        await Assert.That(verdict).IsTypeOf<MergeVerdict.RedirectChain>();
+        await Assert.That(((MergeVerdict.RedirectChain)verdict).DatabaseMessage)
+            .Contains("merge_log_no_chains");
+
+        // The merge_log insert was buffered behind the unit of work whose commit then failed -- the
+        // same "nothing landed" property AFailureResolvingTheReviewRollsBackTheMergeToo proves for the
+        // review-resolve failure.
+        await Assert.That(world.Merges.All).IsEmpty();
     }
 
     /// <summary>

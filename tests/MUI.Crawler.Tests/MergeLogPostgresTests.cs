@@ -90,7 +90,9 @@ public class MergeLogPostgresTests
     {
         // Not a merge that needs resolving later — a page with two answers to "where does this
         // redirect". The index refuses it where somebody would create it, rather than where a reader
-        // would meet it.
+        // would meet it. NpgsqlMergeLog translates the raw constraint violation into the Npgsql-agnostic
+        // MergeAlreadyAbsorbedException ReviewMergeService.MergeAsync knows how to catch (see
+        // MergeLogConstraintViolations).
         await using var database = await PostgresFixture.MigratedAsync();
         var log = new NpgsqlMergeLog(database.DataSource);
 
@@ -101,7 +103,7 @@ public class MergeLogPostgresTests
         await log.RecordAsync(Merge(first, absorbed), None);
 
         await Assert.That(async () => await log.RecordAsync(Merge(second, absorbed), None))
-            .Throws<PostgresException>();
+            .Throws<MergeAlreadyAbsorbedException>();
     }
 
     [Test]
@@ -165,7 +167,7 @@ public class MergeLogPostgresTests
         await log.RecordAsync(Merge(into: b, from: a), None);
 
         await Assert.That(async () => await log.RecordAsync(Merge(into: c, from: b), None))
-            .Throws<PostgresException>();
+            .Throws<MergeWouldChainException>();
     }
 
     [Test]
@@ -184,7 +186,7 @@ public class MergeLogPostgresTests
         await log.RecordAsync(Merge(into: b, from: a), None);
 
         await Assert.That(async () => await log.RecordAsync(Merge(into: a, from: c), None))
-            .Throws<PostgresException>();
+            .Throws<MergeWouldChainException>();
     }
 
     [Test]
@@ -201,7 +203,7 @@ public class MergeLogPostgresTests
         await log.RecordAsync(Merge(into: b, from: a), None);
 
         await Assert.That(async () => await log.RecordAsync(Merge(into: a, from: b), None))
-            .Throws<PostgresException>();
+            .Throws<MergeWouldChainException>();
     }
 
     [Test]

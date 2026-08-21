@@ -63,7 +63,23 @@ public sealed class NpgsqlMergeLog(NpgsqlDataSource source) : IMergeLog
                 transaction: shared?.Transaction,
                 cancellationToken: ct);
 
-            return await connection.ExecuteScalarAsync<Guid>(command);
+            try
+            {
+                return await connection.ExecuteScalarAsync<Guid>(command);
+            }
+            catch (PostgresException error) when (MergeLogConstraintViolations.IsAlreadyAbsorbed(error))
+            {
+                throw new MergeAlreadyAbsorbedException(error.MessageText);
+            }
+            catch (PostgresException error) when (MergeLogConstraintViolations.IsRedirectChain(error))
+            {
+                // Only reachable here when this insert runs outside a shared unit of work: with no
+                // explicit transaction, it is its own implicit one, and a DEFERRABLE INITIALLY DEFERRED
+                // trigger's check runs at that implicit commit -- still inside this same call. The
+                // ReviewMergeService.MergeAsync path shares an explicit transaction with a later write,
+                // so for it this same violation instead surfaces from NpgsqlUnitOfWork.CommitAsync.
+                throw new MergeWouldChainException(error.MessageText);
+            }
         }
         finally
         {

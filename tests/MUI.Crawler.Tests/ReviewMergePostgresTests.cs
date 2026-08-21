@@ -65,9 +65,11 @@ public class ReviewMergePostgresTests
         var score = new IdentityScore(loser, 0.5, [new IdentitySignal("BannerHash", 0.5, true)]);
         var reviewId = await reviews.OpenAsync(winner, loser, score, Then, None);
 
-        var result = await Service(database.DataSource).MergeAsync(
+        var verdict = await Service(database.DataSource).MergeAsync(
             winner, loser, "same connect screen, confirmed by hand", None);
 
+        await Assert.That(verdict).IsTypeOf<MergeVerdict.Merged>();
+        var result = ((MergeVerdict.Merged)verdict).Result;
         await Assert.That(result.ResolvedReviewId).IsEqualTo(reviewId);
 
         var merges = await new NpgsqlMergeLog(database.DataSource).ForGameAsync(loser, None);
@@ -88,17 +90,18 @@ public class ReviewMergePostgresTests
         var winner = await GameAsync(database.DataSource, "corvid");
         var loser = await GameAsync(database.DataSource, "corvid-2");
 
-        var result = await Service(database.DataSource).MergeAsync(
+        var verdict = await Service(database.DataSource).MergeAsync(
             winner, loser, "I run both, they are the same game", None);
 
-        await Assert.That(result.ResolvedReviewId).IsNull();
+        await Assert.That(verdict).IsTypeOf<MergeVerdict.Merged>();
+        await Assert.That(((MergeVerdict.Merged)verdict).Result.ResolvedReviewId).IsNull();
 
         var merges = await new NpgsqlMergeLog(database.DataSource).ForGameAsync(loser, None);
         await Assert.That(merges[0].SignalsJson).IsEqualTo("[]");
     }
 
     [Test]
-    public async Task AGameAlreadyAbsorbedElsewhereRefusesASecondMerge()
+    public async Task AGameAlreadyAbsorbedElsewhereReturnsANamedVerdictRatherThanThrowing()
     {
         // merge_log_absorbed_once_idx, surfaced rather than worked around: merging an already-absorbed
         // loser into a second winner is exactly the "page with two answers" it refuses.
@@ -111,8 +114,51 @@ public class ReviewMergePostgresTests
         var service = Service(database.DataSource);
         await service.MergeAsync(firstWinner, loser, "same game", None);
 
-        await Assert.That(async () => await service.MergeAsync(secondWinner, loser, "also the same game", None))
-            .Throws<PostgresException>();
+        var verdict = await service.MergeAsync(secondWinner, loser, "also the same game", None);
+
+        await Assert.That(verdict).IsTypeOf<MergeVerdict.AlreadyAbsorbed>();
+        await Assert.That(((MergeVerdict.AlreadyAbsorbed)verdict).DatabaseMessage)
+            .Contains("merge_log_absorbed_once_idx");
+
+        // Still only the first merge is on record -- the refused second attempt wrote nothing.
+        var merges = await new NpgsqlMergeLog(database.DataSource).ForGameAsync(loser, None);
+        await Assert.That(merges).Count().IsEqualTo(1);
+        await Assert.That(merges[0].IntoGameId).IsEqualTo(firstWinner);
+    }
+
+    /// <summary>
+    /// merge_log_no_chains is <c>DEFERRABLE INITIALLY DEFERRED</c>, so unlike
+    /// <see cref="AGameAlreadyAbsorbedElsewhereReturnsANamedVerdictRatherThanThrowing"/>'s unique-index
+    /// violation, this one only surfaces once <c>ReviewMergeService.MergeAsync</c> commits its shared
+    /// transaction -- proving <c>NpgsqlUnitOfWork.CommitAsync</c>'s own translation, not just
+    /// <c>NpgsqlMergeLog.RecordAsync</c>'s (see <c>MergeLogPostgresTests</c> for that one, called
+    /// standalone without a shared unit of work).
+    /// </summary>
+    [Test]
+    public async Task ARedirectChainReturnsANamedVerdictRatherThanThrowing()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+
+        var a = await GameAsync(database.DataSource, "chain-a");
+        var b = await GameAsync(database.DataSource, "chain-b");
+        var c = await GameAsync(database.DataSource, "chain-c");
+
+        var service = Service(database.DataSource);
+
+        // b absorbs a, making b a survivor.
+        await service.MergeAsync(b, a, "first merge", None);
+
+        // Asking b -- already a survivor -- to be absorbed by c would leave a's redirect resolving to a
+        // game with no page of its own.
+        var verdict = await service.MergeAsync(c, b, "would form a chain", None);
+
+        await Assert.That(verdict).IsTypeOf<MergeVerdict.RedirectChain>();
+        await Assert.That(((MergeVerdict.RedirectChain)verdict).DatabaseMessage).Contains("redirect chain");
+
+        // Nothing from the refused second merge landed: b is still only on one side of one merge.
+        var merges = await new NpgsqlMergeLog(database.DataSource).ForGameAsync(b, None);
+        await Assert.That(merges).Count().IsEqualTo(1);
+        await Assert.That(merges[0].IntoGameId).IsEqualTo(b);
     }
 
     [Test]
@@ -146,8 +192,10 @@ public class ReviewMergePostgresTests
         var winner = await GameAsync(database.DataSource, "corvid");
         var ghost = Guid.CreateVersion7();
 
-        await Assert.That(async () => await Service(database.DataSource).MergeAsync(winner, ghost, "typo", None))
-            .Throws<InvalidOperationException>();
+        var verdict = await Service(database.DataSource).MergeAsync(winner, ghost, "typo", None);
+
+        await Assert.That(verdict).IsTypeOf<MergeVerdict.UnknownGame>();
+        await Assert.That(((MergeVerdict.UnknownGame)verdict).Id).IsEqualTo(ghost);
 
         await Assert.That(await new NpgsqlMergeLog(database.DataSource).ForGameAsync(winner, None)).IsEmpty();
     }
