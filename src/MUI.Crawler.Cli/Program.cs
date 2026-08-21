@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 using Dapper;
 
 using MUI.Catalog;
@@ -278,25 +280,43 @@ if (arguments.Merge is { } mergeRequest)
             return 1;
         }
 
-        var result = await mergeService.MergeAsync(winner, loser, arguments.Because!, CancellationToken.None);
+        var verdict = await mergeService.MergeAsync(winner, loser, arguments.Because!, CancellationToken.None);
 
-        Console.WriteLine($"merge         {mergeRequest.Loser} -> {mergeRequest.Winner}  merge id {result.MergeId}");
-        Console.WriteLine(result.ResolvedReviewId is { } reviewId
-            ? $"review        {reviewId} resolved, score {result.Score:F2}"
-            : "review        no open review named this pair; recorded as a judgement with no signals");
+        switch (verdict)
+        {
+            case MergeVerdict.Merged(var result):
+                Console.WriteLine(
+                    $"merge         {mergeRequest.Loser} -> {mergeRequest.Winner}  merge id {result.MergeId}");
+                Console.WriteLine(result.ResolvedReviewId is { } reviewId
+                    ? $"review        {reviewId} resolved, score {result.Score:F2}"
+                    : "review        no open review named this pair; recorded as a judgement with no signals");
+                return 0;
 
-        return 0;
+            case MergeVerdict.SelfMerge:
+                Console.Error.WriteLine("merge         refused: A game cannot be merged into itself.");
+                return 1;
+
+            case MergeVerdict.UnknownGame(var id):
+                Console.Error.WriteLine($"merge         refused: {id} does not name a game.");
+                return 1;
+
+            // merge_log's own guards: a game already absorbed elsewhere, or a redirect chain — the
+            // schema refusing rather than us, so its message is more specific than anything we'd add.
+            case MergeVerdict.AlreadyAbsorbed(var databaseMessage):
+                Console.Error.WriteLine($"merge         refused by the database: {databaseMessage}");
+                return 1;
+
+            case MergeVerdict.RedirectChain(var databaseMessage):
+                Console.Error.WriteLine($"merge         refused by the database: {databaseMessage}");
+                return 1;
+
+            default:
+                throw new UnreachableException($"Unhandled {nameof(MergeVerdict)}: {verdict}");
+        }
     }
     catch (Exception error) when (error is ArgumentException or InvalidOperationException)
     {
         Console.Error.WriteLine($"merge         refused: {error.Message}");
-        return 1;
-    }
-    catch (PostgresException error)
-    {
-        // merge_log's own guards: a game already absorbed elsewhere, or a redirect chain — the
-        // schema refusing rather than us, so its message is more specific than anything we'd add.
-        Console.Error.WriteLine($"merge         refused by the database: {error.MessageText}");
         return 1;
     }
 }
