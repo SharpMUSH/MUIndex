@@ -5,6 +5,8 @@ using MUI.Discovery;
 
 using Microsoft.Extensions.Logging;
 
+using Npgsql;
+
 namespace MUI.Crawler;
 
 /// <summary>
@@ -160,12 +162,19 @@ public sealed class SlugMinter(
         {
             retired = await games.RenameAsync(game.Id, name, slug, now, cancellationToken);
         }
-        catch (Exception error) when (error is not OperationCanceledException)
+        // Two games settling on one name in the same cycle can lose the race at the unique index
+        // between the taken-check and this write — game_slug_key (migration 0001), the one
+        // NpgsqlGameStore.RenameAsync's own comment names as the guard against two games racing to
+        // claim one address. Narrowed to exactly that constraint, the same way
+        // NpgsqlI3BindingRepository.BindAsync catches its own race: anything else (a real bug, the
+        // database being gone) must not be absorbed and silently logged as "lost the slug race" —
+        // it should propagate so it is seen for what it is (rule 5).
+        catch (PostgresException error) when (error.SqlState == PostgresErrorCodes.UniqueViolation
+            && error.ConstraintName == "game_slug_key")
         {
-            // Two games settling on one name in the same cycle can lose the race at the unique index
-            // between the taken-check and this write. Deliberately broad and not rethrown: the caller
-            // has already written this probe's reachability, and a rename failure must not reach it —
-            // the name is stored either way, and the next probe tries the URL again.
+            // Not rethrown: the caller has already written this probe's reachability, and a rename
+            // failure must not reach it — the name is stored either way, and the next probe tries the
+            // URL again.
             logger?.LogWarning(
                 error,
                 "{Name} could not take {Slug}; it keeps {Current} and the re-mint is retried on the "

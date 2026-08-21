@@ -110,7 +110,7 @@ public class CrawlCyclePostgresTests
             ? Probes.Failed(
                 host: target.Host,
                 port: target.Port,
-                cause: "dns",
+                cause: DialFailureCause.Dns,
                 detail: "Temporary failure in name resolution")
             : Probes.Answered(
                 host: target.Host,
@@ -161,7 +161,7 @@ public class CrawlCyclePostgresTests
             return Probes.Failed(
                 host: target.Host,
                 port: target.Port,
-                cause: "dns",
+                cause: DialFailureCause.Dns,
                 detail: "No such host is known");
         });
 
@@ -550,7 +550,7 @@ public class CrawlCyclePostgresTests
                 mssp: Probes.Mssp(("NAME", "Tidewater Nights")),
                 who: new WhoReading(WhoConfidence.Count, 4),
                 at: Probes.Observed.AddHours(hour++))
-            : Probes.Failed(target.Host, target.Port, "refused", at: Probes.Observed.AddHours(hour++)));
+            : Probes.Failed(target.Host, target.Port, DialFailureCause.Refused, at: Probes.Observed.AddHours(hour++)));
 
         var cycle = Build(source, probe, new StepClock());
 

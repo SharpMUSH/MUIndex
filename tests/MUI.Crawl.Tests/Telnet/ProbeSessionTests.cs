@@ -1043,7 +1043,7 @@ public class ProbeSessionTests
         }).ProbeAsync(game.Target);
 
         await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Failed);
-        await Assert.That(result.Failure!.Cause).IsEqualTo("timeout");
+        await Assert.That(result.Failure!.Cause).IsEqualTo(DialFailureCause.Timeout);
     }
 
     [Test]

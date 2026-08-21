@@ -49,7 +49,7 @@ public class WhoReadingTests
             Port = 4201,
             ObservedAt = DateTimeOffset.UnixEpoch,
             Outcome = ProbeOutcome.Failed,
-            Failure = new FailureDetail("timeout", "probe budget exhausted"),
+            Failure = new FailureDetail(DialFailureCause.Timeout, "probe budget exhausted"),
         };
 
         await Assert.That(failed.Who.Attempted).IsFalse();

@@ -197,7 +197,7 @@ public class MuLikenessTests
             Port = 4201,
             ObservedAt = DateTimeOffset.UnixEpoch,
             Outcome = ProbeOutcome.Failed,
-            Failure = new FailureDetail("refused"),
+            Failure = new FailureDetail(DialFailureCause.Refused),
         };
 
         await Assert.That(MuLikeness.Signals(probe)).IsEmpty();
