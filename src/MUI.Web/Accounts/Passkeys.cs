@@ -295,7 +295,9 @@ public static class Passkeys
             var mine = (await claims.ForUserAsync(user.Id))
                 .FirstOrDefault(c => c.GameId == game.Id && c.RevokedAt is null);
 
-            if (mine is not null && await service.RequestCheckAsync(mine.Id) && dns is not null)
+            if (mine is not null
+                && await service.RequestCheckAsync(mine.Id) is RequestCheckOutcome.Checked
+                && dns is not null)
             {
                 await dns.CheckAsync(game.Id);
             }

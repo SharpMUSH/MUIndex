@@ -206,7 +206,7 @@ public class OwnershipPostgresTests
         var others = await service.IssueAsync(game, staying);
         await service.OfferBeaconAsync(game, others.Token, ClaimChannel.Mssp);
 
-        await Assert.That(await service.ResignAsync(theirs.Id, leaving)).IsTrue();
+        await Assert.That(await service.ResignAsync(theirs.Id, leaving)).IsEqualTo(ResignOutcome.Resigned);
 
         await Assert.That((await service.OwnersAsync(game)).Single().UserId).IsEqualTo(staying);
         await Assert.That(await IsClaimedAsync(db, game)).IsTrue();
@@ -232,7 +232,7 @@ public class OwnershipPostgresTests
         var theirs = await service.IssueAsync(game, owner);
         await service.OfferBeaconAsync(game, theirs.Token, ClaimChannel.Mssp);
 
-        await Assert.That(await service.ResignAsync(theirs.Id, stranger)).IsFalse();
+        await Assert.That(await service.ResignAsync(theirs.Id, stranger)).IsEqualTo(ResignOutcome.NotYours);
         await Assert.That((await service.OwnersAsync(game)).Count).IsEqualTo(1);
     }
 

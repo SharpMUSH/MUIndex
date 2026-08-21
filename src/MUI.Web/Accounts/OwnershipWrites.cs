@@ -73,7 +73,14 @@ public static class OwnershipWrites
                 return Back(context, $"{Passkeys.DashboardPath}?resign={claimId}");
             }
 
-            return await claims.ResignAsync(claimId, user.Id)
+            var outcome = await claims.ResignAsync(claimId, user.Id);
+
+            // Every non-success outcome renders identically — the caller must not be able to tell
+            // "not found" from "not yours" from "not verified" from the response, or an
+            // authenticated user could probe claimId values to learn whether an arbitrary claim
+            // exists and whose it is. claimId is unscoped, posted form input, unlike the
+            // caller-owned lookup in Passkeys.cs's /claim/check.
+            return outcome == ResignOutcome.Resigned
                 ? Back(context, $"{Passkeys.DashboardPath}?resigned=1")
                 : Results.StatusCode(StatusCodes.Status403Forbidden);
         }).RequireAuthorization();
