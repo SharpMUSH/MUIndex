@@ -1,6 +1,8 @@
 using MUI.Catalog;
 using MUI.Catalog.Persistence;
 
+using Npgsql;
+
 namespace MUI.Crawler.Tests.Support;
 
 /// <summary>
@@ -167,9 +169,30 @@ public sealed class FakeGameStore : IGameStore
         if (RenamesFail
             || _games.Values.Any(g => g.Id != id && string.Equals(g.Slug, slug, StringComparison.Ordinal)))
         {
-            // The real table's unique index on game.slug, which is what stops two games answering to
-            // one URL. A fake without it would let a caller mint a collision and never hear about it.
-            throw new InvalidOperationException($"Another game already answers to '{slug}'.");
+            // The real table's unique index on game.slug (game_slug_key), which is what stops two
+            // games answering to one URL. Shaped as the real NpgsqlGameStore.RenameAsync's failure —
+            // a PostgresException on that exact constraint — rather than some other exception, because
+            // SlugMinter.MintAsync's catch is narrowed to exactly that shape (spec rule 5: absorbing
+            // any exception there would swallow a real bug as "lost the slug race").
+            throw new PostgresException(
+                $"Another game already answers to '{slug}'.",
+                severity: "ERROR",
+                invariantSeverity: "ERROR",
+                sqlState: PostgresErrorCodes.UniqueViolation,
+                detail: null!,
+                hint: null!,
+                position: 0,
+                internalPosition: 0,
+                internalQuery: null!,
+                where: null!,
+                schemaName: null!,
+                tableName: "game",
+                columnName: null!,
+                dataTypeName: null!,
+                constraintName: "game_slug_key",
+                file: null!,
+                line: null!,
+                routine: null!);
         }
 
         var retired = string.Equals(game.Slug, slug, StringComparison.Ordinal) ? null : game.Slug;
