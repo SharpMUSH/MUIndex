@@ -9,9 +9,11 @@ namespace MUI.Web.Mcp;
 /// <b>A narrow, purpose-built tool surface, not the CLI in a trenchcoat.</b> The Dockerfile keeps
 /// <c>mui-crawl</c> out of the deployed image on purpose — see its own comment — because an image that
 /// shipped the raw, all-flags binary would invite it into a container's entrypoint. This is a
-/// different thing: nine specific, authenticated tools (<see cref="MuiMcpTools"/>) built on the exact
-/// same library services the CLI uses, mounted as a route group inside the one deployable rather than
-/// a second image or a second process.
+/// different thing: nine specific, authenticated tools, split across two
+/// <c>[McpServerToolType]</c> classes by what they touch (<see cref="CrawlAdminTools"/> for the
+/// registry and the crawl cycle, <see cref="GameAdminTools"/> for a game's own record) and built on
+/// the exact same library services the CLI uses, mounted as a route group inside the one deployable
+/// rather than a second image or a second process.
 /// </para>
 /// <para>
 /// <b>Mapped only where there is a database</b> — inside <c>SiteComposition</c>'s
@@ -60,13 +62,14 @@ public static class MuiMcp
             .AddMcpServer()
             .WithHttpTransport(options =>
             {
-                // No server-to-client requests (sampling, elicitation) from any of the seven tools,
+                // No server-to-client requests (sampling, elicitation) from any of the nine tools,
                 // and stateless is what lets a tool call reuse the ASP.NET Core request's own DI scope
-                // — see MuiMcpTools' own remarks on why that matters for reusing the process's
+                // — see CrawlAdminTools' own remarks on why that matters for reusing the process's
                 // singleton CrawlCycle rather than a second graph.
                 options.Stateless = true;
             })
-            .WithTools<MuiMcpTools>();
+            .WithTools<CrawlAdminTools>()
+            .WithTools<GameAdminTools>();
 
         return services;
     }

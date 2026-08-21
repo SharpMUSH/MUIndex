@@ -78,7 +78,8 @@ public static class SiteComposition
             // The authenticated MCP endpoint that replaces the ssh/scp/mui-crawl administration
             // dance (CLAUDE.md). After AddMuiAccounts, so the default authentication scheme it sets
             // is already fixed before this adds a second, non-default one; after AddMuiCrawler,
-            // whose singletons every one of MuiMcpTools' seven tools resolves rather than rebuilding.
+            // whose singletons every one of CrawlAdminTools/GameAdminTools' nine tools resolves
+            // rather than rebuilding.
             services.AddMuiMcp(configuration);
         }
         else

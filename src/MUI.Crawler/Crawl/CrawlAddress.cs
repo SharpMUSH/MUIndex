@@ -17,7 +17,7 @@ public sealed record CrawlAddress(string Host, int? Port)
     /// <para>
     /// One implementation for every caller that reads this shape — <c>mui-crawl</c>'s <c>--opt-out</c>
     /// and <c>--opt-out-check</c>, and the MCP tools of the same names
-    /// (<c>MUI.Web.Mcp.MuiMcpTools</c>) — because two parsers would eventually disagree about a
+    /// (<c>MUI.Web.Mcp.CrawlAdminTools</c>) — because two parsers would eventually disagree about a
     /// bracketed IPv6 address and only one of them would be tested.
     /// </para>
     /// <para>
