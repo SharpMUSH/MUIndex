@@ -23,7 +23,7 @@ public sealed record SentencePart(string Text, string? Slot);
 /// writes ordinary text and chooses the order. Markers are Unicode private-use characters, so a run
 /// boundary can never collide with translated or operator-typed text.
 /// </remarks>
-public static class Sentence
+public static class SentenceMarkup
 {
     /// <summary>The first private-use code point, one per slot in the order they are named.</summary>
     private const char FirstMarker = '\uE000';
