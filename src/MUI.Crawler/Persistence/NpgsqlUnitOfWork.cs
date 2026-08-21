@@ -23,7 +23,26 @@ public sealed class NpgsqlUnitOfWork(NpgsqlConnection connection, NpgsqlTransact
     /// <summary>The transaction a joining repository call must attach its command to.</summary>
     public NpgsqlTransaction Transaction { get; } = transaction;
 
-    public async Task CommitAsync(CancellationToken ct) => await Transaction.CommitAsync(ct);
+    /// <remarks>
+    /// This type has exactly one caller today (<see cref="ReviewMergeService"/>), so the narrow catch
+    /// below is scoped to that caller's one write: <c>merge_log_no_chains</c> is the only
+    /// <c>DEFERRABLE INITIALLY DEFERRED</c> constraint trigger in the schema, so a violation surfacing
+    /// only now, at commit, can only be that one -- see <see cref="MergeLogConstraintViolations"/> for
+    /// why it cannot be matched by constraint name the way <see cref="NpgsqlMergeLog"/>'s other guard
+    /// is. A second caller sharing a transaction with a different deferred constraint would need this
+    /// widened.
+    /// </remarks>
+    public async Task CommitAsync(CancellationToken ct)
+    {
+        try
+        {
+            await Transaction.CommitAsync(ct);
+        }
+        catch (PostgresException error) when (MergeLogConstraintViolations.IsRedirectChain(error))
+        {
+            throw new MergeWouldChainException(error.MessageText);
+        }
+    }
 
     /// <summary>
     /// An uncommitted transaction rolls back on disposal -- Npgsql's own default behaviour -- so a

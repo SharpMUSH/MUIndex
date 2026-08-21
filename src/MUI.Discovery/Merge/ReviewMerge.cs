@@ -37,7 +37,7 @@ public sealed class ReviewMergeService(
     /// <c>--opt-out</c> and <c>--release</c> require it: a judgement nobody wrote down beside the row is
     /// one nobody can review later.
     /// </param>
-    public async Task<ReviewMergeResult> MergeAsync(
+    public async Task<MergeVerdict> MergeAsync(
         Guid winnerId,
         Guid loserId,
         string because,
@@ -47,17 +47,17 @@ public sealed class ReviewMergeService(
 
         if (winnerId == loserId)
         {
-            throw new ArgumentException("A game cannot be merged into itself.", nameof(loserId));
+            return new MergeVerdict.SelfMerge();
         }
 
         if (!await games.ExistsAsync(winnerId, ct))
         {
-            throw new InvalidOperationException($"{winnerId} does not name a game.");
+            return new MergeVerdict.UnknownGame(winnerId);
         }
 
         if (!await games.ExistsAsync(loserId, ct))
         {
-            throw new InvalidOperationException($"{loserId} does not name a game.");
+            return new MergeVerdict.UnknownGame(loserId);
         }
 
         // The pair is unordered (spec: "the pair is unordered; the storage orders it"), so asking the
@@ -75,7 +75,17 @@ public sealed class ReviewMergeService(
         // why that state is otherwise unrecoverable (merge_log_absorbed_once_idx refuses the retry).
         await using var unitOfWork = await unitOfWorkFactory.BeginAsync(ct);
 
-        var mergeId = await applier.MergeGamesAsync(winnerId, loserId, score, ct, because, unitOfWork);
+        Guid mergeId;
+
+        try
+        {
+            mergeId = await applier.MergeGamesAsync(winnerId, loserId, score, ct, because, unitOfWork);
+        }
+        catch (MergeAlreadyAbsorbedException error)
+        {
+            // Not deferred, so this always fires here, inside the insert itself.
+            return new MergeVerdict.AlreadyAbsorbed(error.Message);
+        }
 
         if (openReview is not null)
         {
@@ -83,9 +93,18 @@ public sealed class ReviewMergeService(
                 openReview.Id, $"merged into {winnerId}: {because}", time.GetUtcNow(), ct, unitOfWork);
         }
 
-        await unitOfWork.CommitAsync(ct);
+        try
+        {
+            await unitOfWork.CommitAsync(ct);
+        }
+        catch (MergeWouldChainException error)
+        {
+            // merge_log_no_chains is DEFERRABLE INITIALLY DEFERRED, so when the insert above shares this
+            // transaction with the review resolve, the chain check itself only runs here, at commit.
+            return new MergeVerdict.RedirectChain(error.Message);
+        }
 
-        return new ReviewMergeResult(mergeId, openReview?.Id, score.Score);
+        return new MergeVerdict.Merged(new ReviewMergeResult(mergeId, openReview?.Id, score.Score));
     }
 }
 

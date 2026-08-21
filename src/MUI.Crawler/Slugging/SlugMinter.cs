@@ -165,10 +165,9 @@ public sealed class SlugMinter(
         // Two games settling on one name in the same cycle can lose the race at the unique index
         // between the taken-check and this write — game_slug_key (migration 0001), the one
         // NpgsqlGameStore.RenameAsync's own comment names as the guard against two games racing to
-        // claim one address. Narrowed to exactly that constraint, the same way
-        // NpgsqlI3BindingRepository.BindAsync catches its own race: anything else (a real bug, the
-        // database being gone) must not be absorbed and silently logged as "lost the slug race" —
-        // it should propagate so it is seen for what it is (rule 5).
+        // claim one address. Named separately from the catch below so the ordinary race logs at
+        // Warning and everything else logs at Error, the same way NpgsqlI3BindingRepository.BindAsync
+        // catches its own race.
         catch (PostgresException error) when (error.SqlState == PostgresErrorCodes.UniqueViolation
             && error.ConstraintName == "game_slug_key")
         {
@@ -179,6 +178,24 @@ public sealed class SlugMinter(
                 error,
                 "{Name} could not take {Slug}; it keeps {Current} and the re-mint is retried on the "
                 + "next probe",
+                name, slug, game.Slug);
+
+            return null;
+        }
+        // Anything else here — a different constraint, a dropped connection, a bug in our own rename
+        // path — must still not reach the caller: ProbeIngestor.AnsweredAsync calls this last, after
+        // the probe's own reachability and presence data are already durably written, so letting an
+        // exception escape would mark an already-successful probe as Errored in the crawl cycle's own
+        // tally (CrawlCycle.VisitAsync's catch) — exactly the "our decision recorded as their
+        // measurement" rule 5 forbids, just arriving from the failure side instead of the success
+        // side. Logged at Error, not Warning, so it doesn't read as the routine race above and stays
+        // visible as something that needs a look.
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            logger?.LogError(
+                error,
+                "{Name}'s rename to {Slug} failed unexpectedly; it keeps {Current} and the re-mint is "
+                + "retried on the next probe",
                 name, slug, game.Slug);
 
             return null;

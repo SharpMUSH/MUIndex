@@ -26,6 +26,14 @@ public sealed class FakeGameStore : IGameStore
     /// </summary>
     public bool RenamesFail { get; set; }
 
+    /// <summary>
+    /// Makes every rename raise something that is <em>not</em> the <c>game_slug_key</c> race —
+    /// standing in for a dropped connection or an unrelated database failure, so a test can assert
+    /// SlugMinter's second catch (any other exception at this step) still costs nothing rather than
+    /// propagating into the caller's own success bookkeeping.
+    /// </summary>
+    public bool RenamesFailUnexpectedly { get; set; }
+
     public IReadOnlyCollection<GameRecord> All => _games.Values.ToList();
 
     /// <summary>
@@ -164,6 +172,14 @@ public sealed class FakeGameStore : IGameStore
         if (!_games.TryGetValue(id, out var game))
         {
             return Task.FromResult<string?>(null);
+        }
+
+        if (RenamesFailUnexpectedly)
+        {
+            // Some other database failure — a dropped connection, a different constraint — shaped so
+            // it is provably not the game_slug_key race: SlugMinter's first catch must not absorb it,
+            // only the second, broader one.
+            throw new InvalidOperationException("The connection to the database was lost.");
         }
 
         if (RenamesFail
@@ -391,19 +407,21 @@ public sealed class Catalogue
     public FakeSlugHistory Slugs => Games.Slugs;
 
     /// <summary>§5.7's re-mint, at whatever grace the test wants to reason about.</summary>
-    public SlugMinter Minter(TimeSpan? grace = null, bool renamesFail = false)
+    public SlugMinter Minter(TimeSpan? grace = null, bool renamesFail = false, bool renamesFailUnexpectedly = false)
     {
         Games.RenamesFail = renamesFail;
+        Games.RenamesFailUnexpectedly = renamesFailUnexpectedly;
         return new SlugMinter(Games, Fields, Slugs, grace);
     }
 
-    public ProbeIngestor Ingestor(TimeSpan? grace = null, bool renamesFail = false) => new(
+    public ProbeIngestor Ingestor(
+        TimeSpan? grace = null, bool renamesFail = false, bool renamesFailUnexpectedly = false) => new(
         new PresenceWriter(Presence),
         new AvailabilityWriter(Availability),
         new FieldReconciler(Fields),
         Games,
         new ArchiveSweeper(Games, Availability, Availability),
-        Minter(grace, renamesFail));
+        Minter(grace, renamesFail, renamesFailUnexpectedly));
 
     /// <summary>A game that already exists, so a probe has something to be attributed to.</summary>
     /// <param name="state">Its lifecycle state.</param>
