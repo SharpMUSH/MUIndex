@@ -1,7 +1,6 @@
 using MUI.Catalog;
 using MUI.Catalog.Persistence;
 
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 using Npgsql;
@@ -68,11 +67,10 @@ public sealed record PresenceMaintenanceOptions
 /// Postgres advisory lock (spec §5.2, §12).
 /// </summary>
 /// <remarks>
-/// The same shape as <see cref="CrawlerService"/> and for the same reason: N web replicas must run
-/// exactly one of these, or two would race to <c>DROP TABLE</c> the same partition. Its own key
-/// rather than the crawl lease's, so a deployment with the crawler off still keeps its rollups
-/// current. Never lets an exception escape <c>ExecuteAsync</c>, and every wait goes through the
-/// injected <see cref="TimeProvider"/> so a test drives it without sleeping through an hour.
+/// Shares <see cref="LeasedBackgroundService"/> with <see cref="CrawlerService"/>, and for the same
+/// reason: N web replicas must run exactly one of these, or two would race to <c>DROP TABLE</c> the
+/// same partition. Its own key rather than the crawl lease's, so a deployment with the crawler off
+/// still keeps its rollups current.
 /// </remarks>
 public sealed class PresenceMaintenanceService(
     NpgsqlDataSource source,
@@ -84,7 +82,8 @@ public sealed class PresenceMaintenanceService(
     // thing is the advisory lease, and two locks for one pass is worse than one pass doing two
     // things. Optional, so a deployment without the ecosystem read side still keeps its rollups.
     IEcosystemSnapshots? snapshots = null,
-    IGameQueries? ecosystem = null) : BackgroundService
+    IGameQueries? ecosystem = null)
+    : LeasedBackgroundService(source, options.AdvisoryLockKey, options.LeaseRetryInterval, time, logger)
 {
     /// <summary>
     /// Records today's protocol adoption, and never lets that failure cost the rollups.
@@ -123,93 +122,37 @@ public sealed class PresenceMaintenanceService(
 
         options.Validate();
 
-        AdvisoryLease? lease = null;
-        var announced = false;
-        var waiting = false;
-
-        try
-        {
-            while (!stoppingToken.IsCancellationRequested)
-            {
-                try
-                {
-                    if (lease is not null && !await lease.IsHeldAsync(stoppingToken))
-                    {
-                        logger.LogWarning("The presence maintenance lease was lost; asking again");
-                        await lease.DisposeAsync();
-                        lease = null;
-                    }
-
-                    lease ??= await AdvisoryLease.TryAcquireAsync(
-                        source, options.AdvisoryLockKey, stoppingToken);
-
-                    if (lease is null)
-                    {
-                        if (!announced)
-                        {
-                            logger.LogInformation(
-                                "Another replica holds the presence maintenance lease; this one will keep asking");
-                            announced = true;
-                        }
-
-                        await Task.Delay(options.LeaseRetryInterval, time, stoppingToken);
-                        continue;
-                    }
-
-                    announced = false;
-
-                    // Migrations may be being applied right now by whichever replica holds the crawl
-                    // lease — this service starts beside that, not after it.
-                    if (!await maintenance.SchemaReadyAsync(stoppingToken))
-                    {
-                        if (!waiting)
-                        {
-                            logger.LogInformation(
-                                "The presence schema is not applied yet; waiting for the migration run");
-                            waiting = true;
-                        }
-
-                        await Task.Delay(options.SchemaWait, time, stoppingToken);
-                        continue;
-                    }
-
-                    waiting = false;
-
-                    var now = time.GetUtcNow();
-
-                    await maintenance.RunAsync(now, stoppingToken);
-                    await SnapshotAsync(now, stoppingToken);
-
-                    await Task.Delay(options.Interval, time, stoppingToken);
-                }
-                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-                {
-                    break;
-                }
-                catch (Exception error)
-                {
-                    // A pass that threw is a pass to retry: retention runs last and is clamped to
-                    // what the rollups have consumed, so nothing is lost that the next pass can't
-                    // decide again.
-                    logger.LogError(error, "The presence maintenance pass failed; retrying");
-
-                    try
-                    {
-                        await Task.Delay(options.LeaseRetryInterval, time, stoppingToken);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        break;
-                    }
-                }
-            }
-        }
-        finally
-        {
-            if (lease is not null)
-            {
-                await lease.DisposeAsync();
-            }
-        }
+        await RunLeaseLoopAsync(stoppingToken);
     }
+
+    protected override async Task<TimeSpan> RunPassAsync(CancellationToken stoppingToken)
+    {
+        var now = Time.GetUtcNow();
+
+        await maintenance.RunAsync(now, stoppingToken);
+        await SnapshotAsync(now, stoppingToken);
+
+        return options.Interval;
+    }
+
+    protected override string LeaseLostMessage => "The presence maintenance lease was lost; asking again";
+
+    protected override string LeaseWaitingMessage =>
+        "Another replica holds the presence maintenance lease; this one will keep asking";
+
+    /// <remarks>
+    /// A pass that threw is a pass to retry: retention runs last and is clamped to what the rollups
+    /// have consumed, so nothing is lost that the next pass can't decide again.
+    /// </remarks>
+    protected override string FailureMessage => "The presence maintenance pass failed; retrying";
+
+    protected override TimeSpan SchemaWaitInterval => options.SchemaWait;
+
+    protected override string SchemaWaitingMessage =>
+        "The presence schema is not applied yet; waiting for the migration run";
+
+    // Migrations may be being applied right now by whichever replica holds the crawl lease — this
+    // service starts beside that, not after it.
+    protected override Task<bool> SchemaReadyAsync(CancellationToken cancellationToken) =>
+        maintenance.SchemaReadyAsync(cancellationToken);
 }

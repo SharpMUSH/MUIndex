@@ -2,7 +2,6 @@ using MUI.Catalog;
 using MUI.Catalog.Persistence;
 using MUI.Discovery;
 
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 using Npgsql;
@@ -63,7 +62,9 @@ public sealed record DnsClaimSweepOptions
 /// games under <c>CRAWL DELAY</c> and §7.2's address gate; this opens no socket to any game and
 /// should not queue behind one — nor should it stop happening on a deployment running with the
 /// crawler switched off. It costs one lookup per host that has a live claim, so its load is set by
-/// how many people are mid-claim rather than by how large the catalogue is.
+/// how many people are mid-claim rather than by how large the catalogue is. Its lease loop is
+/// <see cref="LeasedBackgroundService"/>, shared with <see cref="CrawlerService"/>,
+/// <see cref="PresenceMaintenanceService"/> and <see cref="I3Service"/>.
 /// </para>
 /// </remarks>
 public sealed class DnsClaimSweeper(
@@ -72,7 +73,8 @@ public sealed class DnsClaimSweeper(
     IClaimStore claims,
     DnsClaimSweepOptions options,
     TimeProvider time,
-    ILogger<DnsClaimSweeper> logger) : BackgroundService
+    ILogger<DnsClaimSweeper> logger)
+    : LeasedBackgroundService(source, options.AdvisoryLockKey, options.LeaseRetryInterval, time, logger)
 {
     /// <summary>
     /// One pass: every game with a claim a lookup could change, each checked once.
@@ -85,7 +87,7 @@ public sealed class DnsClaimSweeper(
     /// </remarks>
     public async Task<int> SweepAsync(CancellationToken cancellationToken = default)
     {
-        var live = await claims.PendingOrDnsVerifiedAsync(time.GetUtcNow(), cancellationToken);
+        var live = await claims.PendingOrDnsVerifiedAsync(Time.GetUtcNow(), cancellationToken);
         var settled = 0;
 
         foreach (var gameId in live.Select(claim => claim.GameId).Distinct())
@@ -116,102 +118,44 @@ public sealed class DnsClaimSweeper(
 
         options.Validate();
 
-        AdvisoryLease? lease = null;
-        var announced = false;
-        var waiting = false;
-
-        try
-        {
-            while (!stoppingToken.IsCancellationRequested)
-            {
-                try
-                {
-                    if (lease is not null && !await lease.IsHeldAsync(stoppingToken))
-                    {
-                        logger.LogWarning("The DNS claim sweep lease was lost; asking again");
-                        await lease.DisposeAsync();
-                        lease = null;
-                    }
-
-                    lease ??= await AdvisoryLease.TryAcquireAsync(
-                        source, options.AdvisoryLockKey, stoppingToken);
-
-                    if (lease is null)
-                    {
-                        if (!announced)
-                        {
-                            logger.LogInformation(
-                                "Another replica holds the DNS claim sweep lease; this one will keep asking");
-                            announced = true;
-                        }
-
-                        await Task.Delay(options.LeaseRetryInterval, time, stoppingToken);
-                        continue;
-                    }
-
-                    announced = false;
-
-                    // Migrations may be being applied right now by whichever replica holds the crawl
-                    // lease — this service starts beside that, not after it.
-                    if (!await SchemaReadyAsync(stoppingToken))
-                    {
-                        if (!waiting)
-                        {
-                            logger.LogInformation(
-                                "The claim schema is not applied yet; waiting for the migration run");
-                            waiting = true;
-                        }
-
-                        await Task.Delay(options.SchemaWait, time, stoppingToken);
-                        continue;
-                    }
-
-                    waiting = false;
-
-                    var settled = await SweepAsync(stoppingToken);
-
-                    if (settled > 0)
-                    {
-                        logger.LogInformation("{Count} claim(s) were proved by a TXT record this pass", settled);
-                    }
-
-                    await Task.Delay(options.Interval, time, stoppingToken);
-                }
-                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-                {
-                    break;
-                }
-                catch (Exception error)
-                {
-                    // A pass that threw is a pass to retry. Nothing here is written that a later pass
-                    // could not decide again: presence establishes and absence never revokes, so a
-                    // missed sweep costs a delay and never a claim.
-                    logger.LogError(error, "The DNS claim sweep failed; retrying");
-
-                    try
-                    {
-                        await Task.Delay(options.LeaseRetryInterval, time, stoppingToken);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        break;
-                    }
-                }
-            }
-        }
-        finally
-        {
-            if (lease is not null)
-            {
-                await lease.DisposeAsync();
-            }
-        }
+        await RunLeaseLoopAsync(stoppingToken);
     }
 
-    /// <summary>Whether <c>game_claim</c> exists yet, asked without throwing if it does not.</summary>
-    private async Task<bool> SchemaReadyAsync(CancellationToken cancellationToken)
+    protected override async Task<TimeSpan> RunPassAsync(CancellationToken stoppingToken)
     {
-        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+        var settled = await SweepAsync(stoppingToken);
+
+        if (settled > 0)
+        {
+            logger.LogInformation("{Count} claim(s) were proved by a TXT record this pass", settled);
+        }
+
+        return options.Interval;
+    }
+
+    protected override string LeaseLostMessage => "The DNS claim sweep lease was lost; asking again";
+
+    protected override string LeaseWaitingMessage =>
+        "Another replica holds the DNS claim sweep lease; this one will keep asking";
+
+    /// <remarks>
+    /// A pass that threw is a pass to retry. Nothing here is written that a later pass could not
+    /// decide again: presence establishes and absence never revokes, so a missed sweep costs a delay
+    /// and never a claim.
+    /// </remarks>
+    protected override string FailureMessage => "The DNS claim sweep failed; retrying";
+
+    protected override TimeSpan SchemaWaitInterval => options.SchemaWait;
+
+    protected override string SchemaWaitingMessage =>
+        "The claim schema is not applied yet; waiting for the migration run";
+
+    // Migrations may be being applied right now by whichever replica holds the crawl lease — this
+    // service starts beside that, not after it.
+    /// <summary>Whether <c>game_claim</c> exists yet, asked without throwing if it does not.</summary>
+    protected override async Task<bool> SchemaReadyAsync(CancellationToken cancellationToken)
+    {
+        await using var connection = await Source.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
 
         command.CommandText = "SELECT to_regclass('public.game_claim') IS NOT NULL";
