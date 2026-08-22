@@ -87,6 +87,7 @@ public class SubmissionPostgresTests
                     new NpgsqlGameFieldIndex(source),
                     discovery),
                 new NpgsqlDuplicateReviewRepository(source),
+                new NpgsqlMergeLog(source),
                 time),
             new ReferralGraphWriter(new NpgsqlReferralRepository(source), targets, discovery, time),
             new CrawlRateLimiter(discovery, time),

@@ -39,9 +39,22 @@ public sealed record GameRenameResult(string OldSlug, string NewSlug, string Nam
 /// <summary>What <see cref="GameAdminTools.GameMergeAsync"/> did. <see cref="ResolvedReviewId"/> is null
 /// when no open duplicate_review named this pair -- the merge was still recorded, as a judgement with
 /// no signals, and <see cref="Score"/> reads 0 in that case.</summary>
+/// <param name="MootReviewsResolved">
+/// How many further open reviews this merge closed by leaving both of their sides pointing at the
+/// winner. Usually 0.
+/// </param>
 public sealed record GameMergeResult(
     string WinnerSlug,
     string LoserSlug,
     Guid MergeId,
     Guid? ResolvedReviewId,
+    double Score,
+    int MootReviewsResolved);
+
+/// <summary>What <see cref="GameAdminTools.GameKeepDistinctAsync"/> closed. Nothing about either game
+/// moved: the only write is the <c>duplicate_review</c> row's own resolution.</summary>
+public sealed record GameKeepDistinctResult(
+    string SlugA,
+    string SlugB,
+    Guid ResolvedReviewId,
     double Score);

@@ -29,7 +29,7 @@ public class ReviewMergeServiceTests
         public InMemoryUnitOfWorkFactory UnitOfWorks { get; } = new();
 
         public ReviewMergeService Service =>
-            new(Games, Reviews, new MergeApplier(Endpoints, Fields, Merges, Time), Time, UnitOfWorks);
+            new(Games, Reviews, new MergeApplier(Endpoints, Fields, Merges, Time), Merges, Time, UnitOfWorks);
     }
 
     /// <summary>
@@ -45,7 +45,7 @@ public class ReviewMergeServiceTests
         public Task<IReadOnlyList<DuplicateReview>> OpenPairsForAsync(Guid gameId, CancellationToken ct) =>
             inner.OpenPairsForAsync(gameId, ct);
 
-        public Task ResolveAsync(
+        public Task<bool> ResolveAsync(
             Guid id, string resolution, DateTimeOffset at, CancellationToken ct, IUnitOfWork? unitOfWork = null) =>
             throw new InvalidOperationException("Simulated failure resolving the review.");
     }
@@ -239,6 +239,7 @@ public class ReviewMergeServiceTests
             world.Games,
             world.Reviews,
             new MergeApplier(world.Endpoints, world.Fields, new AlreadyAbsorbedMergeLog(), world.Time),
+            world.Merges,
             world.Time,
             world.UnitOfWorks);
 
@@ -295,6 +296,7 @@ public class ReviewMergeServiceTests
             world.Games,
             new ResolveThrowsReviewRepository(world.Reviews),
             new MergeApplier(world.Endpoints, world.Fields, world.Merges, world.Time),
+            world.Merges,
             world.Time,
             world.UnitOfWorks);
 
@@ -305,5 +307,56 @@ public class ReviewMergeServiceTests
         // review resolve that then failed, and an uncommitted unit of work applies nothing.
         await Assert.That(world.Merges.All).IsEmpty();
         await Assert.That(world.Reviews.All.Single().IsOpen).IsTrue();
+    }
+
+    /// <summary>
+    /// A merge answers more than the one pair it names. If A already absorbed B and C is now judged to
+    /// be A as well, the open B–C pair is asking whether two halves of one listing are the same thing,
+    /// and nobody would ever think to go and look at it — so the merge closes it.
+    /// </summary>
+    [Test]
+    public async Task AMergeClosesThePairsItLeavesNothingToJudge()
+    {
+        var world = new World();
+        var survivor = world.Games.Add();
+        var first = world.Games.Add();
+        var second = world.Games.Add();
+
+        await world.Service.MergeAsync(survivor, first, "same game, two addresses", None);
+
+        var score = new IdentityScore(second, 0.5, [new IdentitySignal("BannerHash", 0.5, true)]);
+        var strandedId = await world.Reviews.OpenAsync(first, second, score, world.Time.GetUtcNow(), None);
+        var namedId = await world.Reviews.OpenAsync(survivor, second, score, world.Time.GetUtcNow(), None);
+
+        var verdict = await world.Service.MergeAsync(survivor, second, "same game again", None);
+
+        var result = ((MergeVerdict.Merged)verdict).Result;
+        await Assert.That(result.ResolvedReviewId).IsEqualTo(namedId);
+        await Assert.That(result.MootReviewsResolved).IsEqualTo(1);
+
+        var stranded = world.Reviews.All.Single(r => r.Id == strandedId);
+        await Assert.That(stranded.IsOpen).IsFalse();
+        await Assert.That(stranded.Resolution).Contains("moot");
+    }
+
+    /// <summary>
+    /// A pair that still has two sides is left alone. The sweep must not become "close everything
+    /// touching either game".
+    /// </summary>
+    [Test]
+    public async Task AnUnrelatedPairIsLeftOpen()
+    {
+        var world = new World();
+        var winner = world.Games.Add();
+        var loser = world.Games.Add();
+        var stranger = world.Games.Add();
+
+        var score = new IdentityScore(stranger, 0.5, [new IdentitySignal("BannerHash", 0.5, true)]);
+        var openId = await world.Reviews.OpenAsync(winner, stranger, score, world.Time.GetUtcNow(), None);
+
+        var verdict = await world.Service.MergeAsync(winner, loser, "same game", None);
+
+        await Assert.That(((MergeVerdict.Merged)verdict).Result.MootReviewsResolved).IsEqualTo(0);
+        await Assert.That(world.Reviews.All.Single(r => r.Id == openId).IsOpen).IsTrue();
     }
 }

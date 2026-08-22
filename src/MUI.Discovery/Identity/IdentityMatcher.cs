@@ -36,7 +36,11 @@ public sealed class IdentityMatcher(
     // Null on every caller that hasn't wired one; IdentityWeights.ResolvedEndpoint simply never
     // fires then. Production passes IHostScopeGuard's own SystemHostResolver, so no test performs a
     // live lookup by accident.
-    IHostResolver? resolver = null)
+    IHostResolver? resolver = null,
+    // Also optional, and only ever consulted to collapse already-merged listings into one before
+    // counting how many publish a connect screen. Null means every game row counts for itself, which
+    // over-counts a game whose twin was absorbed and so can only suppress a banner, never trust one.
+    IMergeLog? merges = null)
 {
     public async Task<IdentityVerdict> ResolveAsync(ProbeResult result, CancellationToken ct)
     {
@@ -49,10 +53,11 @@ public sealed class IdentityMatcher(
             return new IdentityVerdict.Fresh(null);
         }
 
-        var observed = Observation.Of(result);
         var endpoint = await endpoints.ByAddressAsync(result.Host, result.Port, ct);
 
-        var best = await BestAsync(await CandidatesAsync(observed, endpoint, ct), observed, endpoint, null, ct);
+        var (candidates, observed) = await CandidatesAsync(Observation.Of(result), endpoint, ct);
+
+        var best = await BestAsync(candidates, observed, endpoint, null, ct);
 
         if (best?.CandidateGameId is not { } gameId)
         {
@@ -92,8 +97,7 @@ public sealed class IdentityMatcher(
             return null;
         }
 
-        var observed = Observation.Of(result);
-        var candidates = await CandidatesAsync(observed, endpoint: null, ct);
+        var (candidates, observed) = await CandidatesAsync(Observation.Of(result), endpoint: null, ct);
         candidates.Remove(bound);
 
         if (candidates.Count == 0)
@@ -107,7 +111,11 @@ public sealed class IdentityMatcher(
         return best is not null && best.Score >= options.ReviewThreshold ? best : null;
     }
 
-    private async Task<HashSet<Guid>> CandidatesAsync(
+    /// <summary>
+    /// Every game this probe could be, and the observation the rest of the scoring should use — which
+    /// is the one that came in, minus a connect screen that turns out not to identify a game.
+    /// </summary>
+    private async Task<(HashSet<Guid> Candidates, Observation Observed)> CandidatesAsync(
         Observation observed,
         KnownEndpoint? endpoint,
         CancellationToken ct)
@@ -120,11 +128,81 @@ public sealed class IdentityMatcher(
 
         await GatherAsync(candidates, IdentityFields.ClaimToken, observed.ClaimToken, ct);
         await GatherAsync(candidates, IdentityFields.Name, observed.Name, ct);
-        await GatherAsync(candidates, IdentityFields.BannerHash, observed.BannerHash, ct);
+
+        if (observed.BannerHash is { } hash)
+        {
+            var holders = await index.GamesWithFieldAsync(IdentityFields.BannerHash, hash, ct);
+
+            if (await IdentifiesOneGameAsync(holders, ct))
+            {
+                foreach (var id in holders)
+                {
+                    candidates.Add(id);
+                }
+            }
+            else
+            {
+                observed = observed with { BannerHash = null };
+            }
+        }
+
         await GatherAsync(candidates, IdentityFields.Website, observed.Website, ct);
         await GatherAsync(candidates, IdentityFields.Contact, observed.Contact, ct);
 
-        return candidates;
+        return (candidates, observed);
+    }
+
+    /// <summary>
+    /// Whether a connect screen is this game's or its codebase's — measured from how many separate
+    /// listings publish it, not asserted from a list of engines.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The length floor was not enough.</b> <see cref="BannerFingerprint.MinimumIdentifyingLength"/>
+    /// catches a bare <c>login:</c>, and stock screens are nothing like that short — an unedited
+    /// RhostMUSH sends 983 characters of "Welcome to RhostMUSH" and a connect-command legend, and six
+    /// unrelated games behind one host published that byte for byte. Scored, it is
+    /// <see cref="IdentityWeights.BannerHash"/> — over
+    /// <see cref="IdentityWeights.ReviewThreshold"/> on its own — so every pair of them opened a
+    /// review that no evidence could ever settle. Same for TinyMUX and TinyMUSH.
+    /// </para>
+    /// <para>
+    /// <b>Already-merged listings collapse first.</b> One game reachable at three addresses is three
+    /// game rows publishing one screen, and counting those as three would suppress the very signal
+    /// that found them. They count as the one listing they redirect to, so this only ever fires on
+    /// screens shared by games nobody has judged the same.
+    /// </para>
+    /// <para>
+    /// <b>It contributes nothing rather than a little</b>, exactly as
+    /// <see cref="MsspDefaults.IsPlaceholder"/> treats <c>NAME "PennMUSH"</c> — dropped from the
+    /// candidate gather as well as from the score, since a non-answer must not be able to nominate a
+    /// game either.
+    /// </para>
+    /// </remarks>
+    private async Task<bool> IdentifiesOneGameAsync(IReadOnlyList<Guid> holders, CancellationToken ct)
+    {
+        if (holders.Count < options.SharedBannerListings)
+        {
+            return true;
+        }
+
+        var listings = new HashSet<Guid>();
+
+        foreach (var holder in holders)
+        {
+            listings.Add(merges is null ? holder : await merges.ListingOfAsync(holder, ct));
+
+            // The count only ever goes up, so the answer is settled the moment it reaches the floor.
+            // This runs on the crawl hot path for every probe carrying a banner, and each lookup is
+            // its own round trip — a stock screen shared by two hundred listings would otherwise cost
+            // two hundred of them to learn what the third one already told us.
+            if (listings.Count >= options.SharedBannerListings)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private async Task<IdentityScore?> BestAsync(

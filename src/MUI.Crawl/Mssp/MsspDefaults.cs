@@ -34,6 +34,11 @@ public static class MsspDefaults
         "Unknown", "Unnamed", "Untitled", "N/A", "None", "TBD", "Change Me", "ChangeMe",
         "Your MUD Name", "Your MUD", "MUD Name", "My Server", "Example", "Test",
         "localhost", "0", "-1",
+
+        // A URL with the host left out — what an unconfigured CoffeeMud publishes for WEBSITE. It
+        // reached §7.3 as a matched WebsiteOrContact between every game that had not filled it in,
+        // which is the placeholder failure this list exists to stop, wearing a URL's clothes.
+        "http:///", "https:///", "http://", "https://",
     };
 
     /// <summary>

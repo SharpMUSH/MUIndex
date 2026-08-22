@@ -38,9 +38,13 @@ public sealed class InMemoryDuplicateReviewRepository : IDuplicateReviewReposito
         Task.FromResult<IReadOnlyList<DuplicateReview>>(
             _reviews.Where(r => r.IsOpen && (r.LeftGameId == gameId || r.RightGameId == gameId)).ToList());
 
-    public Task ResolveAsync(
+    public Task<bool> ResolveAsync(
         Guid id, string resolution, DateTimeOffset at, CancellationToken ct, IUnitOfWork? unitOfWork = null)
     {
+        // Decided here rather than inside Apply, mirroring Postgres: the UPDATE runs when it is asked
+        // for and reports its row count then, even though the transaction it runs in commits later.
+        var closesIt = _reviews.Any(r => r.Id == id && r.IsOpen);
+
         void Apply()
         {
             var index = _reviews.FindIndex(r => r.Id == id && r.IsOpen);
@@ -62,6 +66,6 @@ public sealed class InMemoryDuplicateReviewRepository : IDuplicateReviewReposito
             Apply();
         }
 
-        return Task.CompletedTask;
+        return Task.FromResult(closesIt);
     }
 }
