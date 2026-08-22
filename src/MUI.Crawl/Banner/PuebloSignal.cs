@@ -27,6 +27,17 @@ namespace MUI.Crawl;
 /// </remarks>
 public static partial class PuebloSignal
 {
+    // Every pattern here is NonBacktracking, and that is a correctness property rather than a tuning
+    // choice: a connect screen is chosen by a stranger, and these scan forward from each "<" looking
+    // for a name, which on a screen that is nothing but "<" and quotes degrades to quadratic. 70KB of
+    // `<"` measured at about 7.9 seconds through IsPresent and Strip together — a third of the whole
+    // 25s probe budget, burned in a crawler that shares a process with the web tier (spec §12). The
+    // same input under NonBacktracking is about 33ms.
+    //
+    // The cost of the option is that lookarounds, backreferences and balancing groups are unavailable
+    // in these patterns. Nothing here wants them: tags are removed one at a time and never paired, so
+    // there is no nesting to match, and the one thing that does need structure — a ">" inside a
+    // quoted attribute — is quoting rather than nesting, which the Tail alternation handles exactly.
     /// <summary>Whether anything in this text is unambiguously Pueblo.</summary>
     /// <remarks>
     /// Only the tells no prose produces: an <c>xch_</c> attribute, or an SGML-ish declaration.
@@ -111,7 +122,7 @@ public static partial class PuebloSignal
         @"<\s*/?\s*xch_[a-z]+\b"
         + @"|<(?:[^>""']|""[^""]*""|'[^']*')*?\s+xch_[a-z]+\b"
         + @"|<\s*!\s*(?:EL|ELEMENT|ENTITY|ATTLIST)\b",
-        RegexOptions.IgnoreCase)]
+        RegexOptions.IgnoreCase | RegexOptions.NonBacktracking)]
     private static partial Regex MarkerPattern();
 
     // The tags that end a line, replaced by one rather than removed. Applied before MarkupPattern, so
@@ -119,7 +130,7 @@ public static partial class PuebloSignal
     [GeneratedRegex(
         @"<\s*/?\s*(?:br|p|div|tr|li|hr|h[1-6]|center|pre|table|ul|ol|xch_page|xch_mudtext)\b"
         + Tail,
-        RegexOptions.IgnoreCase)]
+        RegexOptions.IgnoreCase | RegexOptions.NonBacktracking)]
     private static partial Regex BreakPattern();
 
     // Applied only once MarkerPattern has already fired, and only to what BreakPattern left. Two
@@ -135,7 +146,7 @@ public static partial class PuebloSignal
         + @"|<(?:[^>""']|""[^""]*""|'[^']*')*?\s+xch_[a-z]+\b" + Tail
         + @"|<\s*/?\s*(?:html|head|body|samp|tt|code|b|i|u|em|strong|font|img|a|td|th|span|nobr)\b"
         + Tail,
-        RegexOptions.IgnoreCase)]
+        RegexOptions.IgnoreCase | RegexOptions.NonBacktracking)]
     private static partial Regex MarkupPattern();
 
     /// <summary>

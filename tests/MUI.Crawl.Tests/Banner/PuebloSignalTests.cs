@@ -147,6 +147,32 @@ public class PuebloSignalTests
     }
 
     /// <summary>
+    /// A connect screen is chosen by a stranger, so the cost of reading one has to be bounded by
+    /// something other than hope.
+    /// </summary>
+    /// <remarks>
+    /// These patterns scan forward from every <c>&lt;</c> looking for a name, which on a screen that
+    /// is nothing but <c>&lt;</c> and quotes is quadratic: 70KB of <c>&lt;"</c> measured at about
+    /// <b>7.9 seconds</b> through <see cref="PuebloSignal.IsPresent"/> and
+    /// <see cref="PuebloSignal.Strip"/> together — a third of the probe's entire 25s budget, spent in
+    /// a crawler that shares its process with the web tier (spec §12). Under
+    /// <c>RegexOptions.NonBacktracking</c> the same input is about 33ms. This test is the guard on
+    /// that option surviving future edits to the patterns; it is generous enough not to be flaky on a
+    /// loaded machine while still failing by orders of magnitude if backtracking returns.
+    /// </remarks>
+    [Test]
+    public async Task AHostileScreenCannotCostSecondsToRead()
+    {
+        var hostile = string.Concat(Enumerable.Repeat("<\"", 35_000));
+
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        PuebloSignal.Strip(hostile);
+        var elapsed = clock.Elapsed;
+
+        await Assert.That(elapsed).IsLessThan(TimeSpan.FromSeconds(2));
+    }
+
+    /// <summary>
     /// Stripping twice is stripping once — the pass is applied wherever lines become a screen, so it
     /// must not matter if something upstream already ran it.
     /// </summary>
