@@ -191,9 +191,18 @@ public sealed class IdentityMatcher(
         foreach (var holder in holders)
         {
             listings.Add(merges is null ? holder : await merges.ListingOfAsync(holder, ct));
+
+            // The count only ever goes up, so the answer is settled the moment it reaches the floor.
+            // This runs on the crawl hot path for every probe carrying a banner, and each lookup is
+            // its own round trip — a stock screen shared by two hundred listings would otherwise cost
+            // two hundred of them to learn what the third one already told us.
+            if (listings.Count >= options.SharedBannerListings)
+            {
+                return false;
+            }
         }
 
-        return listings.Count < options.SharedBannerListings;
+        return true;
     }
 
     private async Task<IdentityScore?> BestAsync(

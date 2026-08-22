@@ -214,7 +214,7 @@ public class ReviewMergePostgresTests
         public Task<IReadOnlyList<DuplicateReview>> OpenPairsForAsync(Guid gameId, CancellationToken ct) =>
             inner.OpenPairsForAsync(gameId, ct);
 
-        public Task ResolveAsync(
+        public Task<bool> ResolveAsync(
             Guid id, string resolution, DateTimeOffset at, CancellationToken ct, IUnitOfWork? unitOfWork = null) =>
             throw new InvalidOperationException("Simulated failure resolving the review.");
     }

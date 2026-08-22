@@ -90,22 +90,28 @@ public sealed class ReviewMergeService(
 
         var now = time.GetUtcNow();
 
-        if (openReview is not null)
-        {
-            await reviews.ResolveAsync(
-                openReview.Id, $"merged into {winnerId}: {because}", now, ct, unitOfWork);
-        }
+        // Resolved by somebody else between the read above and here leaves the merge standing and the
+        // review closed on their reasoning rather than ours -- so the id is not reported as this call's
+        // doing. The score still carries onto merge_log: it is the evidence the merge was made on.
+        var resolvedReviewId = openReview is not null
+            && await reviews.ResolveAsync(
+                openReview.Id, $"merged into {winnerId}: {because}", now, ct, unitOfWork)
+            ? openReview.Id
+            : null as Guid?;
 
-        var moot = await MootReviewsAsync(winnerId, loserId, openReview?.Id, ct);
+        var mootResolved = 0;
 
-        foreach (var review in moot)
+        foreach (var review in await MootReviewsAsync(winnerId, loserId, openReview?.Id, ct))
         {
-            await reviews.ResolveAsync(
+            if (await reviews.ResolveAsync(
                 review.Id,
                 $"moot: both sides are now {winnerId}, which absorbed {loserId}",
                 now,
                 ct,
-                unitOfWork);
+                unitOfWork))
+            {
+                mootResolved++;
+            }
         }
 
         try
@@ -120,7 +126,7 @@ public sealed class ReviewMergeService(
         }
 
         return new MergeVerdict.Merged(
-            new ReviewMergeResult(mergeId, openReview?.Id, score.Score, moot.Count));
+            new ReviewMergeResult(mergeId, resolvedReviewId, score.Score, mootResolved));
     }
 
     /// <summary>
@@ -183,7 +189,13 @@ public sealed class ReviewMergeService(
             return new DistinctVerdict.NoOpenReview();
         }
 
-        await reviews.ResolveAsync(openReview.Id, $"kept distinct: {because}", time.GetUtcNow(), ct);
+        // Between the read above and this write another operator may have closed the same row. The
+        // UPDATE's own `resolved_at IS NULL` means theirs stands and this reason was never stored, so
+        // reporting Kept here would tell somebody their reasoning is on a row it never reached.
+        if (!await reviews.ResolveAsync(openReview.Id, $"kept distinct: {because}", time.GetUtcNow(), ct))
+        {
+            return new DistinctVerdict.NoOpenReview();
+        }
 
         return new DistinctVerdict.Kept(openReview.Id, openReview.Score);
     }

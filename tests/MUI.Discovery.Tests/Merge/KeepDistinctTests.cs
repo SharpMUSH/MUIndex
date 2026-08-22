@@ -236,4 +236,24 @@ public class KeepDistinctTests
 
         await Assert.That(world.Reviews.All.Single().IsOpen).IsTrue();
     }
+
+    [Test]
+    public async Task TheSecondOfTwoJudgementsIsToldItsReasonDidNotLand()
+    {
+        // duplicate_review's UPDATE carries `resolved_at IS NULL`, so the first judgement stands and the
+        // second stores nothing. Reporting Kept for the second would tell an operator their reasoning is
+        // on a row it never reached -- the same rule as "never record a decision of ours as a
+        // measurement of theirs", pointed at ourselves.
+        var world = new World();
+        var first = world.Games.Add();
+        var second = world.Games.Add();
+        await world.OpenAsync(first, second);
+
+        var mine = await world.Service.KeepDistinctAsync(first, second, "stock connect screen", None);
+        var theirs = await world.Service.KeepDistinctAsync(first, second, "different operators", None);
+
+        await Assert.That(mine).IsTypeOf<DistinctVerdict.Kept>();
+        await Assert.That(theirs).IsTypeOf<DistinctVerdict.NoOpenReview>();
+        await Assert.That(world.Reviews.All.Single().Resolution).Contains("stock connect screen");
+    }
 }

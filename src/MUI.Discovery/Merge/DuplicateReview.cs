@@ -49,6 +49,12 @@ public interface IDuplicateReviewRepository
     /// <see cref="ReviewMergeService.MergeAsync"/>, which needs this write and the preceding
     /// <c>merge_log</c> insert to commit or roll back together.
     /// </param>
-    Task ResolveAsync(
+    /// <returns>
+    /// Whether this call is the one that closed it. False when the row was already resolved -- the
+    /// first judgement stands and this reason was <em>not</em> stored, so a caller that reports
+    /// success on the strength of having asked would be telling an operator their reasoning landed
+    /// somewhere it did not.
+    /// </returns>
+    Task<bool> ResolveAsync(
         Guid id, string resolution, DateTimeOffset at, CancellationToken ct, IUnitOfWork? unitOfWork = null);
 }

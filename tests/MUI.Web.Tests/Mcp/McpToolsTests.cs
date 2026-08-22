@@ -958,7 +958,7 @@ public class McpToolsTests
 
         var reviews = new NpgsqlDuplicateReviewRepository(source);
         var score = new IdentityScore(second, 0.5, [new IdentitySignal("BannerHash", 0.5, Matched: true)]);
-        await reviews.OpenAsync(first, second, score, now, CancellationToken.None);
+        var reviewId = await reviews.OpenAsync(first, second, score, now, CancellationToken.None);
 
         await using var site = await SiteHost.StartAsync(
             settings: Settings(), connectionString: database.ConnectionString, clock: new FixedClock(now));
@@ -974,6 +974,7 @@ public class McpToolsTests
 
         await Assert.That(result.SlugA).IsEqualTo("elements");
         await Assert.That(result.SlugB).IsEqualTo("wayposts");
+        await Assert.That(result.ResolvedReviewId).IsEqualTo(reviewId);
         await Assert.That(result.Score).IsEqualTo(0.5);
 
         await Assert.That(await reviews.OpenPairsForAsync(first, CancellationToken.None)).IsEmpty();
