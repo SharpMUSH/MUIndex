@@ -88,10 +88,20 @@ public static partial class PuebloSignal
         return WebUtility.HtmlDecode(MarkupPattern().Replace(text2, string.Empty));
     }
 
-    // The tells that say "this is a markup screen": Pueblo's own xch_ attributes, and the SGML-ish
+    // The tells that say "this is a markup screen": Pueblo's own xch_ names, and the SGML-ish
     // declarations a Pueblo/MXP server sends to define its elements. <!EL is the abbreviation MXP's
     // own list spells only in full (!ELEMENT), which is why Elendor's survived that stripper.
-    [GeneratedRegex(@"xch_[a-z]+|<\s*!\s*(?:EL|ELEMENT|ENTITY|ATTLIST)\b", RegexOptions.IgnoreCase)]
+    //
+    // The xch_ tell must appear *inside a tag*, not merely somewhere in the text: a screen is free to
+    // talk about Pueblo in prose ("Pueblo users: xch_cmd is supported"), and on a bare match that
+    // sentence would open the gate and let the stripper loose on a screen that never sent any markup.
+    // In-tag rather than the tighter "xch_ followed by =", because the tell is as often an element
+    // name as an attribute — twisted-muck-2 carries xch_mudtext, xch_mode and xch_pane but only one
+    // of them with an equals sign, and a screen using only </xch_mudtext> would be missed entirely.
+    [GeneratedRegex(
+        @"<(?:[^>""']|""[^""]*""|'[^']*')*?xch_[a-z]+"
+        + @"|<\s*!\s*(?:EL|ELEMENT|ENTITY|ATTLIST)\b",
+        RegexOptions.IgnoreCase)]
     private static partial Regex MarkerPattern();
 
     // The tags that end a line, replaced by one rather than removed. Applied before MarkupPattern, so

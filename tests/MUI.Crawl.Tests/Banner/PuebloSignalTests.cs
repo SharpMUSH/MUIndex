@@ -37,6 +37,46 @@ public class PuebloSignalTests
     }
 
     /// <summary>
+    /// A screen is free to <em>talk about</em> Pueblo without sending any, and saying the word must
+    /// not open the gate — otherwise the sentence itself licenses the stripper to go to work on a
+    /// screen whose angle brackets are all artwork.
+    /// </summary>
+    [Test]
+    [Arguments("Pueblo users: xch_cmd is supported, type 'pueblo on' to enable it.")]
+    [Arguments("Our client sends xch_mode=purehtml once you connect.")]
+    public async Task TalkingAboutPuebloIsNotSendingIt(string text)
+    {
+        await Assert.That(PuebloSignal.IsPresent(text)).IsFalse();
+        await Assert.That(PuebloSignal.Strip(text)).IsEqualTo(text);
+    }
+
+    /// <summary>
+    /// The same sentence beside real artwork, which is what the gate is protecting: nothing may be
+    /// removed and no entity decoded on a screen that never sent a tag.
+    /// </summary>
+    [Test]
+    public async Task ProseNamingXchLeavesTheArtworkAlone()
+    {
+        const string screen = "<<<<< THE KEEP >>>>>\nPueblo users: xch_cmd is supported.\n<b>Enter</b> &amp; enjoy.";
+
+        await Assert.That(PuebloSignal.Strip(screen)).IsEqualTo(screen);
+    }
+
+    /// <summary>
+    /// The tell is as often an element name as an attribute, so it is not required to carry an
+    /// equals sign: <c>twisted-muck-2</c> sends <c>xch_mudtext</c>, <c>xch_mode</c> and
+    /// <c>xch_pane</c> with only one of the three written as <c>name=value</c>.
+    /// </summary>
+    [Test]
+    [Arguments("</xch_mudtext>")]
+    [Arguments("<xch_page clear=text>")]
+    [Arguments("<img xch_mode=purehtml>")]
+    public async Task AnXchElementNameCountsAsMuchAsAnAttribute(string text)
+    {
+        await Assert.That(PuebloSignal.IsPresent(text)).IsTrue();
+    }
+
+    /// <summary>
     /// The gate, stated as a test: a screen with no marker comes back byte-for-byte, so the artwork on
     /// the 898 screens that are not Pueblo cannot be eaten to tidy the four that are.
     /// </summary>

@@ -717,6 +717,48 @@ public class ProbeSessionTests
     }
 
     /// <summary>
+    /// A Pueblo server's menu reply is stripped even though the reply itself carries no marker — the
+    /// proof that the session is Pueblo is back in the connect screen, which the reply's own slice
+    /// does not include.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The roster goes straight to <c>WhoParser</c>, which counts a table by its rows — so one whose
+    /// rows are still welded together by <c>&lt;br&gt;</c> is a single line, and the count it yields
+    /// is not "unreadable" but <b>zero</b>. A busy game published as empty is the worst shape this
+    /// codebase can produce (rule 4: an unreadable WHO yields unknown, never zero), and it is the
+    /// defect this project has already been bitten by once on a DIKU.
+    /// </para>
+    /// <para>
+    /// The fixture is deliberately a header-and-rows table with no summary sentence in it: a roster
+    /// that ends "There are 2 players connected." is read off that sentence whether or not its lines
+    /// were ever separated, and would pass this test with the bug still in place.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task AMenuReplyIsStrippedFromTheMarkerLeftBackInTheBanner()
+    {
+        await using var game = new FakeGame
+        {
+            // The marker lives here, and nowhere in the reply below.
+            BannerTail = "<!EL RName FLAG=\"RoomName\" OPEN><samp>The Keep</samp>\r\n"
+                + "(C)onnect\r\nW - See who is online\r\n(Q)uit",
+            Replies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["W"] = "Player Name          On For   Idle<br>"
+                    + "Xperta               9m 21s     9m<br>"
+                    + "Thoran              11m 48s    11m<br>"
+                    + "gelatin          7h 46m 19s     7h<br>",
+            },
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(game.Received).Contains("W");
+        await Assert.That(result.Who.Count).IsEqualTo(3);
+    }
+
+    /// <summary>
     /// A throttled who's-online menu gets the same patience a throttled literal <c>WHO</c> does — it
     /// is the same question by another route, and the same rung of the count ladder (spec §5.2).
     /// </summary>

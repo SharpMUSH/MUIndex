@@ -635,11 +635,22 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     private static string BannerSoFar(List<byte[]> lines, int from, int to)
     {
         string joined;
+        bool pueblo;
 
         lock (lines)
         {
-            joined = string.Join(
-                "\n", lines.Skip(from).Take(to - from).Select(WireEncoding.Fallback.GetString));
+            var decoded = lines.Take(to).Select(WireEncoding.Fallback.GetString).ToList();
+            var received = string.Join("\n", decoded);
+
+            joined = from == 0 ? received : string.Join("\n", decoded.Skip(from));
+
+            // Asked of everything received so far, not of this slice. Most callers want a slice —
+            // the prompt loop reads from the last answer, the who's-online menu reads only its own
+            // reply — and the marker that proves a server is Pueblo is almost always up in the
+            // connect screen, behind them. Gating on the slice would leave exactly the fragments
+            // that matter unstripped: the menu's roster reply goes straight to WhoParser, and a
+            // roster whose rows are still separated by <br> is one run-on line it cannot read.
+            pueblo = PuebloSignal.IsPresent(received);
         }
 
         // Normalised here rather than by each reader, because this is where lines become a screen and
@@ -647,7 +658,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         // late for anything that works a line at a time: BannerText.Flatten collapses all whitespace,
         // so a <br> turned into a newline in there is a space again before LoginPromptGate's menu
         // reader ever splits on it — and three of that server's screen lines arrive as one.
-        return PuebloSignal.Strip(joined);
+        return pueblo ? PuebloSignal.StripKnown(joined) : joined;
     }
 
     /// <summary>
