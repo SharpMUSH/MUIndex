@@ -71,9 +71,24 @@ public class PuebloSignalTests
     [Arguments("</xch_mudtext>")]
     [Arguments("<xch_page clear=text>")]
     [Arguments("<img xch_mode=purehtml>")]
+    [Arguments("<a xch_cmd=\"WHO\">WHO</a>")]
     public async Task AnXchElementNameCountsAsMuchAsAnAttribute(string text)
     {
         await Assert.That(PuebloSignal.IsPresent(text)).IsTrue();
+    }
+
+    /// <summary>
+    /// Inside a tag is not enough on its own — it has to be a <em>name</em>. These carry <c>xch_</c>
+    /// as an unquoted attribute <em>value</em>, where the attribute is something else entirely and
+    /// the tag names no Pueblo at all.
+    /// </summary>
+    [Test]
+    [Arguments("<a href=xch_cmd>the Pueblo page</a>")]
+    [Arguments("<img src=xch_mode.png>")]
+    public async Task AnXchValueIsNotAnXchName(string text)
+    {
+        await Assert.That(PuebloSignal.IsPresent(text)).IsFalse();
+        await Assert.That(PuebloSignal.Strip(text)).IsEqualTo(text);
     }
 
     /// <summary>

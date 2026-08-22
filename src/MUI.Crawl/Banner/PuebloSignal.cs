@@ -92,14 +92,24 @@ public static partial class PuebloSignal
     // declarations a Pueblo/MXP server sends to define its elements. <!EL is the abbreviation MXP's
     // own list spells only in full (!ELEMENT), which is why Elendor's survived that stripper.
     //
-    // The xch_ tell must appear *inside a tag*, not merely somewhere in the text: a screen is free to
-    // talk about Pueblo in prose ("Pueblo users: xch_cmd is supported"), and on a bare match that
-    // sentence would open the gate and let the stripper loose on a screen that never sent any markup.
-    // In-tag rather than the tighter "xch_ followed by =", because the tell is as often an element
-    // name as an attribute — twisted-muck-2 carries xch_mudtext, xch_mode and xch_pane but only one
-    // of them with an equals sign, and a screen using only </xch_mudtext> would be missed entirely.
+    // The xch_ tell must be a *name* — an element's or an attribute's — and not merely an occurrence
+    // of those characters. Three ways to get this wrong, each ruled out here:
+    //
+    //   "xch_cmd is supported"   prose. A screen may talk about Pueblo without sending any, and on a
+    //                            bare match that sentence opens the gate and turns the stripper loose
+    //                            on a screen whose angle brackets are all artwork.
+    //   <a href=xch_cmd>         an unquoted attribute *value*. Inside a tag, but naming nothing: the
+    //                            attribute is href, and this tag carries no Pueblo at all.
+    //   xch_ requiring an "="    too tight in the other direction. The tell is as often an element
+    //                            name as an attribute — twisted-muck-2 sends xch_mudtext, xch_mode
+    //                            and xch_pane with only one written as name=value, and a screen using
+    //                            only </xch_mudtext> would stop being detected altogether.
+    //
+    // So: after "<" or "</" it is an element name, and after whitespace inside a tag it is an
+    // attribute name. Nowhere else.
     [GeneratedRegex(
-        @"<(?:[^>""']|""[^""]*""|'[^']*')*?xch_[a-z]+"
+        @"<\s*/?\s*xch_[a-z]+\b"
+        + @"|<(?:[^>""']|""[^""]*""|'[^']*')*?\s+xch_[a-z]+\b"
         + @"|<\s*!\s*(?:EL|ELEMENT|ENTITY|ATTLIST)\b",
         RegexOptions.IgnoreCase)]
     private static partial Regex MarkerPattern();
@@ -121,7 +131,8 @@ public static partial class PuebloSignal
     // would delete the instructions along with the markup.
     [GeneratedRegex(
         @"<\s*!\s*(?:EL|ELEMENT|ENTITY|ATTLIST)\b" + Tail
-        + @"|<(?:[^>""']|""[^""]*""|'[^']*')*?xch_[a-z]+" + Tail
+        + @"|<\s*/?\s*xch_[a-z]+\b" + Tail
+        + @"|<(?:[^>""']|""[^""]*""|'[^']*')*?\s+xch_[a-z]+\b" + Tail
         + @"|<\s*/?\s*(?:html|head|body|samp|tt|code|b|i|u|em|strong|font|img|a|td|th|span|nobr)\b"
         + Tail,
         RegexOptions.IgnoreCase)]
