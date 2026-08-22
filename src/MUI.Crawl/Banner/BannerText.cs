@@ -27,6 +27,11 @@ public static class BannerText
         // its literal tag text.
         banner = MxpSignal.Strip(banner);
 
+        // And Pueblo's, which is a different protocol wearing HTML rather than MXP's own vocabulary,
+        // so MxpSignal's deliberately narrow tag list does not reach it. Self-gating: a screen with no
+        // Pueblo marker comes back untouched, so this cannot eat the angle brackets out of ASCII art.
+        banner = PuebloSignal.Strip(banner);
+
         var text = new StringBuilder(banner.Length);
         var pendingSpace = false;
 

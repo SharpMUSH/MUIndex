@@ -43,7 +43,36 @@ public static partial class LoginPromptGate
     /// Menus legitimately run to several option lines, so they get their own, more generous ceiling
     /// rather than sharing <see cref="LongestQuestion"/>'s.
     /// </summary>
-    public const int LongestMenu = 800;
+    /// <remarks>
+    /// <para>
+    /// Raised from 800, which was excluding half the catalogue from being read at all. Measured over
+    /// the 902 connect screens the crawler has actually stored, flattened by
+    /// <see cref="BannerText.Flatten"/> and run through <see cref="Classify"/> with the ceiling
+    /// lifted: only 449 were under 800, and lifting it classified <b>16 more screens</b> — 5
+    /// who's-online menus, 7 press-enter gates and 5 charset menus (29 classified before, 45 after,
+    /// no regressions).
+    /// </para>
+    /// <para>
+    /// 3000 rather than 2000, which is where this first landed. That number was chosen partly to
+    /// exclude <c>elendor</c> at 2241 — a screen with no menu on it at all, whose Pueblo markup read
+    /// as one — and <see cref="PuebloSignal"/> then removed that false positive at the source,
+    /// taking the screen down to about 1500 in the process. With the reason for the tight bound gone,
+    /// the only thing 2000 still excluded was a press-enter gate at 2005: a boundary sitting five
+    /// characters above a real hit, on a corpus that grows every crawl.
+    /// </para>
+    /// <para>
+    /// Still a bound, and it still does its job. Re-measured with Pueblo stripped and no ceiling at
+    /// all, <b>nothing in the catalogue classifies above 2005</b> — so the room between there and
+    /// 3000 is deliberate headroom for screens we have not met yet, and a 70KB splash screen is still
+    /// never read as a menu.
+    /// </para>
+    /// <para>
+    /// A wrong answer here is cheap and bounded, which is what makes the generous ceiling reasonable:
+    /// whatever is classified is answered with at most two alphanumeric characters
+    /// (<c>TelnetProbe.IsPermittedPromptAnswer</c>), never a command.
+    /// </para>
+    /// </remarks>
+    public const int LongestMenu = 3000;
 
     /// <summary>
     /// Whether this screen-so-far is a question or menu the server is waiting on, and if so what
