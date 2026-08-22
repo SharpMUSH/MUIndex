@@ -250,7 +250,65 @@ public sealed class GameAdminTools(
             loser.Slug,
             result.MergeId,
             result.ResolvedReviewId,
-            result.Score);
+            result.Score,
+            result.MootReviewsResolved);
+    }
+
+    [McpServerTool(Name = "game_keep_distinct")]
+    [Description("""
+        Closes one duplicate_review pair the other way -- these are two games, not one (spec §7.3).
+        Same as mui-crawl's --distinct --because. The counterpart to game_merge, and the only thing
+        that clears a false positive: without it a pair the matcher scored middling and a person
+        judged distinct stays open for ever, and most of the queue is that. Unordered -- neither
+        slug wins, because nothing is absorbed.
+
+        Nothing about either game moves and neither page changes. The one write is the
+        duplicate_review row's own resolution, which is what stops the pair being asked about again;
+        the row is kept, because a judgement is part of the record.
+
+        Refuses when either slug is unknown, when both name the same game, when no open review names
+        this pair (there is nothing to close, and "these are two games" is the state the catalogue is
+        already in), and when a merge still in force already made them one listing -- revert that
+        first, since recording both would leave the catalogue asserting one game and two.
+        """)]
+    public async Task<GameKeepDistinctResult> GameKeepDistinctAsync(
+        [Description("One side of the pair.")] string slugA,
+        [Description("The other side. Order does not matter -- nothing is absorbed.")] string slugB,
+        [Description(
+            "What convinced you these are two games -- a stock connect screen, one operator's "
+            + "contact address across games they both run, and so on. Required, matching --merge's "
+            + "precedent that a judgement nobody wrote down beside the row is one nobody can review.")]
+        string because,
+        CancellationToken cancellationToken = default)
+    {
+        RequireNotBlank(slugA, nameof(slugA));
+        RequireNotBlank(slugB, nameof(slugB));
+        RequireNotBlank(because, nameof(because));
+
+        var left = await games.BySlugAsync(slugA.Trim(), cancellationToken)
+            ?? throw new McpException($"No game with slug '{slugA}'.");
+        var right = await games.BySlugAsync(slugB.Trim(), cancellationToken)
+            ?? throw new McpException($"No game with slug '{slugB}'.");
+
+        var verdict = await merge.KeepDistinctAsync(left.Id, right.Id, because, cancellationToken);
+
+        var kept = verdict switch
+        {
+            DistinctVerdict.Kept keep => keep,
+            DistinctVerdict.SameGame => throw new McpException("Both slugs name the same game."),
+            DistinctVerdict.UnknownGame(var id) => throw new McpException($"{id} does not name a game."),
+            DistinctVerdict.NoOpenReview =>
+                throw new McpException($"No open duplicate review names '{left.Slug}' and '{right.Slug}'."),
+            DistinctVerdict.AlreadyOneListing(var listing) => throw new McpException(
+                $"A merge still in force already makes these one listing ({listing}). Revert it first."),
+            _ => throw new UnreachableException($"Unhandled {nameof(DistinctVerdict)}: {verdict}"),
+        };
+
+        logger?.LogInformation(
+            "game_keep_distinct: {A} + {B} (review {ReviewId}) -- {Because}",
+            left.Slug, right.Slug, kept.ReviewId, because);
+
+        return new GameKeepDistinctResult(left.Slug, right.Slug, kept.ReviewId, kept.Score);
     }
 
     /// <summary>

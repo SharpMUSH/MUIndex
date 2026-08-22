@@ -50,6 +50,7 @@ public class ReviewMergePostgresTests
             new NpgsqlGameFieldStore(source),
             new NpgsqlMergeLog(source),
             TimeProvider.System),
+        new NpgsqlMergeLog(source),
         TimeProvider.System,
         new NpgsqlUnitOfWorkFactory(source));
 
@@ -245,6 +246,7 @@ public class ReviewMergePostgresTests
                 new NpgsqlGameFieldStore(database.DataSource),
                 new NpgsqlMergeLog(database.DataSource),
                 TimeProvider.System),
+            new NpgsqlMergeLog(database.DataSource),
             TimeProvider.System,
             new NpgsqlUnitOfWorkFactory(database.DataSource));
 

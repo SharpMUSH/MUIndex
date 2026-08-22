@@ -944,4 +944,123 @@ public class McpToolsTests
         await Assert.That(middlesMerges.Count).IsEqualTo(1);
         await Assert.That(middlesMerges.Single().IsInForce).IsTrue();
     }
+
+    // ── game_keep_distinct ──────────────────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task GameKeepDistinctClosesTheReviewAndLeavesBothGamesAlone()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        await using var source = NpgsqlDataSource.Create(database.ConnectionString);
+        var now = DateTimeOffset.UtcNow;
+        var first = await SeedGameAsync(source, "elements", now);
+        var second = await SeedGameAsync(source, "wayposts", now);
+
+        var reviews = new NpgsqlDuplicateReviewRepository(source);
+        var score = new IdentityScore(second, 0.5, [new IdentitySignal("BannerHash", 0.5, Matched: true)]);
+        await reviews.OpenAsync(first, second, score, now, CancellationToken.None);
+
+        await using var site = await SiteHost.StartAsync(
+            settings: Settings(), connectionString: database.ConnectionString, clock: new FixedClock(now));
+        await using var client = await McpTestClient.ConnectAsync(site, Token);
+
+        var result = await client.CallAsync<GameKeepDistinctResult>(
+            "game_keep_distinct", new Dictionary<string, object?>
+            {
+                ["slugA"] = "elements",
+                ["slugB"] = "wayposts",
+                ["because"] = "Stock RhostMUSH connect screen; two games on one host.",
+            });
+
+        await Assert.That(result.SlugA).IsEqualTo("elements");
+        await Assert.That(result.SlugB).IsEqualTo("wayposts");
+        await Assert.That(result.Score).IsEqualTo(0.5);
+
+        await Assert.That(await reviews.OpenPairsForAsync(first, CancellationToken.None)).IsEmpty();
+
+        // Nothing was merged: both pages still answer for themselves.
+        await Assert.That(await new NpgsqlMergeLog(source).ForGameAsync(first, CancellationToken.None)).IsEmpty();
+        await Assert.That((await site.Client.GetAsync("/g/wayposts")).StatusCode).IsEqualTo(HttpStatusCode.OK);
+    }
+
+    [Test]
+    public async Task GameKeepDistinctRefusesAPairWithNoOpenReview()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        await using var source = NpgsqlDataSource.Create(database.ConnectionString);
+        var now = DateTimeOffset.UtcNow;
+        await SeedGameAsync(source, "unreviewed-one", now);
+        await SeedGameAsync(source, "unreviewed-two", now);
+
+        await using var site = await SiteHost.StartAsync(
+            settings: Settings(), connectionString: database.ConnectionString, clock: new FixedClock(now));
+        await using var client = await McpTestClient.ConnectAsync(site, Token);
+
+        var result = await client.TryCallAsync("game_keep_distinct", new Dictionary<string, object?>
+        {
+            ["slugA"] = "unreviewed-one",
+            ["slugB"] = "unreviewed-two",
+            ["because"] = "Nothing to close.",
+        });
+
+        await Assert.That(result.IsError).IsTrue();
+    }
+
+    [Test]
+    public async Task GameKeepDistinctRefusesAPairAlreadyMerged()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        await using var source = NpgsqlDataSource.Create(database.ConnectionString);
+        var now = DateTimeOffset.UtcNow;
+        await SeedGameAsync(source, "distinct-winner", now);
+        await SeedGameAsync(source, "distinct-loser", now);
+
+        await using var site = await SiteHost.StartAsync(
+            settings: Settings(), connectionString: database.ConnectionString, clock: new FixedClock(now));
+        await using var client = await McpTestClient.ConnectAsync(site, Token);
+
+        await client.CallAsync<GameMergeResult>("game_merge", new Dictionary<string, object?>
+        {
+            ["winnerSlug"] = "distinct-winner",
+            ["loserSlug"] = "distinct-loser",
+            ["because"] = "Same game.",
+        });
+
+        var result = await client.TryCallAsync("game_keep_distinct", new Dictionary<string, object?>
+        {
+            ["slugA"] = "distinct-winner",
+            ["slugB"] = "distinct-loser",
+            ["because"] = "Changed my mind.",
+        });
+
+        await Assert.That(result.IsError).IsTrue();
+    }
+
+    [Test]
+    public async Task GameKeepDistinctNeedsAReason()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        await using var source = NpgsqlDataSource.Create(database.ConnectionString);
+        var now = DateTimeOffset.UtcNow;
+        var first = await SeedGameAsync(source, "reasonless-one", now);
+        var second = await SeedGameAsync(source, "reasonless-two", now);
+
+        var reviews = new NpgsqlDuplicateReviewRepository(source);
+        await reviews.OpenAsync(
+            first, second, new IdentityScore(second, 0.5, []), now, CancellationToken.None);
+
+        await using var site = await SiteHost.StartAsync(
+            settings: Settings(), connectionString: database.ConnectionString, clock: new FixedClock(now));
+        await using var client = await McpTestClient.ConnectAsync(site, Token);
+
+        var result = await client.TryCallAsync("game_keep_distinct", new Dictionary<string, object?>
+        {
+            ["slugA"] = "reasonless-one",
+            ["slugB"] = "reasonless-two",
+            ["because"] = "   ",
+        });
+
+        await Assert.That(result.IsError).IsTrue();
+        await Assert.That(await reviews.OpenPairsForAsync(first, CancellationToken.None)).IsNotEmpty();
+    }
 }

@@ -98,7 +98,7 @@ public class McpAuthTests
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.Unauthorized);
     }
 
-    /// <summary>The correct token reaches the MCP server and lists the nine tools.</summary>
+    /// <summary>The correct token reaches the MCP server and lists the ten tools.</summary>
     [Test]
     public async Task TheCorrectTokenSucceeds()
     {
@@ -114,6 +114,7 @@ public class McpAuthTests
             [
                 "crawl_seed_add", "crawl_opt_out_record", "crawl_opt_out_check", "crawl_due_targets",
                 "crawl_run_cycle", "crawl_summary", "game_field_set", "game_rename", "game_merge",
+                "game_keep_distinct",
             ]);
     }
 }
