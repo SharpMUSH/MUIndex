@@ -479,10 +479,30 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         Encoding? negotiatedEncoding)
     {
         var read = reading.Lines;
-        var banner = string.Join("\n", read.Take(cursors.Banner));
-        var whoText = string.Join("\n", read.Skip(cursors.Flush).Take(cursors.Who - cursors.Flush));
-        var infoText = string.Join("\n", read.Skip(cursors.Who).Take(cursors.Info - cursors.Who));
-        var versionText = string.Join("\n", read.Skip(cursors.Info).Take(cursors.Version - cursors.Info));
+
+        // The screen as it arrived, kept for the protocol questions below — MXP is a fact about what
+        // the server sent, so it must be read before anything is stripped out of it.
+        var asSent = string.Join("\n", read.Take(cursors.Banner));
+
+        var whoSent = string.Join("\n", read.Skip(cursors.Flush).Take(cursors.Who - cursors.Flush));
+        var infoSent = string.Join("\n", read.Skip(cursors.Who).Take(cursors.Info - cursors.Who));
+        var versionSent = string.Join("\n", read.Skip(cursors.Info).Take(cursors.Version - cursors.Info));
+
+        // Decided over the whole session and applied to all four, the same way MxpObserved is read
+        // below: a Pueblo server marks up everything it sends, but only some of it carries a marker.
+        // Elendor's connect screen is unmistakable while its INFO reply is merely
+        // "### Begin INFO 1<br>Name: ElendorMUSH<br>Connected: 0<br>…" — asked about that fragment
+        // alone, the gate would rightly decline, and the game's INFO block would be stored as one
+        // run-on line of tags.
+        var pueblo = PuebloSignal.IsPresent(asSent)
+            || PuebloSignal.IsPresent(whoSent)
+            || PuebloSignal.IsPresent(infoSent)
+            || PuebloSignal.IsPresent(versionSent);
+
+        var banner = pueblo ? PuebloSignal.StripKnown(asSent) : asSent;
+        var whoText = pueblo ? PuebloSignal.StripKnown(whoSent) : whoSent;
+        var infoText = pueblo ? PuebloSignal.StripKnown(infoSent) : infoSent;
+        var versionText = pueblo ? PuebloSignal.StripKnown(versionSent) : versionSent;
 
         if (negotiatedEncoding is not null)
         {
@@ -505,10 +525,10 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
             // Every phase, not just the banner: a server may answer the connect screen in plain
             // text and then mark up its WHO table, and one occurrence anywhere is the same fact.
-            MxpObserved = MxpSignal.IsPresent(banner)
-                || MxpSignal.IsPresent(whoText)
-                || MxpSignal.IsPresent(infoText)
-                || MxpSignal.IsPresent(versionText),
+            MxpObserved = MxpSignal.IsPresent(asSent)
+                || MxpSignal.IsPresent(whoSent)
+                || MxpSignal.IsPresent(infoSent)
+                || MxpSignal.IsPresent(versionSent),
             Who = whoFromMenu ?? (asked ? new WhoParser().Parse(whoText) : WhoReading.NotAsked),
             WhoShape = whoFromMenu is not null
                 ? whoFromMenuShape
@@ -614,11 +634,20 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// </remarks>
     private static string BannerSoFar(List<byte[]> lines, int from, int to)
     {
+        string joined;
+
         lock (lines)
         {
-            return string.Join(
+            joined = string.Join(
                 "\n", lines.Skip(from).Take(to - from).Select(WireEncoding.Fallback.GetString));
         }
+
+        // Normalised here rather than by each reader, because this is where lines become a screen and
+        // a Pueblo server's line endings are <br> rather than newlines. Doing it downstream is too
+        // late for anything that works a line at a time: BannerText.Flatten collapses all whitespace,
+        // so a <br> turned into a newline in there is a space again before LoginPromptGate's menu
+        // reader ever splits on it — and three of that server's screen lines arrive as one.
+        return PuebloSignal.Strip(joined);
     }
 
     /// <summary>
