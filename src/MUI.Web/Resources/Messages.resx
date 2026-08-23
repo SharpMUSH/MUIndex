@@ -1036,6 +1036,30 @@
     <value>Claim this game</value>
     <comment>the game page's own headings</comment>
   </data>
+  <data name="game.firstSeen.operatorSeed" xml:space="preserve">
+    <value>First seen on {date}, from this site's own configured list.</value>
+    <comment>how this site first learned of a game: a dated fact about our crawl, never a claim about the game</comment>
+  </data>
+  <data name="game.firstSeen.submission" xml:space="preserve">
+    <value>First seen on {date}, submitted through this site.</value>
+    <comment>how this site first learned of a game: a dated fact about our crawl, never a claim about the game</comment>
+  </data>
+  <data name="game.firstSeen.referral" xml:space="preserve">
+    <value>First seen on {date}, named by another game's list.</value>
+    <comment>how this site first learned of a game: a dated fact about our crawl, never a claim about the game</comment>
+  </data>
+  <data name="game.firstSeen.i3Mudlist" xml:space="preserve">
+    <value>First seen on {date}, listed on the I3 mudlist.</value>
+    <comment>I3 is a protocol name and stays as written in every locale</comment>
+  </data>
+  <data name="game.firstSeen.aresCentral" xml:space="preserve">
+    <value>First seen on {date}, listed on AresCentral.</value>
+    <comment>AresCentral is a proper noun and stays as written in every locale</comment>
+  </data>
+  <data name="game.firstSeen.backfill" xml:space="preserve">
+    <value>First seen on {date}, in this site's day-one list of addresses.</value>
+    <comment>names no directory on purpose: which one supplied a given address was never recorded</comment>
+  </data>
   <data name="game.answeringSince" xml:space="preserve">
     <value>answering since {date}</value>
     <comment>the game page's own headings</comment>
@@ -1339,6 +1363,31 @@
   <data name="about.title" xml:space="preserve">
     <value>About mu*index</value>
     <comment>about: the page, and what a fact here is</comment>
+  </data>
+  <data name="about.reading.heading" xml:space="preserve">
+    <value>What we read</value>
+    <comment>heading of the /about section crediting standing sources</comment>
+  </data>
+  <data name="about.reading.standing.lead" xml:space="preserve">
+    <value>Two places tell us games exist.</value>
+    <comment>lead half of a point; the .body half completes the same sentence</comment>
+  </data>
+  <data name="about.reading.standing.body" xml:space="preserve">
+    <value>Both are read on a schedule, with permission, and both are credited below. The rest reach us another way: another game's list naming one, somebody submitting one, or this site's own configured list.</value>
+  </data>
+  <data name="about.reading.labelled.lead" xml:space="preserve">
+    <value>What they tell us is labelled as theirs.</value>
+  </data>
+  <data name="about.reading.labelled.body" xml:space="preserve">
+    <value>A name or a genre one of them holds is shown as something that source says, never as something we measured — and where our own probe disagrees, the disagreement is what you see.</value>
+  </data>
+  <data name="about.feed.aresCentral.note" xml:space="preserve">
+    <value>The AresMUSH community's own hub. Its maintainer issued us API credentials, and we read its games list hourly: the addresses, and what each game says about itself there.</value>
+    <comment>what one standing source gives us; AresMUSH and AresCentral are proper nouns</comment>
+  </data>
+  <data name="about.feed.intermud3.note" xml:space="preserve">
+    <value>A network many LP-family games are joined to. We take its list of addresses, and ask the games that answer how many people are connected.</value>
+    <comment>what one standing source gives us</comment>
   </data>
   <data name="about.lede" xml:space="preserve">
     <value>Every game here was measured by the crawler, and every value says where it came from and when. This page covers what we gather, its limits, what we won't do, and how to make the crawler stop.</value>
@@ -1899,6 +1948,10 @@
   <data name="source.info" xml:space="preserve">
     <value>INFO</value>
     <comment>how a value reached us, one id per source</comment>
+  </data>
+  <data name="source.aresCentral" xml:space="preserve">
+    <value>AresCentral</value>
+    <comment>how a value reached us, one id per source; a proper noun, not translated</comment>
   </data>
   <data name="source.i3Mudlist" xml:space="preserve">
     <value>the I3 mudlist</value>

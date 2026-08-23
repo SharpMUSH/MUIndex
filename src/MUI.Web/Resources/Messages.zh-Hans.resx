@@ -744,6 +744,24 @@
   <data name="game.claim" xml:space="preserve">
     <value>认领此游戏</value>
   </data>
+  <data name="game.firstSeen.operatorSeed" xml:space="preserve">
+    <value>于 {date} 首次发现，来自本站自有的地址清单。</value>
+  </data>
+  <data name="game.firstSeen.submission" xml:space="preserve">
+    <value>于 {date} 首次发现，由他人通过本站提交。</value>
+  </data>
+  <data name="game.firstSeen.referral" xml:space="preserve">
+    <value>于 {date} 首次发现，由另一个游戏的名单提及。</value>
+  </data>
+  <data name="game.firstSeen.i3Mudlist" xml:space="preserve">
+    <value>于 {date} 首次发现，收录于 I3 mudlist。</value>
+  </data>
+  <data name="game.firstSeen.aresCentral" xml:space="preserve">
+    <value>于 {date} 首次发现，收录于 AresCentral。</value>
+  </data>
+  <data name="game.firstSeen.backfill" xml:space="preserve">
+    <value>于 {date} 首次发现，在本站开站当天的地址清单中。</value>
+  </data>
   <data name="game.answeringSince" xml:space="preserve">
     <value>自 {date} 起有应答</value>
   </data>
@@ -971,6 +989,27 @@
   </data>
   <data name="about.title" xml:space="preserve">
     <value>关于 mu*index</value>
+  </data>
+  <data name="about.reading.heading" xml:space="preserve">
+    <value>我们读取的来源</value>
+  </data>
+  <data name="about.reading.standing.lead" xml:space="preserve">
+    <value>有两个来源会告诉我们某个游戏的存在。</value>
+  </data>
+  <data name="about.reading.standing.body" xml:space="preserve">
+    <value>两者都在获得许可后定期读取，并均在下方注明。其余地址通过别的途径到达我们：由另一个游戏的名单提及、由他人提交，或来自本站自有的地址清单。</value>
+  </data>
+  <data name="about.reading.labelled.lead" xml:space="preserve">
+    <value>它们提供的内容会标注为它们的说法。</value>
+  </data>
+  <data name="about.reading.labelled.body" xml:space="preserve">
+    <value>来源所记录的名称或题材，会显示为「该来源如此声明」，而绝不会显示为我们实测所得；若与我们自己的实测不符，呈现给你的正是这一处不符。</value>
+  </data>
+  <data name="about.feed.aresCentral.note" xml:space="preserve">
+    <value>AresMUSH 社区自己的中心站点。其维护者向我们签发了 API 凭据，我们每小时读取一次其游戏列表：包括地址，以及各游戏在那里对自己的描述。</value>
+  </data>
+  <data name="about.feed.intermud3.note" xml:space="preserve">
+    <value>许多 LP 系游戏接入的网络。我们采用其地址列表，并向作出响应的游戏询问当前在线人数。</value>
   </data>
   <data name="about.lede" xml:space="preserve">
     <value>这里的每一个游戏，都由爬虫实测得出，每一项数值都标明它的来源与时间。本页说明我们采集什么、其局限所在、我们不做什么，以及如何让爬虫停下。</value>
@@ -1391,6 +1430,9 @@
   </data>
   <data name="source.info" xml:space="preserve">
     <value>INFO</value>
+  </data>
+  <data name="source.aresCentral" xml:space="preserve">
+    <value>AresCentral</value>
   </data>
   <data name="source.i3Mudlist" xml:space="preserve">
     <value>I3 的游戏列表</value>

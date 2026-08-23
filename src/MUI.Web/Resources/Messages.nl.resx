@@ -744,6 +744,24 @@
   <data name="game.claim" xml:space="preserve">
     <value>Dit spel claimen</value>
   </data>
+  <data name="game.firstSeen.operatorSeed" xml:space="preserve">
+    <value>Voor het eerst gezien op {date}, uit de eigen adreslijst van deze site.</value>
+  </data>
+  <data name="game.firstSeen.submission" xml:space="preserve">
+    <value>Voor het eerst gezien op {date}, via deze site aangemeld.</value>
+  </data>
+  <data name="game.firstSeen.referral" xml:space="preserve">
+    <value>Voor het eerst gezien op {date}, genoemd door de lijst van een ander spel.</value>
+  </data>
+  <data name="game.firstSeen.i3Mudlist" xml:space="preserve">
+    <value>Voor het eerst gezien op {date}, vermeld op de I3-mudlist.</value>
+  </data>
+  <data name="game.firstSeen.aresCentral" xml:space="preserve">
+    <value>Voor het eerst gezien op {date}, vermeld op AresCentral.</value>
+  </data>
+  <data name="game.firstSeen.backfill" xml:space="preserve">
+    <value>Voor het eerst gezien op {date}, in de adreslijst van dag één van deze site.</value>
+  </data>
   <data name="game.answeringSince" xml:space="preserve">
     <value>antwoordt sinds {date}</value>
   </data>
@@ -971,6 +989,27 @@
   </data>
   <data name="about.title" xml:space="preserve">
     <value>Over mu*index</value>
+  </data>
+  <data name="about.reading.heading" xml:space="preserve">
+    <value>Wat we lezen</value>
+  </data>
+  <data name="about.reading.standing.lead" xml:space="preserve">
+    <value>Twee plekken vertellen ons dat spellen bestaan.</value>
+  </data>
+  <data name="about.reading.standing.body" xml:space="preserve">
+    <value>Beide worden volgens schema en met toestemming gelezen, en beide worden hieronder vermeld. De rest bereikt ons anders: via de lijst van een ander spel, via een aanmelding, of uit de eigen adreslijst van deze site.</value>
+  </data>
+  <data name="about.reading.labelled.lead" xml:space="preserve">
+    <value>Wat zij ons vertellen wordt als hún uitspraak gelabeld.</value>
+  </data>
+  <data name="about.reading.labelled.body" xml:space="preserve">
+    <value>Een naam of genre dat een van deze bronnen bijhoudt, tonen we als iets wat die bron zegt, nooit als iets wat wij hebben gemeten — en waar onze eigen meting afwijkt, is juist dat verschil wat u ziet.</value>
+  </data>
+  <data name="about.feed.aresCentral.note" xml:space="preserve">
+    <value>De eigen communityhub van AresMUSH. De beheerder heeft ons API-inloggegevens gegeven en we lezen de spellenlijst elk uur: de adressen, en wat elk spel daar over zichzelf zegt.</value>
+  </data>
+  <data name="about.feed.intermud3.note" xml:space="preserve">
+    <value>Een netwerk waarop veel spellen uit de LP-familie zijn aangesloten. We nemen de adressenlijst over en vragen de spellen die antwoorden hoeveel mensen verbonden zijn.</value>
   </data>
   <data name="about.lede" xml:space="preserve">
     <value>Elk spel hier wordt gemeten door de crawler, en elke waarde vermeldt waar hij vandaan komt en wanneer. Deze pagina behandelt wat we verzamelen, de grenzen daarvan, wat we niet doen, en hoe de crawler te stoppen is.</value>
@@ -1391,6 +1430,9 @@
   </data>
   <data name="source.info" xml:space="preserve">
     <value>INFO</value>
+  </data>
+  <data name="source.aresCentral" xml:space="preserve">
+    <value>AresCentral</value>
   </data>
   <data name="source.i3Mudlist" xml:space="preserve">
     <value>de I3-mudlist</value>

@@ -70,6 +70,14 @@ public static class PlainText
             b.AppendLine($"telnet {e.Host} {e.Port}{(e.TlsMeasured ? " · tls measured" : string.Empty)}");
         }
 
+        // How this site came to know about the game, and when. Rendered here as well as on the
+        // graphical page because the two surfaces are the same page — a reader on this one is
+        // usually the reader least able to go and check the other.
+        if (page.DiscoveredVia is { } via && s.FirstSeenAt is { } found)
+        {
+            b.AppendLine(DiscoveryLine.FirstSeen(tag, via, Dates.Absolute(tag, found)));
+        }
+
         b.AppendLine();
 
         // Absence is written out, never left blank — a blank reads as zero to a parser just as it
@@ -867,6 +875,14 @@ public static class PlainText
                 }
             }
 
+            // The credits read the same here as on the graphical page — the two surfaces have to be
+            // the same page, and a credit that only appears in one of them is only half a credit.
+            foreach (var feed in section.Feeds)
+            {
+                b.AppendLine();
+                Wrap(b, $"{feed.Name} — {feed.Note}", "  ");
+                Wrap(b, feed.Url, "  ");
+            }
         }
 
         return b.ToString();

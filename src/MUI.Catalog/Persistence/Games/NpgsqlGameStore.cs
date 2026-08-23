@@ -14,7 +14,7 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
         is_claimed AS IsClaimed, first_seen_at AS FirstSeenAt,
         last_reachable_at AS LastReachableAt, archived_at AS ArchivedAt,
         submitted_at AS SubmittedAt, corroborated_at AS CorroboratedAt,
-        corroborated_by AS CorroboratedBy
+        corroborated_by AS CorroboratedBy, discovered_via AS DiscoveredVia
         """;
 
     public async Task<GameRecord?> ByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -50,9 +50,9 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
         await connection.ExecuteAsync(new CommandDefinition(
             """
             INSERT INTO game (id, slug, name, tagline, state, is_claimed, first_seen_at,
-                              last_reachable_at, archived_at, submitted_at)
+                              last_reachable_at, archived_at, submitted_at, discovered_via)
             VALUES (@id, @slug, @name, @tagline, @state, @isClaimed, @firstSeenAt,
-                    @lastReachableAt, @archivedAt, @submittedAt)
+                    @lastReachableAt, @archivedAt, @submittedAt, @discoveredVia)
             """,
             new
             {
@@ -66,6 +66,7 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
                 lastReachableAt = game.LastReachableAt?.ToUniversalTime(),
                 archivedAt = game.ArchivedAt?.ToUniversalTime(),
                 submittedAt = game.SubmittedAt?.ToUniversalTime(),
+                discoveredVia = game.DiscoveredVia is { } via ? DiscoverySources.ToDb(via) : null,
             },
             cancellationToken: cancellationToken));
     }
@@ -327,8 +328,12 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
 
         public string[]? CorroboratedBy { get; init; }
 
+        /// <remarks>Text, not the enum: an unknown spelling is unknown, not a throw.</remarks>
+        public string? DiscoveredVia { get; init; }
+
         public GameRecord ToRecord() => new(
             Id, Slug, Name, Tagline, SqlEnums.ToLifecycleState(State), IsClaimed,
-            FirstSeenAt, LastReachableAt, ArchivedAt, SubmittedAt, CorroboratedAt, CorroboratedBy);
+            FirstSeenAt, LastReachableAt, ArchivedAt, SubmittedAt, CorroboratedAt, CorroboratedBy,
+            DiscoverySources.From(DiscoveredVia));
     }
 }

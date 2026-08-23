@@ -14,6 +14,7 @@
     probe is still testable against a captured fixture with no socket anywhere (spec §6.5).
   -->
   <ItemGroup>
+    <ProjectReference Include="..\MUI.Ares\MUI.Ares.csproj" />
     <ProjectReference Include="..\MUI.Catalog\MUI.Catalog.csproj" />
     <ProjectReference Include="..\MUI.Crawl\MUI.Crawl.csproj" />
     <ProjectReference Include="..\MUI.Discovery\MUI.Discovery.csproj" />
@@ -38,6 +39,13 @@
     -->
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+
+    <!--
+      The HttpClient factory, for AresCentral and nothing else. Never `new HttpClient()`: the factory
+      is what bounds the handler's lifetime, and this is the one place in this assembly that opens an
+      HTTP connection at all.
+    -->
+    <PackageReference Include="Microsoft.Extensions.Http" />
 
     <!--
       One retry, around one dial. A failed probe is confirmed before it is published as a game going

@@ -295,9 +295,11 @@ public class TimeSurfaceTests
                 .IsFalse()
                 .Because($"{source} has no display name");
 
-            // I3 is the one member whose C# spelling is already the reader's; every other member's
-            // ToString would be a defect on the page (Mssp, Who, I3Mudlist).
-            if (source is FieldSource.I3)
+            // Two members' C# spelling is already the reader's: I3 is a protocol name and
+            // AresCentral is a proper noun, and both are written that way in every locale. For
+            // every other member a ToString on the page would be a defect (Mssp, Who, I3Mudlist),
+            // which is what this guard is for — the exemption is a list of two, not a loophole.
+            if (source is FieldSource.I3 or FieldSource.AresCentral)
             {
                 continue;
             }

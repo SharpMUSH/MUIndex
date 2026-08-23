@@ -1,3 +1,4 @@
+using MUI.Catalog;
 namespace MUI.Discovery;
 
 /// <summary>
@@ -66,6 +67,19 @@ public sealed record CrawlTarget
     /// un-configured case is always the guarded behaviour.
     /// </remarks>
     public bool IsOperatorSeed { get; init; }
+
+    /// <summary>
+    /// Which channel first brought this address here, or null for every row written before the
+    /// column existed (migration 0033).
+    /// </summary>
+    /// <remarks>
+    /// Write-once: <see cref="ICrawlTargetRepository.AddAsync"/> collapses onto an existing row and
+    /// updates depth alone, so a second channel finding a known address leaves this as the first
+    /// channel set it. <c>CatalogueBinder</c> copies it onto the game it mints, the same way
+    /// <see cref="SubmittedAt"/> travels.
+    /// </remarks>
+    public DiscoverySource? DiscoveredVia { get; init; }
+
 
     /// <summary>
     /// When somebody handed us this address through the public form, or null when we found it

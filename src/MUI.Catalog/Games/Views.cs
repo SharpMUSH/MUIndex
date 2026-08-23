@@ -192,7 +192,13 @@ public sealed record GamePage(
 
     // Ways to reach this game's people, in render order (see QuickLinks). Defaulted for the same
     // reason Neighbours is: no address at all is the ordinary case, not a missed read.
-    IReadOnlyList<QuickLink>? Reachable = null)
+    IReadOnlyList<QuickLink>? Reachable = null,
+
+    // Which channel first told this site about this game's address, and null for every game listed
+    // before the column existed (migration 0033). Rendered only beside GameSummary.FirstSeenAt: it
+    // is a dated fact about our own crawl, and the channel without the date reads as a claim about
+    // where the game came from, which is not a thing we know. See DiscoveryLine.
+    DiscoverySource? DiscoveredVia = null)
 {
     public int DisagreementCount => Capabilities.Count(c => c.Disagrees);
 

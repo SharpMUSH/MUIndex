@@ -36,6 +36,10 @@ public sealed record Arguments
                                   address has been promoted, and ask the bound ones for a count.
           --i3-gateway <host:port> Where the sidecar's JSON-RPC surface is. Default 127.0.0.1:8081.
           --i3-key <string>       The key the sidecar expects. Defaults to $MUI_I3_API_KEY.
+          --ares                  Run one AresCentral pass instead of a crawl cycle: read the
+                                  hub's games list, seed new addresses, record what it says.
+          --ares-client-id <s>    The client id AresCentral issued. Defaults to $MUI_ARES_CLIENT_ID.
+          --ares-key <string>     The key that goes with it. Defaults to $MUI_ARES_API_KEY.
           --opt-out <host[:port]> Record that somebody asked us to stop crawling them (§11), and
                                   exit. Needs --because. A bare host covers every port on it.
           --because <text>        Who asked and how. Required with --opt-out, and required because
@@ -121,6 +125,22 @@ public sealed record Arguments
 
     public string? I3Key { get; init; } = Environment.GetEnvironmentVariable("MUI_I3_API_KEY");
 
+    /// <summary>Run one AresCentral pass instead of a crawl cycle.</summary>
+    public bool Ares { get; init; }
+
+    /// <summary>
+    /// The client id and key AresCentral issued, defaulting to the environment.
+    /// </summary>
+    /// <remarks>
+    /// From the environment by default so an operator inside the deployment runs a pass without
+    /// pasting a credential into their shell history — the container already holds both.
+    /// </remarks>
+    public string? AresClientId { get; init; } =
+        Environment.GetEnvironmentVariable("MUI_ARES_CLIENT_ID");
+
+    /// <inheritdoc cref="AresClientId"/>
+    public string? AresKey { get; init; } = Environment.GetEnvironmentVariable("MUI_ARES_API_KEY");
+
     /// <summary>An address somebody has asked us to stop crawling (spec §11).</summary>
     public CrawlAddress? OptOut { get; init; }
 
@@ -200,6 +220,18 @@ public sealed record Arguments
                     parsed = parsed with { I3Key = Next(args, ref i, "--i3-key") };
                     break;
 
+                case "--ares":
+                    parsed = parsed with { Ares = true };
+                    break;
+
+                case "--ares-client-id":
+                    parsed = parsed with { AresClientId = Next(args, ref i, "--ares-client-id") };
+                    break;
+
+                case "--ares-key":
+                    parsed = parsed with { AresKey = Next(args, ref i, "--ares-key") };
+                    break;
+
                 case "--no-referrals":
                     parsed = parsed with { FollowReferrals = false };
                     break;
@@ -271,6 +303,16 @@ public sealed record Arguments
                 default:
                     throw new ArgumentException($"Unrecognised argument '{args[i]}'.{Environment.NewLine}{Usage}");
             }
+        }
+
+        // Each of these means "instead of a crawl cycle", and Program runs the Intermud-3 one and
+        // returns — so asking for both would do that pass, skip the other, and print a summary an
+        // operator would reasonably read as covering both. Refused rather than guessed at.
+        if (parsed.I3 && parsed.Ares)
+        {
+            throw new ArgumentException(
+                $"--i3 and --ares each run one pass instead of a crawl cycle; ask for one."
+                + $"{Environment.NewLine}{Usage}");
         }
 
         if (parsed.OptOut is not null && string.IsNullOrWhiteSpace(parsed.Because))

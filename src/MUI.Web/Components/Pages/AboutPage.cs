@@ -42,6 +42,7 @@ public sealed record AboutPage(string Lede, IReadOnlyList<AboutSection> Sections
             Limits(tag),
             Never(tag),
             Crawler(tag, probe),
+            Reading(tag),
         ]);
 
     private static AboutSection Measures(string tag) => new(
@@ -97,6 +98,34 @@ public sealed record AboutPage(string Lede, IReadOnlyList<AboutSection> Sections
     };
 
     /// <summary>
+    /// The sources this site reads on a standing basis, credited by name (§7.6).
+    /// </summary>
+    /// <remarks>
+    /// <b>Standing, not historical.</b> This lists what is being read now — a hub or a network that
+    /// answers us on a schedule — and not the directories the one-time day-one backfill took
+    /// addresses from. Those are not fetched, cannot be fetched from this tree at all, and crediting
+    /// them here would be a claim about the present that is not true.
+    /// </remarks>
+    private static AboutSection Reading(string tag) => new(
+        "reading",
+        Say(tag, "about.reading.heading"),
+        [
+            Point(tag, "about.reading.standing"),
+            Point(tag, "about.reading.labelled"),
+        ])
+    {
+        // Names and addresses are these projects' own and are never translated; what each gives us
+        // is our sentence about them, and so is a message.
+        Feeds =
+        [
+            new("AresCentral", "https://arescentral.aresmush.com/",
+                Say(tag, "about.feed.aresCentral.note")),
+            new("Intermud-3", "https://www.intermud.org/",
+                Say(tag, "about.feed.intermud3.note")),
+        ],
+    };
+
+    /// <summary>
     /// One point, from the pair of ids its two halves live under.
     /// </summary>
     /// <remarks>
@@ -119,7 +148,21 @@ public sealed record AboutSection(string Id, string Heading, IReadOnlyList<About
 {
     /// <summary>Who the crawler says it is, when this section is the one about the crawler.</summary>
     public AboutIdentity? Identity { get; init; }
+
+    /// <summary>The standing sources credited under this section.</summary>
+    public IReadOnlyList<AboutFeed> Feeds { get; init; } = [];
 }
+
+/// <summary>
+/// One source this site reads on a standing basis, credited by name.
+/// </summary>
+/// <remarks>
+/// Deliberately not the <c>ImportSource</c> that PR #134 removed. That record described directories
+/// a one-time backfill had scraped, carried a read/withheld state for sources we had decided not to
+/// fetch, and duplicated a doc that has since been deleted. This is the narrower, truer thing: what
+/// is being read now, with permission, on a schedule.
+/// </remarks>
+public sealed record AboutFeed(string Name, string Url, string Note);
 
 /// <summary>
 /// A lead-in and the paragraph it introduces.

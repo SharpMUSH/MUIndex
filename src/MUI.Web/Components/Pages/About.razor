@@ -52,6 +52,21 @@ else
                     </dd>
                 </dl>
             }
+
+            @* Who we read, credited by name (§7.6). The names and addresses are these projects'
+               own and stay machine voice; the sentence after each is ours about them. *@
+            @if (section.Feeds.Count > 0)
+            {
+                <ul class="feeds">
+                    @foreach (var feed in section.Feeds)
+                    {
+                        <li>
+                            <a href="@feed.Url" rel="noopener" translate="no">@feed.Name</a>
+                            — @feed.Note
+                        </li>
+                    }
+                </ul>
+            }
         </section>
     }
 }

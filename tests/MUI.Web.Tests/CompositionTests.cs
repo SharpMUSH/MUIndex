@@ -393,6 +393,46 @@ public class CompositionTests
     }
 
     /// <summary>
+    /// A deployment that holds no AresCentral credentials registers no AresCentral pass.
+    /// </summary>
+    /// <remarks>
+    /// <b>This is what keeps CI, and every existing deployment, working without a credential.</b>
+    /// <c>AresService.ExecuteAsync</c> calls <c>Validate</c>, which throws when the pass is on with
+    /// no key — and an exception out of a <c>BackgroundService</c> takes the host down with it. So
+    /// "nobody configured it" has to mean "it is not in the graph at all", not "it is in the graph
+    /// and something else remembered to switch it off".
+    /// </remarks>
+    [Test]
+    public async Task ADeploymentWithNoAresCredentialsRegistersNoAresPass()
+    {
+        await using var site = Site();
+
+        var hosted = site.Services.GetServices<IHostedService>().ToList();
+
+        await Assert.That(hosted.Any(h => h is AresService))
+            .IsFalse()
+            .Because("a pass with no credentials can only fail, and it fails by taking the host down");
+    }
+
+    /// <summary>
+    /// And a deployment that does hold them registers it, so the check above is not passing because
+    /// the pass can never be registered at all.
+    /// </summary>
+    [Test]
+    public async Task ADeploymentWithAresCredentialsRegistersThePass()
+    {
+        await using var site = Site(settings: new Dictionary<string, string?>
+        {
+            [CrawlerSettings.AresClientIdConfigurationKey] = "muindex",
+            [CrawlerSettings.AresApiKeyConfigurationKey] = "not-a-real-key",
+        });
+
+        var hosted = site.Services.GetServices<IHostedService>().ToList();
+
+        await Assert.That(hosted.Any(h => h is AresService)).IsTrue();
+    }
+
+    /// <summary>
     /// The cycle's claim service, read off the instance.
     /// </summary>
     /// <remarks>

@@ -1,4 +1,5 @@
 using MUI.Crawl;
+using MUI.Catalog;
 
 namespace MUI.Discovery;
 
@@ -185,6 +186,7 @@ public sealed class ReferralGraphWriter(
                 FirstSeenAt = now,
                 DiscoveredFromGameId = fromGameId,
                 Depth = fromDepth + 1,
+                DiscoveredVia = DiscoverySource.Referral,
             }, ct);
 
             added++;

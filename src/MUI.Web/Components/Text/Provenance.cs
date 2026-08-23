@@ -53,6 +53,7 @@ public static class Provenance
             FieldSource.I3 => "source.i3",
             FieldSource.Mssp => "source.mssp",
             FieldSource.Info => "source.info",
+            FieldSource.AresCentral => "source.aresCentral",
             FieldSource.I3Mudlist => "source.i3Mudlist",
             FieldSource.Banner => "source.banner",
             _ => throw new ArgumentOutOfRangeException(

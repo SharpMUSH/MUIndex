@@ -34,6 +34,14 @@
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.2" />
 
     <!--
+      The HttpClient factory, for the one standing HTTP source the crawler reads (AresCentral). Not a
+      breach of the abstractions-only rule above, which is about hosting: this package decides
+      nothing about how a host is built, and it is what bounds a handler's lifetime — the constraint
+      CLAUDE.md puts on every HttpClient in this tree.
+    -->
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.2" />
+
+    <!--
       Retry, for the confirming dial and nothing else (see DiscoveryOptions.ConfirmationAttempts).
       Polly.Core rather than the Polly metapackage: this needs one resilience strategy, not the
       registry, the DI extensions or the rate limiter — the crawl loop already has its own limiter

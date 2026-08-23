@@ -2,6 +2,7 @@ using System.Text.Json;
 
 using MUI.Catalog;
 using MUI.Crawler;
+using MUI.Crawler.Tests.Support;
 using MUI.Discovery;
 using MUI.I3;
 
@@ -39,7 +40,7 @@ public class I3CycleTests
     [Test]
     public async Task AnUnknownMudContributesItsAddressAndNothingElse()
     {
-        var targets = new FakeTargets();
+        var targets = new FakeTargets(Now);
         var bindings = new FakeBindings();
         var presence = new FakePresence();
 
@@ -70,7 +71,7 @@ public class I3CycleTests
     public async Task AMudWhoseAddressHasBeenPromotedIsBoundToThatGame()
     {
         var game = Guid.CreateVersion7();
-        var targets = new FakeTargets();
+        var targets = new FakeTargets(Now);
         targets.Existing[("82.153.225.173", 4242)] = game;
         var bindings = new FakeBindings();
 
@@ -92,7 +93,7 @@ public class I3CycleTests
     public async Task WhatABoundMudSaysItRunsIsRecordedAsTheClaimItIs()
     {
         var game = Guid.CreateVersion7();
-        var targets = new FakeTargets();
+        var targets = new FakeTargets(Now);
         targets.Existing[("136.144.155.250", 8888)] = game;
         var fields = new FakeFields();
 
@@ -136,7 +137,7 @@ public class I3CycleTests
             new StubGateway([
                 Mud("Nightfall", "82.153.225.173", 4242) with { Driver = "DGD 1.4.1", MudType = "LPMud" },
             ]),
-            new FakeTargets(), new FakeBindings(), new FakePresence(), fields, new I3Options(), Clock());
+            new FakeTargets(Now), new FakeBindings(), new FakePresence(), fields, new I3Options(), Clock());
 
         await cycle.RunAsync(CancellationToken.None);
 
@@ -155,7 +156,7 @@ public class I3CycleTests
     public async Task AGameWithSeveralI3NamesBindsOnceAndTheRestDoNotStopThePass()
     {
         var game = Guid.CreateVersion7();
-        var targets = new FakeTargets();
+        var targets = new FakeTargets(Now);
         targets.Existing[("136.144.155.250", 8888)] = game;
         var bindings = new FakeBindings();
 
@@ -188,7 +189,7 @@ public class I3CycleTests
     [Test]
     public async Task AMudWithNoPlayerPortIsRecordedButNeverSeeded()
     {
-        var targets = new FakeTargets();
+        var targets = new FakeTargets(Now);
         var bindings = new FakeBindings();
 
         var cycle = new I3Cycle(
@@ -216,7 +217,7 @@ public class I3CycleTests
             Replies = { ["Nightfall"] = new I3WhoReply { FromMud = "Nightfall", Users = [new(), new(), new()] } },
         };
 
-        var targets = new FakeTargets();
+        var targets = new FakeTargets(Now);
         targets.Existing[("82.153.225.173", 4242)] = game;
 
         var cycle = new I3Cycle(
@@ -246,7 +247,7 @@ public class I3CycleTests
         // Listed, up, advertising who — and silent. An empty mudlist would instead mean the gateway
         // is disconnected, which is a different thing and correctly skips the ask entirely.
         var cycle = new I3Cycle(
-            new StubGateway([Mud("Silent", "203.0.113.1", 4000)]), new FakeTargets(), bindings, presence,
+            new StubGateway([Mud("Silent", "203.0.113.1", 4000)]), new FakeTargets(Now), bindings, presence,
             new FakeFields(), new I3Options { BetweenAsks = TimeSpan.Zero }, Clock());
 
         await cycle.RunAsync(CancellationToken.None);
@@ -276,7 +277,7 @@ public class I3CycleTests
 
         var cycle = new I3Cycle(
             new StubGateway([Mud("Fallen", "203.0.113.1", 4000, status: "down")]),
-            new FakeTargets(), bindings, presence, new FakeFields(),
+            new FakeTargets(Now), bindings, presence, new FakeFields(),
             new I3Options { BetweenAsks = TimeSpan.Zero }, Clock());
 
         var result = await cycle.RunAsync(CancellationToken.None);
@@ -297,7 +298,7 @@ public class I3CycleTests
         bindings.Rows["Silent"] = Bound("Silent", Guid.CreateVersion7());
 
         var cycle = new I3Cycle(
-            new StubGateway([Mud("Silent", "203.0.113.1", 4000)]), new FakeTargets(), bindings,
+            new StubGateway([Mud("Silent", "203.0.113.1", 4000)]), new FakeTargets(Now), bindings,
             new FakePresence(), new FakeFields(), new I3Options { BetweenAsks = TimeSpan.Zero }, Clock());
 
         await cycle.RunAsync(CancellationToken.None);
@@ -312,7 +313,7 @@ public class I3CycleTests
     [Test]
     public async Task AnEmptyMudlistIsTreatedAsNoAnswerRatherThanAnEmptyNetwork()
     {
-        var targets = new FakeTargets();
+        var targets = new FakeTargets(Now);
         var presence = new FakePresence();
 
         var result = await new I3Cycle(
@@ -348,41 +349,6 @@ public class I3CycleTests
 
         public Task<I3WhoReply?> WhoAsync(string mud, CancellationToken ct = default) =>
             Task.FromResult(Replies.GetValueOrDefault(mud));
-    }
-
-    private sealed class FakeTargets : ICrawlTargetRepository
-    {
-        public Dictionary<(string, int), Guid?> Existing { get; } = [];
-
-        public List<CrawlTarget> Added { get; } = [];
-
-        public Task<CrawlTarget?> ByAddressAsync(string host, int port, CancellationToken ct) =>
-            Task.FromResult(Existing.TryGetValue((host, port), out var game)
-                ? new CrawlTarget
-                {
-                    Id = Guid.CreateVersion7(),
-                    GameId = game,
-                    Host = host,
-                    Port = port,
-                    NextProbeAt = Now,
-                    FirstSeenAt = Now,
-                }
-                : null);
-
-        public Task<Guid> AddAsync(CrawlTarget target, CancellationToken ct)
-        {
-            Added.Add(target);
-            return Task.FromResult(target.Id);
-        }
-
-        public Task<IReadOnlyList<CrawlTarget>> DueAsync(DateTimeOffset now, int limit, CancellationToken ct) =>
-            Task.FromResult<IReadOnlyList<CrawlTarget>>([]);
-
-        public Task RecordAttemptAsync(
-            Guid id, DateTimeOffset at, bool succeeded, TimeSpan? crawlDelay,
-            DateTimeOffset nextProbeAt, CancellationToken ct) => Task.CompletedTask;
-
-        public Task AttachGameAsync(Guid id, Guid gameId, CancellationToken ct) => Task.CompletedTask;
     }
 
     private sealed class FakeBindings : II3BindingRepository
@@ -450,30 +416,6 @@ public class I3CycleTests
 
             return Task.CompletedTask;
         }
-    }
-
-    private sealed class FakeFields : IGameFieldStore
-    {
-        public List<GameField> Written { get; } = [];
-
-        public Task UpsertAsync(GameField field, CancellationToken ct = default)
-        {
-            Written.Add(field);
-            return Task.CompletedTask;
-        }
-
-        public Task<IReadOnlyList<GameField>> ForGameAsync(Guid gameId, CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<GameField>>([]);
-
-        public Task<IReadOnlyList<GameField>> ForGameAsync(
-            Guid gameId, FieldSource source, CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<GameField>>([]);
-
-        public Task RecordChangeAsync(FieldChange change, CancellationToken ct = default) =>
-            Task.CompletedTask;
-
-        public Task<DateTimeOffset?> LastChangedAtAsync(Guid gameId, string field, CancellationToken ct = default) =>
-            Task.FromResult<DateTimeOffset?>(null);
     }
 
     private sealed class FakePresence : IPresenceStore

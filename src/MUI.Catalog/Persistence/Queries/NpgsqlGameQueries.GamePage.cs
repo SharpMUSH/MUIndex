@@ -22,7 +22,8 @@ public sealed partial class NpgsqlGameQueries
         $"""
         SELECT id AS Id, slug AS Slug, name AS Name, tagline AS Tagline, state AS State,
                is_claimed AS IsClaimed, last_reachable_at AS LastReachableAt,
-               excluded_reason AS ExcludedReason, first_seen_at AS FirstSeenAt
+               excluded_reason AS ExcludedReason, first_seen_at AS FirstSeenAt,
+               discovered_via AS DiscoveredVia
           FROM game
          WHERE {Public}
         """;
@@ -165,7 +166,8 @@ public sealed partial class NpgsqlGameQueries
             Neighbours: neighbours,
             ConnectScreenCharset: ScreenCharset(fields),
             ExcludedReason: row.ExcludedReason,
-            Reachable: QuickLinks.From(fields, _registry, now));
+            Reachable: QuickLinks.From(fields, _registry, now),
+            DiscoveredVia: DiscoverySources.From(row.DiscoveredVia));
     }
 
     /// <summary>

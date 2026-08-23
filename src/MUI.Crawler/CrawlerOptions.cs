@@ -45,6 +45,13 @@ public sealed record CrawlerOptions
     public I3ServiceOptions I3 { get; init; } = new();
 
     /// <summary>
+    /// The AresCentral pass: whether it runs, and the credentials the hub issued. Its own advisory
+    /// lock and its own schedule. On by default — a GET against a documented API registers nothing —
+    /// but a host that finds no credentials turns it off, so a deployment without them is unchanged.
+    /// </summary>
+    public AresServiceOptions Ares { get; init; } = new();
+
+    /// <summary>
     /// The §8.3 sweep that reads TXT records for the games somebody is mid-claim on. Its own advisory
     /// lock and its own schedule; on by default, since it dials nothing and its cost is set by how
     /// many people are claiming rather than by the size of the catalogue.
@@ -77,6 +84,12 @@ public sealed record CrawlerOptions
         Probe.Validate();
         Maintenance.Validate();
         Submissions.Validate();
+
+        // Validated here, not only by the pass itself, because AddMuiCrawler calls this at
+        // registration: an enabled pass with no credentials otherwise registers cleanly and then
+        // dies when the hosted service starts, and an exception out of a BackgroundService takes
+        // the site with it. A startup error naming the setting beats that.
+        Ares.Validate();
 
         foreach (var seed in Seeds)
         {

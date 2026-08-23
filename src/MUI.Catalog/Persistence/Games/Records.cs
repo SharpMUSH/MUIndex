@@ -35,7 +35,18 @@ public sealed record GameRecord(
     DateTimeOffset? ArchivedAt = null,
     DateTimeOffset? SubmittedAt = null,
     DateTimeOffset? CorroboratedAt = null,
-    IReadOnlyList<string>? CorroboratedBy = null);
+    IReadOnlyList<string>? CorroboratedBy = null,
+
+    /// <summary>
+    /// Which channel first told this site about the address this game was promoted from, or null for
+    /// every game listed before the column existed (migration 0033).
+    /// </summary>
+    /// <remarks>
+    /// Copied from the target by <c>CatalogueBinder</c> at mint time, the way <paramref name="SubmittedAt"/>
+    /// travels. A dated fact about our crawl and never an origin claim about the game — see
+    /// <see cref="DiscoverySource"/>.
+    /// </remarks>
+    DiscoverySource? DiscoveredVia = null);
 
 /// <summary>What kind of socket an endpoint is (spec §5.5).</summary>
 public enum EndpointKind

@@ -80,18 +80,27 @@ our host is unreachable and perfectly alive.
   on the local `import/one-time` branch**; running the import means checking it out.
   - Test fixtures were never the problem: a handful of hand-written rows exercising a parser is a
     test input, and a copy of a third party's catalogue is not, whatever it is named.
-- **Import a value, or record where a game came from.** The backfill takes **host and port and
-  nothing else** (spec §7.6); every fact on this site is measured by this crawler. There is no
-  `imported_measured`/`imported_asserted` field source, no imported presence or availability row, no
-  `import_provenance` table, and no half-weight archive grace — all of it existed and all of it is
-  deleted. Three reasons: a game's origin is **not one fact** (the catalogue is cross-checked against
-  several directories and any game worth listing is in more than one, so "imported from MudStats"
-  names whichever fetch ran first, not the game); that a game exists is **public information**, so
-  recording where we read it adds nothing and republishes the part with the least claim to be ours;
-  and the point of the seed is to **start with a lot of games and then gather our own data**, which a
-  history import would undercut by filling the graphs of exactly the games somebody else was already
-  watching. `IntervalOrigin` survives as a one-member enum on purpose — an undifferentiated total
-  cannot be split back apart if another party's measurements are ever ingested.
+- **Import a value from a one-time scrape, or record a game's origin as a fact about the game.**
+  Both halves are narrower than they were, and the narrowing is deliberate. The **backfill** still
+  takes **host and port and nothing else** (spec §7.6): no `imported_measured`/`imported_asserted`
+  field source, no imported presence or availability row, no `import_provenance` table, no
+  half-weight archive grace. A **standing, authenticated source** may write values, under its own
+  weak rung, because it is not the thing §7.6 argued against — `i3_mudlist` (migration 0023) and
+  `ares_central` (migration 0032) are the two, both below `mssp`, neither above `staff` or `owner`.
+  The distinction that licenses this: §7.6's objection is that a game's origin is **not one fact**
+  (the catalogue is cross-checked against several directories and any game worth listing is in more
+  than one, so "imported from MudStats" names whichever fetch ran first, not the game); that a game
+  exists is **public information**; and the point of the seed is to **start with a lot of games and
+  then gather our own data**. A hub that answers on a schedule, for one codebase, with credentials
+  its maintainer issued, is a live source, not a fetch that happened once.
+  And `discovered_via` (migration 0033) records **which channel first told this site about an
+  address, and when** — a dated statement about our own crawl. It is set once, at the moment a
+  target row is created, and the registry's own `ON CONFLICT` is what makes it write-once. **It may
+  never be rendered as a badge, shortened to a source name, or read as exclusivity**: the sentence
+  on the page always carries the date, because the channel alone reads as a claim about where the
+  game came from, which is not a thing we know. `IntervalOrigin` survives as a one-member enum on
+  purpose — an undifferentiated total cannot be split back apart if another party's measurements are
+  ever ingested.
 - **Compile in a claim about somebody else's consent.** `ContactedMaintainer` defaulted to `true`
   for MudStats with a comment stating the maintainer had been approached; nobody had emailed them,
   and a 143-page crawl went out on the strength of it. The instruction it was written from was *do
@@ -103,7 +112,7 @@ our host is unreachable and perfectly alive.
   measurement from a fixture is being misled by exactly the mechanism this project exists to replace.
 - Publish an absolute "how many people play MU\*" figure. Shares ship; totals do not (spec §15.7).
 
-## The one HTTP client, and why it is not the fetchers the rule above forbids
+## The two HTTP clients, and why they are not the fetchers the rule above forbids
 
 `IconFetcher` retrieves the image a game's `ICON` field names, so the site can serve it from its own
 origin instead of hot-linking it — which would hand every reader's address to a third party for a
@@ -121,6 +130,29 @@ content type read from the bytes by `ImageHeader` rather than from any header. *
 it is a document that can carry script, and serving one from our origin is an XSS hole with an image
 tag in front of it. `ImageHeader` parses headers and does not decode: no image library, no decoder
 attack surface reached by an owner-supplied URL.
+
+`AresGamesClient` reads the AresCentral games list — one authenticated GET, hourly, against a
+documented API whose maintainer issued this deployment credentials. **This is not that rule being
+bent either.** The rule is about *harvesting somebody's catalogue*: one-time machinery pointed at a
+third party's HTML, carried in CI for years after the fetch it existed for, rotting silently while
+reading as a supported feature. This is a standing source read for as long as the site runs — the
+same shape as the Intermud-3 gateway already here — and §7.6's etiquette clause names asking for a
+documented API as the thing to do *in preference to* scraping. There is no one-time import in it and
+nothing belongs on `import/one-time`.
+
+The same constraints apply, because they are about how an `HttpClient` is held rather than about
+what is fetched: through `IHttpClientFactory` (**never** `new HttpClient()`), `AllowAutoRedirect =
+false` since a redirect is a second address nobody ruled on, and the body read to a ceiling rather
+than trusted to `Content-Length`. **A *named* client here rather than `IconFetcher`'s typed one**, and
+that difference is load-bearing: a typed client is registered transient, and the only consumer is a
+singleton `BackgroundService`, which would resolve exactly one and hold its handler — and that
+handler's DNS answer — for the life of the process, defeating the pooled rotation the factory exists
+to provide. `AresService` asks the factory for a client per pass;
+`AresServiceOptionsTests.ThePassTakesAClientFactoryRatherThanAClient` enforces it by reflection. The URL here is ours and constant rather than
+owner-supplied, so the DNS-pinning argument is weaker than `IconFetcher`'s — the registration follows
+the same pattern anyway, so there is one way to do this in the tree. `mui-crawl --ares` is the single
+exception and says so at the call site: a process that makes one request and exits *is* the handler's
+lifetime.
 
 `game_icon` is the **one table here that may be dropped and refilled**. The fact is the `ICON` field;
 those are bytes fetched from the URL it names, so §7.5's "nothing is ever deleted" does not reach

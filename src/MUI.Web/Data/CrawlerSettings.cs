@@ -57,6 +57,28 @@ public static class CrawlerSettings
     public const string I3ApiKeyConfigurationKey = "Crawler:I3:ApiKey";
 
     /// <summary>
+    /// <c>false</c> stops this deployment reading the AresCentral games list.
+    /// </summary>
+    /// <remarks>
+    /// On by default, unlike I3 — one authenticated GET against a documented API registers nothing
+    /// anywhere — but a deployment that was never issued credentials is not opting in by omission,
+    /// so <see cref="ApplyAres"/> turns the pass off when it finds none.
+    /// </remarks>
+    public const string AresEnabledEnvironmentVariable = "MUI_ARES_ENABLED";
+
+    public const string AresEnabledConfigurationKey = "Crawler:Ares:Enabled";
+
+    /// <summary>The client id AresCentral issued this deployment. Half a pair is a typo, not a state.</summary>
+    public const string AresClientIdEnvironmentVariable = "MUI_ARES_CLIENT_ID";
+
+    public const string AresClientIdConfigurationKey = "Crawler:Ares:ClientId";
+
+    /// <summary>The key that goes with it. No default: the hub issues them per deployment.</summary>
+    public const string AresApiKeyEnvironmentVariable = "MUI_ARES_API_KEY";
+
+    public const string AresApiKeyConfigurationKey = "Crawler:Ares:ApiKey";
+
+    /// <summary>
     /// <c>false</c> stops this deployment reading TXT records for games somebody is claiming (§8.3).
     /// </summary>
     /// <remarks>
@@ -111,6 +133,7 @@ public static class CrawlerSettings
         }
 
         ApplyI3(builder, configuration);
+        ApplyAres(builder, configuration);
 
         foreach (var address in Seeds(configuration))
         {
@@ -162,6 +185,58 @@ public static class CrawlerSettings
         }
 
         builder.I3.Validate();
+    }
+
+    /// <summary>
+    /// Applies the AresCentral settings, and turns the pass off when this deployment holds no
+    /// credentials.
+    /// </summary>
+    /// <remarks>
+    /// The default in <see cref="AresServiceOptions"/> is on, which is the intended state once a key
+    /// exists — but silence is not consent to run a pass that can only fail, so an unconfigured
+    /// deployment is switched off here rather than left to log a 401 once an hour. An explicit
+    /// <c>MUI_ARES_ENABLED=true</c> with no credentials still throws, because that is somebody
+    /// asking for the pass and getting the compose file wrong.
+    /// </remarks>
+    private static void ApplyAres(CrawlerOptionsBuilder builder, IConfiguration configuration)
+    {
+        var asked = Read(configuration, AresEnabledEnvironmentVariable, AresEnabledConfigurationKey);
+
+        if (asked is not null)
+        {
+            builder.Ares = builder.Ares with
+            {
+                Enabled = bool.TryParse(asked, out var value)
+                    ? value
+                    : throw new ArgumentException(
+                        $"{AresEnabledEnvironmentVariable} is '{asked}', which is neither true nor false."),
+            };
+        }
+
+        if (Read(configuration, AresClientIdEnvironmentVariable, AresClientIdConfigurationKey) is { } id)
+        {
+            builder.Ares = builder.Ares with { Hub = builder.Ares.Hub with { ClientId = id } };
+        }
+
+        if (Read(configuration, AresApiKeyEnvironmentVariable, AresApiKeyConfigurationKey) is { } key)
+        {
+            builder.Ares = builder.Ares with { Hub = builder.Ares.Hub with { ApiKey = key } };
+        }
+
+        // Nobody said either way, so the credentials decide. Neither half present means this
+        // deployment has never heard of AresCentral and comes up exactly as it did before the pass
+        // existed. Either half present means somebody was configuring this, so the pass is switched
+        // on and Validate below says so out loud if they only got halfway.
+        if (asked is null)
+        {
+            builder.Ares = builder.Ares with
+            {
+                Enabled = !string.IsNullOrWhiteSpace(builder.Ares.Hub.ClientId)
+                    || !string.IsNullOrWhiteSpace(builder.Ares.Hub.ApiKey),
+            };
+        }
+
+        builder.Ares.Validate();
     }
 
     /// <summary>The configured seeds, parsed, in the order they were written.</summary>

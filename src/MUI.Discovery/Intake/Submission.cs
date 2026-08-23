@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 
 using MUI.Crawl;
+using MUI.Catalog;
 
 namespace MUI.Discovery;
 
@@ -381,6 +382,7 @@ public sealed class SubmissionService(
             NextProbeAt = now,
             FirstSeenAt = now,
             SubmittedAt = now,
+            DiscoveredVia = DiscoverySource.Submission,
         };
 
         var id = await targets.AddAsync(target, ct);
