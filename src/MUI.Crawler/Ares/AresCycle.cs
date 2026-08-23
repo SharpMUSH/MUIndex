@@ -51,7 +51,13 @@ public sealed class AresCycle(
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var host = game.Hostname?.Trim();
+            // Normalised, not merely trimmed, and for the same reason crawl_target normalises: the
+            // hub sends at least one mixed-case hostname, and keying a listing on the raw spelling
+            // would turn a change of case into a new row plus a delisting of the old one — a game
+            // reported as having left on a pass where nothing happened.
+            var host = string.IsNullOrWhiteSpace(game.Hostname)
+                ? null
+                : CanonicalHost.Normalize(game.Hostname);
 
             if (string.IsNullOrEmpty(host) || game.Port <= 0)
             {

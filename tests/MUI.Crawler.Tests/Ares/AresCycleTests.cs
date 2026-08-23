@@ -212,18 +212,26 @@ public class AresCycleTests
     }
 
     /// <summary>
-    /// The hostname is trimmed before anything is keyed on it, so one address does not become two
-    /// rows because the hub sent a trailing space.
+    /// The hostname is normalised before anything is keyed on it, so one address never becomes two
+    /// rows.
     /// </summary>
+    /// <remarks>
+    /// Not hypothetical: the hub lists <c>PokemorphParadise.aresmush.com</c> in mixed case today.
+    /// Keying on the raw spelling would mean that the day it is written in lower case we insert a
+    /// second listing and date the first as delisted — reporting a game as having left on a pass
+    /// where nothing happened at all. <c>crawl_target</c> normalises for the same reason.
+    /// </remarks>
     [Test]
-    public async Task AHostnameIsTrimmedBeforeItIsUsedAsAKey()
+    [Arguments(" bsgpacifica.org ")]
+    [Arguments("BSGPacifica.org")]
+    [Arguments("bsgpacifica.org.")]
+    public async Task AHostnameIsNormalisedBeforeItIsUsedAsAKey(string spelling)
     {
         var targets = new FakeTargets(Now);
         var listings = new FakeListings();
 
         await Cycle(
-                new StubHub([Game("Pacifica", " bsgpacifica.org ", 4201)]),
-                targets, new FakeFields(), listings)
+                new StubHub([Game("Pacifica", spelling, 4201)]), targets, new FakeFields(), listings)
             .RunAsync();
 
         await Assert.That(targets.Added.Single().Host).IsEqualTo("bsgpacifica.org");

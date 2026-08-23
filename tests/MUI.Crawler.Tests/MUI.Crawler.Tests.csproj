@@ -23,6 +23,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\MUI.Crawler\MUI.Crawler.csproj" />
+
+    <!--
+      The CLI, so its flag parsing is covered by something. `mui-crawl` is how a running deployment
+      is administered, and until AresCentral needed a flag nothing here had ever parsed one.
+    -->
+    <ProjectReference Include="..\..\src\MUI.Crawler.Cli\MUI.Crawler.Cli.csproj" />
   </ItemGroup>
 
 </Project>

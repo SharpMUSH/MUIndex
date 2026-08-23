@@ -9,6 +9,7 @@ using MUI.Crawler;
 using MUI.Crawler.Cli;
 using MUI.Crawler.Persistence;
 using MUI.Discovery;
+using MUI.Ares;
 using MUI.I3;
 
 using Microsoft.Extensions.Logging;
@@ -143,6 +144,66 @@ if (arguments.I3)
     Console.WriteLine($"i3 pass       {i3Result}");
 
     await I3Summary.PrintAsync(source);
+
+    return 0;
+}
+
+// One AresCentral pass, then out. Shares the registry and field store with the crawl above and
+// touches nothing else — the same code the hosted service runs, against the same tables.
+if (arguments.Ares)
+{
+    var aresOptions = new AresServiceOptions
+    {
+        Enabled = true,
+        Hub = new AresOptions
+        {
+            ClientId = arguments.AresClientId ?? "",
+            ApiKey = arguments.AresKey ?? "",
+        },
+    };
+
+    aresOptions.Validate();
+
+    // The one HttpClient in this tree built by hand rather than through the factory, and the reason
+    // the factory exists does not apply: this process makes one request and exits, so the handler's
+    // lifetime is the program's. Redirects stay off, exactly as the registration has them.
+    using var aresHandler = new HttpClientHandler { AllowAutoRedirect = false };
+    using var aresHttp = new HttpClient(aresHandler)
+    {
+        BaseAddress = aresOptions.Hub.BaseAddress,
+        Timeout = aresOptions.Hub.Timeout,
+    };
+
+    AresCycleResult aresResult;
+
+    try
+    {
+        aresResult = await new AresCycle(
+                new AresGamesClient(
+                    aresHttp, aresOptions.Hub, loggerFactory.CreateLogger<AresGamesClient>()),
+                targets,
+                new NpgsqlAresListingRepository(source),
+                fields,
+                time,
+                loggerFactory.CreateLogger<AresCycle>())
+            .RunAsync(CancellationToken.None);
+    }
+    catch (HttpRequestException failure)
+    {
+        // The likeliest failure by a distance is a credential the hub has not issued or has revoked,
+        // and a stack trace is the wrong way to tell an operator that. Caught here and nowhere else:
+        // the cycle itself must go on throwing, because that is what stops the delisting sweep from
+        // running against a list we never received.
+        Console.Error.WriteLine(
+            $"AresCentral refused the request ({failure.StatusCode?.ToString() ?? "no response"}). "
+            + "Check --ares-client-id and --ares-key, or $MUI_ARES_CLIENT_ID and $MUI_ARES_API_KEY.");
+
+        return 1;
+    }
+
+    Console.WriteLine($"ares pass     {aresResult}");
+
+    await AresSummary.PrintAsync(source);
 
     return 0;
 }
