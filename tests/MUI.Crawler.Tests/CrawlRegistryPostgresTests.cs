@@ -2,6 +2,7 @@ using System.Reflection;
 
 using Dapper;
 
+using MUI.Catalog;
 using MUI.Crawler.Persistence;
 using MUI.Crawler.Tests.Support;
 using MUI.Discovery;
@@ -225,5 +226,47 @@ public class CrawlRegistryPostgresTests
             new { id, slug });
 
         return id;
+    }
+
+    /// <summary>
+    /// Write-once, enforced by the insert rather than by a rule somebody has to remember. A referral
+    /// naming an address AresCentral already gave us must not relabel where we first heard of it.
+    /// </summary>
+    [Test]
+    public async Task ASecondChannelFindingAKnownAddressDoesNotRelabelIt()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        var registry = new NpgsqlCrawlTargetRepository(database.DataSource);
+
+        await registry.AddAsync(
+            Target("relabel.example.org") with { DiscoveredVia = DiscoverySource.AresCentral },
+            CancellationToken.None);
+
+        await registry.AddAsync(
+            Target("relabel.example.org") with { DiscoveredVia = DiscoverySource.Referral },
+            CancellationToken.None);
+
+        var stored = await registry.ByAddressAsync(
+            "relabel.example.org", 4201, CancellationToken.None);
+
+        await Assert.That(stored!.DiscoveredVia).IsEqualTo(DiscoverySource.AresCentral);
+    }
+
+    /// <summary>
+    /// Every address in the registry today predates the column, and a guess would be exactly the
+    /// accident §7.6 warned about. Unknown stays unknown, and the page renders nothing.
+    /// </summary>
+    [Test]
+    public async Task AnAddressRecordedWithNoChannelStaysUnknown()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        var registry = new NpgsqlCrawlTargetRepository(database.DataSource);
+
+        await registry.AddAsync(Target("unknown.example.org"), CancellationToken.None);
+
+        var stored = await registry.ByAddressAsync(
+            "unknown.example.org", 4201, CancellationToken.None);
+
+        await Assert.That(stored!.DiscoveredVia).IsNull();
     }
 }

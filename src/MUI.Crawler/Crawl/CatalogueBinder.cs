@@ -221,7 +221,11 @@ public sealed class CatalogueBinder(
             LifecycleState.Active,
             IsClaimed: false,
             FirstSeenAt: now,
-            SubmittedAt: target.SubmittedAt);
+            SubmittedAt: target.SubmittedAt,
+            // How this site first heard of the address this game was promoted from, carried
+            // across the way the submission date is. A dated fact about our crawl, never a
+            // claim about where the game came from.
+            DiscoveredVia: target.DiscoveredVia);
 
         await games.InsertAsync(game, cancellationToken);
 

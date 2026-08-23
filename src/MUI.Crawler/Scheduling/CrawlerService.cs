@@ -204,6 +204,7 @@ public static class CrawlSeeds
                     NextProbeAt = now,
                     FirstSeenAt = now,
                     IsOperatorSeed = seed.IsOperatorSeed,
+                    DiscoveredVia = DiscoverySource.OperatorSeed,
                 },
                 cancellationToken);
 

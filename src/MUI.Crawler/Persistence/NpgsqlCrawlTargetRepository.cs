@@ -1,5 +1,6 @@
 using Dapper;
 
+using MUI.Catalog;
 using MUI.Discovery;
 
 using Npgsql;
@@ -33,6 +34,7 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
         crawl_delay AS CrawlDelay, first_seen_at AS FirstSeenAt, last_probed_at AS LastProbedAt,
         discovered_from_game_id AS DiscoveredFromGameId, depth AS Depth,
         is_operator_seed AS IsOperatorSeed, submitted_at AS SubmittedAt,
+        discovered_via AS DiscoveredVia,
         (SELECT f.value
            FROM game_field f
           WHERE f.game_id = crawl_target.game_id
@@ -73,11 +75,11 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
             INSERT INTO crawl_target (
                 id, game_id, host, port, use_tls, next_probe_at, consecutive_failures, crawl_delay,
                 first_seen_at, last_probed_at, discovered_from_game_id, depth, is_operator_seed,
-                submitted_at)
+                submitted_at, discovered_via)
             VALUES (
                 @id, @gameId, @host, @port, @useTls, @nextProbeAt, @consecutiveFailures, @crawlDelay,
                 @firstSeenAt, @lastProbedAt, @discoveredFromGameId, @depth, @isOperatorSeed,
-                @submittedAt)
+                @submittedAt, @discoveredVia)
             ON CONFLICT (host, port) DO UPDATE
                SET depth = LEAST(crawl_target.depth, EXCLUDED.depth)
             RETURNING id
@@ -98,6 +100,7 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
                 depth = target.Depth,
                 isOperatorSeed = target.IsOperatorSeed,
                 submittedAt = target.SubmittedAt?.ToUniversalTime(),
+                discoveredVia = target.DiscoveredVia is { } via ? DiscoverySources.ToDb(via) : null,
             },
             cancellationToken: ct));
     }
@@ -208,6 +211,9 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
 
         public DateTimeOffset? SubmittedAt { get; init; }
 
+        /// <remarks>Text, not the enum: an unknown spelling is a line we omit, not a throw.</remarks>
+        public string? DiscoveredVia { get; init; }
+
         public string? Charset { get; init; }
 
         public CrawlTarget ToRecord() => new()
@@ -226,6 +232,7 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
             Depth = Depth,
             IsOperatorSeed = IsOperatorSeed,
             SubmittedAt = SubmittedAt,
+            DiscoveredVia = DiscoverySources.From(DiscoveredVia),
             Charset = Charset,
         };
     }

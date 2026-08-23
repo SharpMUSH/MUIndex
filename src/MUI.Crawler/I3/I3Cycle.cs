@@ -84,6 +84,7 @@ public sealed class I3Cycle(
                         Port = mud.PlayerPortNumber,
                         NextProbeAt = now,
                         FirstSeenAt = now,
+                        DiscoveredVia = DiscoverySource.I3Mudlist,
                     },
                     cancellationToken);
 
