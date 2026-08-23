@@ -10,6 +10,13 @@
 --
 -- field_change takes the same widening, or a source it cannot spell is not a change it can log.
 --
+--
+-- Validated in place rather than added NOT VALID and validated later. PostgreSQL scans the table
+-- under ACCESS EXCLUSIVE to validate a CHECK, which is worth avoiding on a large table — measured
+-- on production 2026-08-22, game_field holds 13,858 rows and field_change 5,237, so the scan is
+-- milliseconds against a single deployment that applies migrations at startup under the crawl
+-- lease. Both constraints are also satisfied by every existing row by construction: this one only
+-- widens the permitted set, so anything that passed the old constraint passes this one.
 -- No BEGIN/COMMIT: MigrationRunner opens its own transaction per script and writes the ledger
 -- entry inside it.
 

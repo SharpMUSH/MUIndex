@@ -14,6 +14,11 @@
 -- a known address cannot overwrite the first. That is the write-once rule, and it is enforced by the
 -- statement that already exists rather than by a trigger added here.
 --
+--
+-- Validated in place rather than added NOT VALID, same as 0032 and for the same measured reason:
+-- on production 2026-08-22 crawl_target holds 1,530 rows and game 921, so the ACCESS EXCLUSIVE
+-- scan is milliseconds. Every existing row is NULL in a column that did not exist a statement ago,
+-- which the constraint permits explicitly, so there is nothing for the scan to find.
 -- No BEGIN/COMMIT: MigrationRunner opens its own transaction per script and writes the ledger
 -- entry inside it.
 
