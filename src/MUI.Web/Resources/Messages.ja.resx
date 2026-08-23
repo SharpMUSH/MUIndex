@@ -744,6 +744,24 @@
   <data name="game.claim" xml:space="preserve">
     <value>このゲームを申請する</value>
   </data>
+  <data name="game.firstSeen.operatorSeed" xml:space="preserve">
+    <value>{date}に初めて確認。当サイト自身のアドレス一覧より。</value>
+  </data>
+  <data name="game.firstSeen.submission" xml:space="preserve">
+    <value>{date}に初めて確認。当サイトから登録されました。</value>
+  </data>
+  <data name="game.firstSeen.referral" xml:space="preserve">
+    <value>{date}に初めて確認。別のゲームの一覧に記載されていました。</value>
+  </data>
+  <data name="game.firstSeen.i3Mudlist" xml:space="preserve">
+    <value>{date}に初めて確認。I3 mudlist に掲載されていました。</value>
+  </data>
+  <data name="game.firstSeen.aresCentral" xml:space="preserve">
+    <value>{date}に初めて確認。AresCentral に掲載されていました。</value>
+  </data>
+  <data name="game.firstSeen.backfill" xml:space="preserve">
+    <value>{date}に初めて確認。当サイト開設時のアドレス一覧より。</value>
+  </data>
   <data name="game.answeringSince" xml:space="preserve">
     <value>{date}から応答</value>
   </data>

@@ -744,6 +744,24 @@
   <data name="game.claim" xml:space="preserve">
     <value>Dieses Spiel beanspruchen</value>
   </data>
+  <data name="game.firstSeen.operatorSeed" xml:space="preserve">
+    <value>Erstmals am {date} gesehen, aus der eigenen Adressliste dieser Seite.</value>
+  </data>
+  <data name="game.firstSeen.submission" xml:space="preserve">
+    <value>Erstmals am {date} gesehen, über diese Seite eingereicht.</value>
+  </data>
+  <data name="game.firstSeen.referral" xml:space="preserve">
+    <value>Erstmals am {date} gesehen, von der Liste eines anderen Spiels genannt.</value>
+  </data>
+  <data name="game.firstSeen.i3Mudlist" xml:space="preserve">
+    <value>Erstmals am {date} gesehen, in der I3-Mudlist geführt.</value>
+  </data>
+  <data name="game.firstSeen.aresCentral" xml:space="preserve">
+    <value>Erstmals am {date} gesehen, bei AresCentral geführt.</value>
+  </data>
+  <data name="game.firstSeen.backfill" xml:space="preserve">
+    <value>Erstmals am {date} gesehen, in der Adressliste vom ersten Tag dieser Seite.</value>
+  </data>
   <data name="game.answeringSince" xml:space="preserve">
     <value>antwortet seit {date}</value>
   </data>

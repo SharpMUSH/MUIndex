@@ -289,6 +289,12 @@ public static partial class Messages
         ["source.mssp"] = "MSSP",
         ["source.info"] = "INFO",
         ["source.aresCentral"] = "AresCentral",
+        ["game.firstSeen.operatorSeed"] = "First seen on {date}, from this site's own configured list.",
+        ["game.firstSeen.submission"] = "First seen on {date}, submitted through this site.",
+        ["game.firstSeen.referral"] = "First seen on {date}, named by another game's list.",
+        ["game.firstSeen.i3Mudlist"] = "First seen on {date}, listed on the I3 mudlist.",
+        ["game.firstSeen.aresCentral"] = "First seen on {date}, listed on AresCentral.",
+        ["game.firstSeen.backfill"] = "First seen on {date}, in this site's day-one list of addresses.",
         ["source.i3Mudlist"] = "the I3 mudlist",
         ["source.banner"] = "the connect screen",
     };

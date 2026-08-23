@@ -114,6 +114,19 @@ else
                         }
                     </p>
                 }
+
+                @* How this site came to know about the game, and when. A statement about our own
+                   crawl, deliberately dated: the channel on its own would read as a claim about
+                   where the game came from, which is not a thing we know — any game worth listing
+                   appears in several places at once. Absent for every game listed before the column
+                   existed, and silence is the right answer there rather than a guess. *@
+                @if (Page.DiscoveredVia is { } via && Page.Summary.FirstSeenAt is { } found)
+                {
+                    <p class="faint discovery">
+                        @DiscoveryLine.FirstSeen(
+                            Http.LocaleOf().Tag, via, Dates.Absolute(Http.LocaleOf().Tag, found))
+                    </p>
+                }
             </div>
           </div>
 

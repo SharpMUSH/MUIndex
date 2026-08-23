@@ -430,6 +430,12 @@ public sealed partial class NpgsqlGameQueries(
 
         /// <summary>When we first saw this address, for <see cref="GameSort.Discovered"/>.</summary>
         public DateTimeOffset? FirstSeenAt { get; init; }
+
+        /// <summary>
+        /// Which channel first told us about this game's address (migration 0033). Text rather than
+        /// the enum: a spelling this build does not know is a line we omit, not a page that fails.
+        /// </summary>
+        public string? DiscoveredVia { get; init; }
     }
 
     private sealed record PresenceDigest(

@@ -329,6 +329,24 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
     public Task<GameSummary?> FindByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         Task.FromResult(All.FirstOrDefault(g => g.Id == id));
 
+    /// <summary>
+    /// Which channel the fixture pretends first told us about each game.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not set on every game. Most of the catalogue predates the column and renders no
+    /// line at all, and the demo has to show that state too — a fixture where every game has an
+    /// answer would let a null slip through to production unnoticed, which is exactly the class of
+    /// bug a fixture written by somebody who knows what each panel should say tends to hide.
+    /// </remarks>
+    private static DiscoverySource? FoundVia(GameSummary game) => game.Slug switch
+    {
+        "ashen-court" => DiscoverySource.AresCentral,
+        "midnight-sun" => DiscoverySource.I3Mudlist,
+        "batmud" => DiscoverySource.Submission,
+        "hollow-bell" => DiscoverySource.Referral,
+        _ => null,
+    };
+
     /// <summary>The same page by the identifier that does not move (spec §5.7).</summary>
     public Task<GamePage?> FindAsync(Guid id, CancellationToken cancellationToken = default) =>
         All.FirstOrDefault(g => g.Id == id) is { } game
@@ -357,7 +375,8 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
             Activity: Activity(summary),
             Declared: Declared(summary),
             Changes: Changes(summary),
-            Reachable: Reach(summary)));
+            Reachable: Reach(summary),
+            DiscoveredVia: FoundVia(summary)));
     }
 
     public Task<IReadOnlyList<AvailabilityInterval>> ForGameAsync(

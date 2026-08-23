@@ -744,6 +744,24 @@
   <data name="game.claim" xml:space="preserve">
     <value>认领此游戏</value>
   </data>
+  <data name="game.firstSeen.operatorSeed" xml:space="preserve">
+    <value>于 {date} 首次发现，来自本站自有的地址清单。</value>
+  </data>
+  <data name="game.firstSeen.submission" xml:space="preserve">
+    <value>于 {date} 首次发现，由他人通过本站提交。</value>
+  </data>
+  <data name="game.firstSeen.referral" xml:space="preserve">
+    <value>于 {date} 首次发现，由另一个游戏的名单提及。</value>
+  </data>
+  <data name="game.firstSeen.i3Mudlist" xml:space="preserve">
+    <value>于 {date} 首次发现，收录于 I3 mudlist。</value>
+  </data>
+  <data name="game.firstSeen.aresCentral" xml:space="preserve">
+    <value>于 {date} 首次发现，收录于 AresCentral。</value>
+  </data>
+  <data name="game.firstSeen.backfill" xml:space="preserve">
+    <value>于 {date} 首次发现，在本站开站当天的地址清单中。</value>
+  </data>
   <data name="game.answeringSince" xml:space="preserve">
     <value>自 {date} 起有应答</value>
   </data>

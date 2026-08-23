@@ -744,6 +744,24 @@
   <data name="game.claim" xml:space="preserve">
     <value>Dit spel claimen</value>
   </data>
+  <data name="game.firstSeen.operatorSeed" xml:space="preserve">
+    <value>Voor het eerst gezien op {date}, uit de eigen adreslijst van deze site.</value>
+  </data>
+  <data name="game.firstSeen.submission" xml:space="preserve">
+    <value>Voor het eerst gezien op {date}, via deze site aangemeld.</value>
+  </data>
+  <data name="game.firstSeen.referral" xml:space="preserve">
+    <value>Voor het eerst gezien op {date}, genoemd door de lijst van een ander spel.</value>
+  </data>
+  <data name="game.firstSeen.i3Mudlist" xml:space="preserve">
+    <value>Voor het eerst gezien op {date}, vermeld op de I3-mudlist.</value>
+  </data>
+  <data name="game.firstSeen.aresCentral" xml:space="preserve">
+    <value>Voor het eerst gezien op {date}, vermeld op AresCentral.</value>
+  </data>
+  <data name="game.firstSeen.backfill" xml:space="preserve">
+    <value>Voor het eerst gezien op {date}, in de adreslijst van dag één van deze site.</value>
+  </data>
   <data name="game.answeringSince" xml:space="preserve">
     <value>antwoordt sinds {date}</value>
   </data>

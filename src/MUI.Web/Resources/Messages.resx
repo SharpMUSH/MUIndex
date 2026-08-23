@@ -1036,6 +1036,30 @@
     <value>Claim this game</value>
     <comment>the game page's own headings</comment>
   </data>
+  <data name="game.firstSeen.operatorSeed" xml:space="preserve">
+    <value>First seen on {date}, from this site's own configured list.</value>
+    <comment>how this site first learned of a game: a dated fact about our crawl, never a claim about the game</comment>
+  </data>
+  <data name="game.firstSeen.submission" xml:space="preserve">
+    <value>First seen on {date}, submitted through this site.</value>
+    <comment>how this site first learned of a game: a dated fact about our crawl, never a claim about the game</comment>
+  </data>
+  <data name="game.firstSeen.referral" xml:space="preserve">
+    <value>First seen on {date}, named by another game's list.</value>
+    <comment>how this site first learned of a game: a dated fact about our crawl, never a claim about the game</comment>
+  </data>
+  <data name="game.firstSeen.i3Mudlist" xml:space="preserve">
+    <value>First seen on {date}, listed on the I3 mudlist.</value>
+    <comment>I3 is a protocol name and stays as written in every locale</comment>
+  </data>
+  <data name="game.firstSeen.aresCentral" xml:space="preserve">
+    <value>First seen on {date}, listed on AresCentral.</value>
+    <comment>AresCentral is a proper noun and stays as written in every locale</comment>
+  </data>
+  <data name="game.firstSeen.backfill" xml:space="preserve">
+    <value>First seen on {date}, in this site's day-one list of addresses.</value>
+    <comment>names no directory on purpose: which one supplied a given address was never recorded</comment>
+  </data>
   <data name="game.answeringSince" xml:space="preserve">
     <value>answering since {date}</value>
     <comment>the game page's own headings</comment>
