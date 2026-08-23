@@ -990,6 +990,27 @@
   <data name="about.title" xml:space="preserve">
     <value>mu*indexについて</value>
   </data>
+  <data name="about.reading.heading" xml:space="preserve">
+    <value>参照しているもの</value>
+  </data>
+  <data name="about.reading.standing.lead" xml:space="preserve">
+    <value>ゲームの存在を教えてくれる情報源が二つあります。</value>
+  </data>
+  <data name="about.reading.standing.body" xml:space="preserve">
+    <value>どちらも許可を得たうえで定期的に読み込んでおり、いずれも下に明記しています。それ以外のアドレスは、すべてこのクローラー自身が接続して見つけたものです。</value>
+  </data>
+  <data name="about.reading.labelled.lead" xml:space="preserve">
+    <value>そこから得た内容は、その情報源の主張として表示します。</value>
+  </data>
+  <data name="about.reading.labelled.body" xml:space="preserve">
+    <value>情報源が持つ名称やジャンルは、あくまで「その情報源がそう述べている」ものとして示し、当サイトが計測した事実としては扱いません。当サイトの計測と食い違う場合は、その食い違いこそを表示します。</value>
+  </data>
+  <data name="about.feed.aresCentral.note" xml:space="preserve">
+    <value>AresMUSH コミュニティ自身のハブです。管理者から API 認証情報の発行を受け、ゲーム一覧を毎時読み込んでいます。取得するのはアドレスと、各ゲームがそこで自ら述べている内容です。</value>
+  </data>
+  <data name="about.feed.intermud3.note" xml:space="preserve">
+    <value>LP 系の多くのゲームが参加しているネットワークです。そのアドレス一覧を取り込み、応答するゲームには接続人数を尋ねています。</value>
+  </data>
   <data name="about.lede" xml:space="preserve">
     <value>ここにあるゲームはすべて、クローラーが実測したもの。どの値にも、出所といつのものかが記されている。このページでは、何を集めているか、その限界、何をしないか、そしてクローラーを止める方法を扱う。</value>
   </data>

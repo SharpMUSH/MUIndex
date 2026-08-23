@@ -990,6 +990,27 @@
   <data name="about.title" xml:space="preserve">
     <value>Über mu*index</value>
   </data>
+  <data name="about.reading.heading" xml:space="preserve">
+    <value>Was wir lesen</value>
+  </data>
+  <data name="about.reading.standing.lead" xml:space="preserve">
+    <value>Zwei Stellen sagen uns, dass es Spiele gibt.</value>
+  </data>
+  <data name="about.reading.standing.body" xml:space="preserve">
+    <value>Beide werden planmäßig und mit Erlaubnis gelesen, und beide sind unten genannt. Jede andere Adresse hier hat dieser Crawler selbst durch Anfragen gefunden.</value>
+  </data>
+  <data name="about.reading.labelled.lead" xml:space="preserve">
+    <value>Was sie uns sagen, wird als ihre Aussage gekennzeichnet.</value>
+  </data>
+  <data name="about.reading.labelled.body" xml:space="preserve">
+    <value>Ein Name oder ein Genre, das eine dieser Quellen führt, wird als Angabe dieser Quelle gezeigt, nie als etwas, das wir gemessen haben – und wenn unsere eigene Messung widerspricht, sehen Sie genau diesen Widerspruch.</value>
+  </data>
+  <data name="about.feed.aresCentral.note" xml:space="preserve">
+    <value>Der Community-Hub von AresMUSH. Seine Betreuung hat uns API-Zugangsdaten ausgestellt, und wir lesen die Spieleliste stündlich: die Adressen und das, was jedes Spiel dort über sich selbst sagt.</value>
+  </data>
+  <data name="about.feed.intermud3.note" xml:space="preserve">
+    <value>Ein Netzwerk, dem viele Spiele der LP-Familie angeschlossen sind. Wir übernehmen seine Adressliste und fragen die antwortenden Spiele, wie viele Personen verbunden sind.</value>
+  </data>
   <data name="about.lede" xml:space="preserve">
     <value>Jedes Spiel hier wird vom Crawler gemessen, und jeder Wert nennt seine Herkunft und seinen Zeitpunkt. Diese Seite behandelt, was wir erfassen, wo die Grenzen liegen, was wir nicht tun, und wie sich der Crawler stoppen lässt.</value>
   </data>

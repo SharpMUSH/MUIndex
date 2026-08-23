@@ -867,6 +867,14 @@ public static class PlainText
                 }
             }
 
+            // The credits read the same here as on the graphical page — the two surfaces have to be
+            // the same page, and a credit that only appears in one of them is only half a credit.
+            foreach (var feed in section.Feeds)
+            {
+                b.AppendLine();
+                Wrap(b, $"{feed.Name} — {feed.Note}", "  ");
+                Wrap(b, feed.Url, "  ");
+            }
         }
 
         return b.ToString();
