@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>MUI.Ares</RootNamespace>
+    <AssemblyName>MUI.Ares</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="MUI.Crawler.Tests" />
+  </ItemGroup>
+
+  <!--
+    No reference to MUI.Catalog, and none to MUI.Crawl, for the reason MUI.I3 states: what comes back
+    off this connection is a third party's raw answer, and turning it into catalogue state belongs to
+    whatever assembles a reading. The arrow stays one-way so AresCycle is testable against a captured
+    body with no network in sight (spec §6.5, §13).
+  -->
+
+</Project>

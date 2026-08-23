@@ -14,6 +14,7 @@
     probe is still testable against a captured fixture with no socket anywhere (spec §6.5).
   -->
   <ItemGroup>
+    <ProjectReference Include="..\MUI.Ares\MUI.Ares.csproj" />
     <ProjectReference Include="..\MUI.Catalog\MUI.Catalog.csproj" />
     <ProjectReference Include="..\MUI.Crawl\MUI.Crawl.csproj" />
     <ProjectReference Include="..\MUI.Discovery\MUI.Discovery.csproj" />

@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/MUI.Ares/MUI.Ares.csproj" />
     <Project Path="src/MUI.Catalog/MUI.Catalog.csproj" />
     <Project Path="src/MUI.Crawl/MUI.Crawl.csproj" />
     <Project Path="src/MUI.Crawler/MUI.Crawler.csproj" />
