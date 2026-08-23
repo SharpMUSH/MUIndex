@@ -165,8 +165,15 @@ public class PuebloSignalTests
     {
         var hostile = string.Concat(Enumerable.Repeat("<\"", 35_000));
 
+        // Both sides of the gate, because they run different patterns. Unmarked, Strip answers from
+        // MarkerPattern alone and returns; only a screen that gets past the gate reaches BreakPattern
+        // and MarkupPattern, so without this second payload the option could be dropped from either of
+        // those two and this test would not notice.
+        var markedHostile = "<!EL x OPEN>" + hostile;
+
         var clock = System.Diagnostics.Stopwatch.StartNew();
         PuebloSignal.Strip(hostile);
+        PuebloSignal.Strip(markedHostile);
         var elapsed = clock.Elapsed;
 
         await Assert.That(elapsed).IsLessThan(TimeSpan.FromSeconds(2));
