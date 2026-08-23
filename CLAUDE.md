@@ -141,9 +141,14 @@ documented API as the thing to do *in preference to* scraping. There is no one-t
 nothing belongs on `import/one-time`.
 
 The same constraints apply, because they are about how an `HttpClient` is held rather than about
-what is fetched: a typed client through `IHttpClientFactory` (**never** `new HttpClient()`),
-`AllowAutoRedirect = false` since a redirect is a second address nobody ruled on, and the body read
-to a ceiling rather than trusted to `Content-Length`. The URL here is ours and constant rather than
+what is fetched: through `IHttpClientFactory` (**never** `new HttpClient()`), `AllowAutoRedirect =
+false` since a redirect is a second address nobody ruled on, and the body read to a ceiling rather
+than trusted to `Content-Length`. **A *named* client here rather than `IconFetcher`'s typed one**, and
+that difference is load-bearing: a typed client is registered transient, and the only consumer is a
+singleton `BackgroundService`, which would resolve exactly one and hold its handler — and that
+handler's DNS answer — for the life of the process, defeating the pooled rotation the factory exists
+to provide. `AresService` asks the factory for a client per pass;
+`AresServiceOptionsTests.ThePassTakesAClientFactoryRatherThanAClient` enforces it by reflection. The URL here is ours and constant rather than
 owner-supplied, so the DNS-pinning argument is weaker than `IconFetcher`'s — the registration follows
 the same pattern anyway, so there is one way to do this in the tree. `mui-crawl --ares` is the single
 exception and says so at the call site: a process that makes one request and exits *is* the handler's

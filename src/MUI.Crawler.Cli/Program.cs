@@ -20,7 +20,21 @@ using Npgsql;
 // this answers "what did a cycle write". Builds the same graph AddMuiCrawler builds, by hand and
 // without a host, so what's verified here is what the web deployable runs.
 
-var arguments = Arguments.Parse(args);
+// Every argument error arrives as an ArgumentException carrying its own message and the usage
+// text, and until this catch existed each one reached an operator as a stack trace — for a typo.
+// The message is the whole point of raising it; the trace says nothing a person running mui-crawl
+// can act on.
+Arguments arguments;
+
+try
+{
+    arguments = Arguments.Parse(args);
+}
+catch (ArgumentException invalid)
+{
+    Console.Error.WriteLine(invalid.Message);
+    return 1;
+}
 
 if (arguments.Help)
 {

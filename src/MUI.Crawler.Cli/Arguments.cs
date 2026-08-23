@@ -305,6 +305,16 @@ public sealed record Arguments
             }
         }
 
+        // Each of these means "instead of a crawl cycle", and Program runs the Intermud-3 one and
+        // returns — so asking for both would do that pass, skip the other, and print a summary an
+        // operator would reasonably read as covering both. Refused rather than guessed at.
+        if (parsed.I3 && parsed.Ares)
+        {
+            throw new ArgumentException(
+                $"--i3 and --ares each run one pass instead of a crawl cycle; ask for one."
+                + $"{Environment.NewLine}{Usage}");
+        }
+
         if (parsed.OptOut is not null && string.IsNullOrWhiteSpace(parsed.Because))
         {
             throw new ArgumentException(

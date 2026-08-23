@@ -1,3 +1,5 @@
+using Microsoft.Extensions.DependencyInjection;
+
 using MUI.Ares;
 
 namespace MUI.Crawler.Tests;
@@ -115,5 +117,42 @@ public class AresServiceOptionsTests
         ];
 
         await Assert.That(others).DoesNotContain(AdvisoryLease.AresKey);
+    }
+
+    /// <summary>
+    /// The pass must not hold an <c>HttpClient</c> for the life of the process.
+    /// </summary>
+    /// <remarks>
+    /// <c>AresService</c> is a singleton and a typed client is transient, so taking one as a
+    /// constructor parameter resolves exactly one — pinning its handler, and that handler's DNS
+    /// answer, for as long as the host runs. <c>IHttpClientFactory</c> bounds a handler's lifetime by
+    /// rotating the pool, and a client that never returns to the pool never rotates. One request an
+    /// hour for weeks on end is precisely the shape that outlives an address change, and the symptom
+    /// would be every pass failing until somebody restarted the site.
+    /// <para>
+    /// Enforced by reflection rather than by a comment, in the same spirit as
+    /// <c>CrawlTargetTests.NothingInTheRegistryCanRetireATarget</c>: a well-meant "just inject the
+    /// client, it is simpler" fails a test instead of quietly shipping.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task ThePassTakesAClientFactoryRatherThanAClient()
+    {
+        var parameters = typeof(AresService)
+            .GetConstructors()
+            .Single()
+            .GetParameters()
+            .Select(p => p.ParameterType)
+            .ToList();
+
+        await Assert.That(parameters)
+            .DoesNotContain(typeof(IAresGames))
+            .Because("a singleton holding a transient typed client pins its handler for ever");
+
+        await Assert.That(parameters)
+            .DoesNotContain(typeof(HttpClient))
+            .Because("same reason, one layer down");
+
+        await Assert.That(parameters).Contains(typeof(IHttpClientFactory));
     }
 }

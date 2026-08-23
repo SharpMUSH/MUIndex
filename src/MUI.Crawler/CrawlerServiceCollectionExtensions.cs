@@ -262,14 +262,14 @@ public static class CrawlerServiceCollectionExtensions
         {
             services.AddSingleton(options.Ares);
 
-            // AresGamesClient takes the hub's own options, not the service's, so both are registered.
-            services.AddSingleton(options.Ares.Hub);
-
-            // A typed client through the factory, never a constructed HttpClient: the factory is
-            // what bounds the handler's lifetime. Redirects off, because a redirect is a second
-            // address nobody ruled on — IconFetcher's rules, which are about how a client is held
-            // rather than about what it fetches.
-            services.AddHttpClient<IAresGames, AresGamesClient>(client =>
+            // A NAMED client, not a typed one. A typed client is registered transient, and the only
+            // thing here that wants it is a singleton hosted service — which would resolve one and
+            // hold its handler, and that handler's pinned DNS answer, for the life of the process,
+            // defeating the very rotation the factory exists to provide. AresService asks for one
+            // per pass instead. Never a constructed HttpClient either way, and redirects off,
+            // because a redirect is a second address nobody ruled on — IconFetcher's rules, which
+            // are about how a client is held rather than about what it fetches.
+            services.AddHttpClient(AresGamesClient.HttpClientName, client =>
                 {
                     client.BaseAddress = options.Ares.Hub.BaseAddress;
                     client.Timeout = options.Ares.Hub.Timeout;

@@ -36,6 +36,13 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: python3 tools/check-image-restore.py
 
+      # Same class of failure, different file: Compose forwards only what its `environment:` map
+      # names, so a documented setting nothing forwards is a knob that silently does nothing. There
+      # is no error to read, which is why it needs a check rather than a test.
+      - name: Check compose forwards every setting the site reads
+        if: matrix.os == 'ubuntu-latest'
+        run: python3 tools/check-compose-settings.py
+
       - name: Restore
         run: dotnet restore MUIndex.slnx
 

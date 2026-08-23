@@ -39,6 +39,22 @@ public class AresArgumentsTests
     }
 
     /// <summary>
+    /// Asking for both passes at once is refused rather than silently half-honoured.
+    /// </summary>
+    /// <remarks>
+    /// <c>Program</c> runs the Intermud-3 pass and returns, so <c>--i3 --ares</c> would do the I3
+    /// pass and skip the AresCentral one without saying so — an operator would read the I3 summary
+    /// and believe both had run. Each flag means "instead of a crawl cycle", and two of those is not
+    /// a thing to guess at.
+    /// </remarks>
+    [Test]
+    public async Task AskingForBothPassesAtOnceIsRefused()
+    {
+        await Assert.That(() => Arguments.Parse(["--i3", "--ares"])).Throws<ArgumentException>();
+        await Assert.That(() => Arguments.Parse(["--ares", "--i3"])).Throws<ArgumentException>();
+    }
+
+    /// <summary>
     /// A flag whose value is missing is an error, not a silent null — the next argument being eaten
     /// as a credential is how a pass runs against the wrong thing.
     /// </summary>

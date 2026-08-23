@@ -73,7 +73,7 @@ public sealed record AresServiceOptions
 /// </remarks>
 public sealed class AresService(
     NpgsqlDataSource source,
-    IAresGames hub,
+    IHttpClientFactory clients,
     ICrawlTargetRepository targets,
     IAresListingRepository listings,
     IGameFieldStore fields,
@@ -98,6 +98,16 @@ public sealed class AresService(
 
     protected override async Task<TimeSpan> RunPassAsync(CancellationToken stoppingToken)
     {
+        // Built per pass and never held. This service is a singleton; a client kept across passes
+        // keeps the handler it was created with, so the pooled rotation IHttpClientFactory exists to
+        // provide never happens and that handler's DNS answer is pinned for the life of the process.
+        // One request an hour for weeks is exactly long enough to outlive an address change, and the
+        // symptom would be every pass failing until somebody restarted the site.
+        var hub = new AresGamesClient(
+            clients.CreateClient(AresGamesClient.HttpClientName),
+            options.Hub,
+            loggers?.CreateLogger<AresGamesClient>());
+
         var result = await new AresCycle(
                 hub, targets, listings, fields, Time, loggers?.CreateLogger<AresCycle>())
             .RunAsync(stoppingToken);

@@ -70,6 +70,19 @@ services:
       # Credentials come from AresCentral's maintainer and belong in the environment, never in here.
       MUI_ARES_CLIENT_ID: ${MUI_ARES_CLIENT_ID:-}
       MUI_ARES_API_KEY: ${MUI_ARES_API_KEY:-}
+      #
+      # Empty rather than `:-false`, unlike MUI_I3_ENABLED above: an unset value has to reach the
+      # container as "nobody said", so the credentials decide. CrawlerSettings.Read treats an empty
+      # string as unset, and a literal false here would pin the pass off for everyone. Listed at all
+      # because Compose passes only what this map names — an operator setting it in .env and not
+      # finding it here would be configuring nothing.
+      MUI_ARES_ENABLED: ${MUI_ARES_ENABLED:-}
+
+      # The §8.3 DNS claim sweep's off switch, documented in docs/deploy.md for a deployment with no
+      # egress. It was never forwarded here, so it has never worked in a Compose deployment — found
+      # by tools/check-compose-settings.py, which exists because of exactly this. Empty rather than
+      # `:-true` so the code's own default stays the one default.
+      MUI_DNS_CLAIMS_ENABLED: ${MUI_DNS_CLAIMS_ENABLED:-}
 
       Passkeys__ServerDomain: ${MUI_PASSKEY_DOMAIN:-}
 

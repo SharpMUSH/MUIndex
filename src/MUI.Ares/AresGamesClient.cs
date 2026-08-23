@@ -20,6 +20,17 @@ public sealed class AresGamesClient(
     AresOptions options,
     ILogger<AresGamesClient>? log = null) : IAresGames
 {
+    /// <summary>
+    /// The name the <c>IHttpClientFactory</c> registration and every caller agree on.
+    /// </summary>
+    /// <remarks>
+    /// A named client rather than a typed one, deliberately. A typed client is registered transient,
+    /// and the only thing that consumes this is a singleton hosted service — which would resolve one
+    /// and hold it, and its handler, for the life of the process. Named means the caller asks the
+    /// factory for a client per pass and the pool rotates handlers underneath as intended.
+    /// </remarks>
+    public const string HttpClientName = "arescentral";
+
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     private readonly ILogger<AresGamesClient> _log = log ?? NullLogger<AresGamesClient>.Instance;
