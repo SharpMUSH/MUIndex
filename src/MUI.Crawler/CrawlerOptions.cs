@@ -85,6 +85,12 @@ public sealed record CrawlerOptions
         Maintenance.Validate();
         Submissions.Validate();
 
+        // Validated here, not only by the pass itself, because AddMuiCrawler calls this at
+        // registration: an enabled pass with no credentials otherwise registers cleanly and then
+        // dies when the hosted service starts, and an exception out of a BackgroundService takes
+        // the site with it. A startup error naming the setting beats that.
+        Ares.Validate();
+
         foreach (var seed in Seeds)
         {
             seed.Validate();

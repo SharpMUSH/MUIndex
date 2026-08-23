@@ -35,9 +35,26 @@ public class AresServiceOptionsTests
     {
         var options = new CrawlerOptions();
 
-        options.Ares.Validate();
+        options.Validate();
 
         await Assert.That(options.Ares.Enabled).IsFalse();
+    }
+
+    /// <summary>
+    /// Root validation has to catch this, because root validation is what <c>AddMuiCrawler</c> calls.
+    /// </summary>
+    /// <remarks>
+    /// If only <c>Ares.Validate</c> knows, a host that enabled the pass without credentials registers
+    /// cleanly and then dies when the hosted service starts — an exception out of a
+    /// <c>BackgroundService</c> takes the whole site with it. Failing at registration turns that into
+    /// a startup error naming the setting.
+    /// </remarks>
+    [Test]
+    public async Task RootValidationRefusesAnEnabledPassWithNoCredentials()
+    {
+        var options = new CrawlerOptions { Ares = new AresServiceOptions { Enabled = true } };
+
+        await Assert.That(options.Validate).Throws<InvalidOperationException>();
     }
 
     /// <summary>

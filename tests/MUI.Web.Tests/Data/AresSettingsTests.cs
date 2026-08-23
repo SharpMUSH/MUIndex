@@ -87,4 +87,30 @@ public class AresSettingsTests
         await Assert.That(() => Apply((CrawlerSettings.AresEnabledConfigurationKey, "yes")))
             .Throws<ArgumentException>();
     }
+
+    /// <summary>
+    /// A half pair is a configuration error whether or not the pass is switched on.
+    /// </summary>
+    /// <remarks>
+    /// Turning the pass off does not make a broken credential correct — it postpones finding out.
+    /// The operator who later flips it back on is the one who pays, and by then the mistake is old
+    /// enough that nobody connects the two.
+    /// </remarks>
+    [Test]
+    public async Task HalfACredentialIsRefusedEvenWithThePassSwitchedOff()
+    {
+        await Assert.That(() => Apply(
+                (CrawlerSettings.AresEnabledConfigurationKey, "false"),
+                (CrawlerSettings.AresClientIdConfigurationKey, "muindex")))
+            .Throws<InvalidOperationException>();
+    }
+
+    /// <summary>Off with neither half present is the ordinary untouched deployment, and is fine.</summary>
+    [Test]
+    public async Task OffWithNoCredentialsAtAllIsFine()
+    {
+        var options = Apply((CrawlerSettings.AresEnabledConfigurationKey, "false"));
+
+        await Assert.That(options.Ares.Enabled).IsFalse();
+    }
 }

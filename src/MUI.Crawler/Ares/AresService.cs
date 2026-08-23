@@ -55,6 +55,18 @@ public sealed record AresServiceOptions
                 "The AresCentral pass needs a positive interval and lease retry interval.");
         }
 
+        // Checked whether or not the pass is on. Switching it off does not make a broken credential
+        // pair correct, it postpones finding out — and the operator who later switches it back on is
+        // the one who pays, by which time the mistake is old enough that nobody connects the two.
+        var id = !string.IsNullOrWhiteSpace(Hub.ClientId);
+        var key = !string.IsNullOrWhiteSpace(Hub.ApiKey);
+
+        if (id != key)
+        {
+            throw new InvalidOperationException(
+                "AresCentral issues a client id and an API key as a pair; configure both or neither.");
+        }
+
         if (Enabled)
         {
             // Refused at startup rather than discovered as a 401 once an hour for ever.

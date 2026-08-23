@@ -291,7 +291,7 @@ public static partial class Messages
         ["source.aresCentral"] = "AresCentral",
         ["about.reading.heading"] = "What we read",
         ["about.reading.standing.lead"] = "Two places tell us games exist.",
-        ["about.reading.standing.body"] = "Both are read on a schedule, with permission, and both are credited below. Every other address here is one this crawler found by probing.",
+        ["about.reading.standing.body"] = "Both are read on a schedule, with permission, and both are credited below. The rest reach us another way: another game's list naming one, somebody submitting one, or this site's own configured list.",
         ["about.reading.labelled.lead"] = "What they tell us is labelled as theirs.",
         ["about.reading.labelled.body"] = "A name or a genre one of them holds is shown as something that source says, never as something we measured — and where our own probe disagrees, the disagreement is what you see.",
         ["about.feed.aresCentral.note"] = "The AresMUSH community's own hub. Its maintainer issued us API credentials, and we read its games list hourly: the addresses, and what each game says about itself there.",

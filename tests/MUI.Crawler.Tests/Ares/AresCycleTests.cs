@@ -198,6 +198,28 @@ public class AresCycleTests
         await Assert.That(listings.SweptAt).IsNull();
     }
 
+    /// <summary>
+    /// A second pass over the same list seeds nothing: the addresses are in the registry now.
+    /// </summary>
+    /// <remarks>
+    /// Verified against a real database too, but it belongs here as well — this is the property that
+    /// keeps an hourly pass from adding the same eighteen addresses every hour for ever, and a fake
+    /// that forgot what it was handed would let that regress unnoticed.
+    /// </remarks>
+    [Test]
+    public async Task ASecondPassOverTheSameListSeedsNothing()
+    {
+        var targets = new FakeTargets(Now);
+        var hub = new StubHub([Game("Pacifica", "bsgpacifica.org", 4201)]);
+
+        var first = await Cycle(hub, targets, new FakeFields()).RunAsync();
+        var second = await Cycle(hub, targets, new FakeFields()).RunAsync();
+
+        await Assert.That(first.Seeded).IsEqualTo(1);
+        await Assert.That(second.Seeded).IsEqualTo(0);
+        await Assert.That(targets.Added.Count).IsEqualTo(1);
+    }
+
     /// <summary>An empty list is a real answer and does sweep — the hub said it lists nothing.</summary>
     [Test]
     public async Task AnEmptyListIsAnAnswerAndSweeps()

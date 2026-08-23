@@ -997,7 +997,7 @@
     <value>Zwei Stellen sagen uns, dass es Spiele gibt.</value>
   </data>
   <data name="about.reading.standing.body" xml:space="preserve">
-    <value>Beide werden planmäßig und mit Erlaubnis gelesen, und beide sind unten genannt. Jede andere Adresse hier hat dieser Crawler selbst durch Anfragen gefunden.</value>
+    <value>Beide werden planmäßig und mit Erlaubnis gelesen, und beide sind unten genannt. Die übrigen erreichen uns anders: über die Liste eines anderen Spiels, über eine Einreichung oder aus der eigenen Adressliste dieser Seite.</value>
   </data>
   <data name="about.reading.labelled.lead" xml:space="preserve">
     <value>Was sie uns sagen, wird als ihre Aussage gekennzeichnet.</value>

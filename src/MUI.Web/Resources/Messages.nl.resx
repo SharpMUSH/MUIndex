@@ -997,7 +997,7 @@
     <value>Twee plekken vertellen ons dat spellen bestaan.</value>
   </data>
   <data name="about.reading.standing.body" xml:space="preserve">
-    <value>Beide worden volgens schema en met toestemming gelezen, en beide worden hieronder vermeld. Elk ander adres hier heeft deze crawler zelf gevonden door te bevragen.</value>
+    <value>Beide worden volgens schema en met toestemming gelezen, en beide worden hieronder vermeld. De rest bereikt ons anders: via de lijst van een ander spel, via een aanmelding, of uit de eigen adreslijst van deze site.</value>
   </data>
   <data name="about.reading.labelled.lead" xml:space="preserve">
     <value>Wat zij ons vertellen wordt als hún uitspraak gelabeld.</value>

@@ -997,7 +997,7 @@
     <value>ゲームの存在を教えてくれる情報源が二つあります。</value>
   </data>
   <data name="about.reading.standing.body" xml:space="preserve">
-    <value>どちらも許可を得たうえで定期的に読み込んでおり、いずれも下に明記しています。それ以外のアドレスは、すべてこのクローラー自身が接続して見つけたものです。</value>
+    <value>どちらも許可を得たうえで定期的に読み込んでおり、いずれも下に明記しています。それ以外のアドレスは別の経路で届きます。別のゲームの一覧に記載されていた、誰かが登録した、あるいは当サイト自身のアドレス一覧にある、のいずれかです。</value>
   </data>
   <data name="about.reading.labelled.lead" xml:space="preserve">
     <value>そこから得た内容は、その情報源の主張として表示します。</value>

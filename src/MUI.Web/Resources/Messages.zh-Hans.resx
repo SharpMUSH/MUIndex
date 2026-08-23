@@ -997,7 +997,7 @@
     <value>有两个来源会告诉我们某个游戏的存在。</value>
   </data>
   <data name="about.reading.standing.body" xml:space="preserve">
-    <value>两者都在获得许可后定期读取，并均在下方注明。除此之外的每一个地址，都是本抓取程序自己连接后发现的。</value>
+    <value>两者都在获得许可后定期读取，并均在下方注明。其余地址通过别的途径到达我们：由另一个游戏的名单提及、由他人提交，或来自本站自有的地址清单。</value>
   </data>
   <data name="about.reading.labelled.lead" xml:space="preserve">
     <value>它们提供的内容会标注为它们的说法。</value>

@@ -34,9 +34,22 @@ internal sealed class FakeTargets(DateTimeOffset now) : ICrawlTargetRepository
             }
             : null);
 
+    /// <remarks>
+    /// Records the address in <see cref="Existing"/> as well as in <see cref="Added"/>, because the
+    /// real registry does: <c>ON CONFLICT (host, port)</c> collapses a repeat sighting onto the row
+    /// that is already there. A fake that only appended would answer <c>null</c> on the next pass
+    /// and let a cycle re-seed for ever while its test stayed green — the kind of fake that is
+    /// kinder than production and hides exactly the bug it should catch.
+    /// <para>
+    /// <c>TryAdd</c>, not an assignment: an address that has already been promoted to a game keeps
+    /// its game, since the real <c>AddAsync</c> updates nothing but depth.
+    /// </para>
+    /// </remarks>
     public Task<Guid> AddAsync(CrawlTarget target, CancellationToken ct)
     {
         Added.Add(target);
+        Existing.TryAdd((target.Host, target.Port), target.GameId);
+
         return Task.FromResult(target.Id);
     }
 
