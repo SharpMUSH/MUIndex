@@ -21,6 +21,7 @@ WORKDIR /src
 # transitive project closure against this block, so the next one fails on the pull request with the
 # COPY line it needs in the message.
 COPY Directory.Build.props Directory.Packages.props ./
+COPY src/MUI.Ares/MUI.Ares.csproj            src/MUI.Ares/
 COPY src/MUI.Catalog/MUI.Catalog.csproj      src/MUI.Catalog/
 COPY src/MUI.Crawl/MUI.Crawl.csproj          src/MUI.Crawl/
 COPY src/MUI.Crawler/MUI.Crawler.csproj      src/MUI.Crawler/
