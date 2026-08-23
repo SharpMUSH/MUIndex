@@ -452,6 +452,51 @@ Two operational notes:
   commit rather than to `main`, because it is the one container holding our router credential and a
   branch is whatever upstream merged that morning.
 
+## Turning on AresCentral
+
+AresCentral is the AresMUSH community's own hub. Its maintainer issues API credentials per
+deployment; ask for a pair, then put both in `.env`:
+
+```bash
+MUI_ARES_CLIENT_ID=…        # both halves, or the pass refuses to start
+MUI_ARES_API_KEY=…
+```
+
+Unlike I3 this is one switch, not two, and there is no sidecar and no profile. **The pass is off
+until both halves are present and turns itself on when they are** — a deployment that was never
+issued credentials comes up exactly as it did before the feature existed, and never logs an
+authentication failure on a loop. Setting only one half is refused at startup, on the grounds that
+somebody was configuring this and stopped. `MUI_ARES_ENABLED=false` turns it off with the
+credentials still in place.
+
+It reads `https://arescentral.aresmush.com/api/games` once an hour under its own advisory lease, so
+N replicas make one request between them. There is nothing irreversible about turning it on: one
+authenticated GET registers nothing anywhere, which is why it needs no deliberate second act the way
+starting the I3 sidecar does.
+
+**The first pass seeds however many games the hub currently lists** — 18 at the time of writing,
+against I3's ~130 — all due immediately, which the ordinary crawler then dials at its usual batch
+size. Small enough not to be worth watching.
+
+To force one pass by hand, from inside the deployment:
+
+```bash
+docker compose run --rm --entrypoint mui-crawl web --ares
+```
+
+It reads `$MUI_ARES_CLIENT_ID` and `$MUI_ARES_API_KEY` from the container's own environment, so no
+credential needs typing, and prints what landed. A refused request prints one line and exits 1 —
+check the credential pair. Note that a failed fetch deliberately writes nothing at all, including no
+delistings: an empty games list is a real answer meaning the hub lists nothing, and the two must
+never be confused.
+
+What the pass writes: addresses into `crawl_target` stamped `discovered_via = 'ares_central'`, a row
+per listing in `ares_listing`, and — only for addresses the ordinary crawl has already promoted to a
+game — `NAME`, `DESCRIPTION`, `GENRE`, `WEBSITE`, `STATUS` and `CODEBASE` as `game_field` rows at
+source `ares_central`, which ranks below `mssp` and far below `staff`. A listing the hub stops
+mentioning gets `delisted_at` stamped and is never removed, and that has no effect on whether we go
+on probing the address.
+
 ## Starting from an existing catalogue
 
 A deployment can be brought up on a database somebody already crawled. Restore **before** the site
