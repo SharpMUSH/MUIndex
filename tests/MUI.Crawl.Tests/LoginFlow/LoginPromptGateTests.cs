@@ -252,4 +252,79 @@ public class LoginPromptGateTests
 
         await Assert.That(answer is not { Category: LoginPromptCategory.WhoMenu }).IsTrue();
     }
+
+    /// <summary>
+    /// A menu on a screen with artwork above it is still a menu. The old 800-character ceiling put
+    /// half the catalogue's connect screens out of reach of every category here.
+    /// </summary>
+    [Test]
+    public async Task AMenuBelowAScreenfulOfArtworkIsStillRead()
+    {
+        var banner = Artwork(1200) + "\n1 - enter the game\nw - who is playing at the moment\nq - quit\n";
+
+        // Guard the fixture itself: this has to land in the range the raise opened up, or the test
+        // proves nothing about the ceiling.
+        await Assert.That(BannerText.Flatten(banner).Length).IsGreaterThan(LoginPromptGate.LongestQuestion);
+        await Assert.That(BannerText.Flatten(banner).Length).IsGreaterThan(800);
+        await Assert.That(BannerText.Flatten(banner).Length).IsLessThanOrEqualTo(LoginPromptGate.LongestMenu);
+
+        var answer = LoginPromptGate.Classify(banner);
+
+        await Assert.That(answer).IsNotNull();
+        await Assert.That(answer!.Category).IsEqualTo(LoginPromptCategory.WhoMenu);
+        await Assert.That(answer.Answer).IsEqualTo("w");
+    }
+
+    /// <summary>
+    /// The ceiling still is one. Nothing in the measured corpus classifies above 2005 characters, so
+    /// everything past 3000 is a wall of text we decline to read a menu into rather than one we try.
+    /// </summary>
+    [Test]
+    public async Task AWallOfTextIsStillRefused()
+    {
+        var banner = Artwork(6000) + "\nw - who is playing at the moment\n";
+
+        await Assert.That(BannerText.Flatten(banner).Length).IsGreaterThan(LoginPromptGate.LongestMenu);
+        await Assert.That(LoginPromptGate.Classify(banner)).IsNull();
+    }
+
+    /// <summary>
+    /// The Elendor shape, which is why <see cref="PuebloSignal"/> exists: a screen with no menu on it
+    /// at all, whose Pueblo markup carried the words "See who is online" in an <c>xch_hint</c>
+    /// attribute and a stray digit in a version string.
+    /// </summary>
+    /// <remarks>
+    /// Composed the way the probe composes it — <c>TelnetProbe.BannerSoFar</c> normalises Pueblo
+    /// before anything classifies it, because a <c>&lt;br&gt;</c> has to become a line break while the
+    /// lines are still separable.
+    /// </remarks>
+    [Test]
+    public async Task PuebloMarkupIsNotAWhosOnlineMenu()
+    {
+        const string elendor =
+            "<!EL RName FLAG=\"RoomName\" OPEN><samp>Welcome to<br>"
+            + "The Original Tolkien Middle-earth MUSH!<br>Founded October 1991<br>"
+            + "Running: PennMUSH 1.7.1 pl3 with Elendor Mods<br>Pueblo enhanced mode!<br>"
+            + "Use &quot;<a xch_cmd=\"QUIT\" xch_hint=\"Disconnect\">QUIT</a>&quot; to logout. "
+            + "Use &quot;<a xch_cmd=\"WHO\" xch_hint=\"See who is online\">WHO</a>&quot; "
+            + "to find out who is online.<br>Only one character to a player.";
+
+        var answer = LoginPromptGate.Classify(PuebloSignal.Strip(elendor));
+
+        await Assert.That(answer is not { Category: LoginPromptCategory.WhoMenu }).IsTrue();
+    }
+
+    /// <summary>Filler with no menu and no question in it, for sizing a screen.</summary>
+    private static string Artwork(int approximateLength)
+    {
+        const string stanza = "The rain falls soft upon the harbour wall and the boats ride easy. ";
+        var text = new System.Text.StringBuilder();
+
+        while (text.Length < approximateLength)
+        {
+            text.Append(stanza);
+        }
+
+        return text.ToString();
+    }
 }
