@@ -64,6 +64,13 @@ services:
       MUI_I3_GATEWAY: ${MUI_I3_GATEWAY:-i3:8081}
       MUI_I3_API_KEY: ${MUI_I3_API_KEY:-}
 
+      # The AresCentral pass: one authenticated GET an hour against the AresMUSH community hub's
+      # documented API. On when both halves of the credential pair are set and off when they are
+      # not, so a deployment that was never issued one is unchanged and never logs a 401 on a loop.
+      # Credentials come from AresCentral's maintainer and belong in the environment, never in here.
+      MUI_ARES_CLIENT_ID: ${MUI_ARES_CLIENT_ID:-}
+      MUI_ARES_API_KEY: ${MUI_ARES_API_KEY:-}
+
       Passkeys__ServerDomain: ${MUI_PASSKEY_DOMAIN:-}
 
       # The shared bearer secret for /mcp — the authenticated MCP endpoint that replaces the

@@ -62,6 +62,16 @@ public sealed class AdvisoryLease : IAsyncDisposable
     public const long DnsClaimKey = 0x4D55495F444E_5343L;
 
     /// <summary>
+    /// The AresCentral pass's key. <c>MUI_ARES</c>.
+    /// </summary>
+    /// <remarks>
+    /// Its own key rather than the crawl lease's, for I3's reason: a long crawl cycle must not delay
+    /// an hourly read of a hub, and a deployment running with the crawler off still has every reason
+    /// to keep its listings current.
+    /// </remarks>
+    public const long AresKey = 0x4D55495F4152_4553L;
+
+    /// <summary>
     /// Takes the lock if it is free, or returns null. Never waits: a replica that cannot have the
     /// lock has nothing to wait for, and <c>pg_advisory_lock</c> would block a hosted service's
     /// startup indefinitely.

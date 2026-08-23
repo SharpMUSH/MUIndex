@@ -45,6 +45,13 @@ public sealed record CrawlerOptions
     public I3ServiceOptions I3 { get; init; } = new();
 
     /// <summary>
+    /// The AresCentral pass: whether it runs, and the credentials the hub issued. Its own advisory
+    /// lock and its own schedule. On by default — a GET against a documented API registers nothing —
+    /// but a host that finds no credentials turns it off, so a deployment without them is unchanged.
+    /// </summary>
+    public AresServiceOptions Ares { get; init; } = new();
+
+    /// <summary>
     /// The §8.3 sweep that reads TXT records for the games somebody is mid-claim on. Its own advisory
     /// lock and its own schedule; on by default, since it dials nothing and its cost is set by how
     /// many people are claiming rather than by the size of the catalogue.

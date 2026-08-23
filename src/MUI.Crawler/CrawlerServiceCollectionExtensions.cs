@@ -1,3 +1,4 @@
+using MUI.Ares;
 using MUI.Catalog;
 using MUI.Catalog.Persistence;
 using MUI.Crawl;
@@ -255,6 +256,34 @@ public static class CrawlerServiceCollectionExtensions
             services.AddHostedService<I3Service>();
         }
 
+        // Gated on Enabled like the I3 pass, but on by default rather than off: this needs no
+        // sidecar, only a credential pair, and the host has already turned it off if it found none.
+        if (options.Ares.Enabled)
+        {
+            services.AddSingleton(options.Ares);
+
+            // AresGamesClient takes the hub's own options, not the service's, so both are registered.
+            services.AddSingleton(options.Ares.Hub);
+
+            // A typed client through the factory, never a constructed HttpClient: the factory is
+            // what bounds the handler's lifetime. Redirects off, because a redirect is a second
+            // address nobody ruled on — IconFetcher's rules, which are about how a client is held
+            // rather than about what it fetches.
+            services.AddHttpClient<IAresGames, AresGamesClient>(client =>
+                {
+                    client.BaseAddress = options.Ares.Hub.BaseAddress;
+                    client.Timeout = options.Ares.Hub.Timeout;
+                })
+                .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+                {
+                    AllowAutoRedirect = false,
+                });
+
+            services.TryAddSingleton<IAresListingRepository>(s => new NpgsqlAresListingRepository(
+                s.GetRequiredService<NpgsqlDataSource>()));
+            services.AddHostedService<AresService>();
+        }
+
         return services;
     }
 }
@@ -302,6 +331,12 @@ public sealed class CrawlerOptionsBuilder
     public I3ServiceOptions I3 { get; set; } = new();
 
     /// <summary>
+    /// The AresCentral pass. On unless a deployment turns it off, and a host that finds no
+    /// credentials does exactly that rather than letting the pass fail authentication on a timer.
+    /// </summary>
+    public AresServiceOptions Ares { get; set; } = new();
+
+    /// <summary>
     /// The §8.3 sweep that reads TXT records for games somebody is mid-claim on. On by default; it
     /// costs one lookup per host with a live claim and dials nothing.
     /// </summary>
@@ -333,6 +368,7 @@ public sealed class CrawlerOptionsBuilder
         Maintenance = Maintenance,
         Submissions = Submissions,
         I3 = I3,
+        Ares = Ares,
         DnsClaims = DnsClaims,
         Seeds = _seeds,
     };
