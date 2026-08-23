@@ -253,6 +253,19 @@ public static partial class Messages
         ["crawler.page.statusLabel"] = "status",
         ["crawler.page.registryLabel"] = "registry",
         ["crawler.page.cycleLabel"] = "last cycle",
+        // The three figures under the pulse. Each kicker names what its number counts, because a
+        // bare 1,532 beside a bare 8 is two numbers and no question answered.
+        ["crawler.tile.registry"] = "addresses in the registry",
+        ["crawler.tile.dueNow"] = "due now",
+        ["crawler.tile.nextIn"] = "next in {in}",
+        ["crawler.tile.probed"] = "probed in {span}",
+        // Ours, not theirs: dials that did not complete, never games that were down.
+        ["crawler.window.outcome"] = "{answered, plural, one {# answered} other {# answered}}"
+            + " · {failed, plural, one {# failed} other {# failed}}",
+        // The same window as one line, for the plain rendering, which has no tiles to split it over.
+        ["crawler.window.plain"] = "{probed, plural, one {# probed} other {# probed}} in the last {span}"
+            + " · {answered, plural, one {# answered} other {# answered}}"
+            + " · {failed, plural, one {# failed} other {# failed}}",
         ["crawler.cycle.full"] = "{considered, plural, one {# due} other {# due}}"
             + " · {probed, plural, one {# probed} other {# probed}}"
             + " · {answered, plural, one {# answered} other {# answered}}"
@@ -262,11 +275,20 @@ public static partial class Messages
         ["crawler.cycle.finishedAt"] = "last cycle finished {when} · took {took}",
         ["crawler.history.title"] = "recent cycles",
         ["crawler.history.empty"] = "No completed cycles are recorded yet.",
-        ["crawler.liveness.title"] = "went dark, came back",
-        ["crawler.liveness.lede"] = "The other two liveness feeds — newly discovered stays on the front page.",
+        // The day's total, above the ten rows that are only a sample of it.
+        ["crawler.history.lede"] = "{cycles, plural, one {# cycle} other {# cycles}} finished in the"
+            + " last {span}. The newest are listed.",
+        ["crawler.history.ledeEmpty"] = "No cycle finished in the last {span}.",
+        ["crawler.liveness.title"] = "found, lost, back",
+        ["crawler.liveness.lede"] = "The three liveness registers, as the crawler wrote them.",
         ["crawler.recent.title"] = "recently updated",
         ["crawler.recent.lede"] = "The newest field changes the crawler has written in the last 30 days, across every listed game.",
         ["crawler.recent.empty"] = "No field has changed recently.",
+        // Column heads, not sentences: each is the noun the cell under it holds.
+        ["crawler.recent.col.when"] = "when",
+        ["crawler.recent.col.game"] = "game",
+        ["crawler.recent.col.field"] = "field",
+        ["crawler.recent.col.value"] = "value",
         ["crawler.due.title"] = "next up",
         ["crawler.due.lede"] = "The soonest-due addresses in the registry, whether or not they have resolved to a named game yet.",
         ["crawler.due.empty"] = "Nothing is due.",

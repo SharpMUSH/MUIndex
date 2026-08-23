@@ -76,6 +76,46 @@ public class StoredCrawlerPulseTests
         await Assert.That(await pulse.DueSoonAsync(Now, 10)).IsEmpty();
     }
 
+    /// <summary>
+    /// A failed window read answers nothing — never a zero it did not measure.
+    /// </summary>
+    /// <remarks>
+    /// The sibling fallbacks can be empty lists because an empty list renders as no rows. An empty
+    /// <see cref="CrawlWindow"/> cannot: it renders as the figure <c>0</c>, beside a pulse that on a
+    /// database this broken already reads "quiet", and the two together say the crawler did nothing
+    /// all day. That is our failed query published as a measurement of our own instrument — rule 4
+    /// inward — so this returns null and the page omits the tile.
+    /// </remarks>
+    [Test]
+    public async Task WindowAsyncAnswersNothingRatherThanAZeroItNeverMeasured()
+    {
+        var pulse = new StoredCrawlerPulse(new FakeCrawlCycles { Throws = true }, new FakeCrawlTargets());
+
+        await Assert.That(await pulse.WindowAsync(Now, TimeSpan.FromHours(24))).IsNull();
+    }
+
+    /// <summary>A window that was read and held nothing is a measurement, and keeps its span.</summary>
+    /// <remarks>The other half of the distinction above: this one the page is allowed to print.</remarks>
+    [Test]
+    public async Task AWindowThatWasReadAndHeldNothingIsStillAnAnswer()
+    {
+        var cycles = new FakeCrawlCycles { Window = CrawlWindow.Empty(TimeSpan.FromHours(24)) };
+        var pulse = new StoredCrawlerPulse(cycles, new FakeCrawlTargets());
+
+        var window = await pulse.WindowAsync(Now, TimeSpan.FromHours(24));
+
+        await Assert.That(window).IsNotNull();
+        await Assert.That(window!.IsEmpty).IsTrue();
+        await Assert.That(window.Span).IsEqualTo(TimeSpan.FromHours(24));
+    }
+
+    /// <summary>The demo path has no crawler, so it has no window — not a window of zeroes.</summary>
+    [Test]
+    public async Task NoCrawlerPulseHasNoWindowEither()
+    {
+        await Assert.That(await new NoCrawlerPulse().WindowAsync(Now, TimeSpan.FromHours(24))).IsNull();
+    }
+
     /// <summary>The demo path has no crawler and no invented queue either.</summary>
     [Test]
     public async Task NoCrawlerPulseHasNoDueTargetsEither()
@@ -86,6 +126,8 @@ public class StoredCrawlerPulseTests
     private sealed class FakeCrawlCycles : ICrawlCycles
     {
         public IReadOnlyList<CrawlCycleRecord> Recent { get; set; } = [];
+
+        public CrawlWindow? Window { get; set; }
 
         public bool Throws { get; set; }
 
@@ -102,6 +144,14 @@ public class StoredCrawlerPulseTests
             int count,
             CancellationToken cancellationToken = default) =>
             Throws ? throw new InvalidOperationException("no database in this test") : Task.FromResult(Recent);
+
+        public Task<CrawlWindow> WindowAsync(
+            DateTimeOffset now,
+            TimeSpan span,
+            CancellationToken cancellationToken = default) =>
+            Throws
+                ? throw new InvalidOperationException("no database in this test")
+                : Task.FromResult(Window ?? CrawlWindow.Empty(span));
 
         public Task<bool> IsInstalledAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(true);

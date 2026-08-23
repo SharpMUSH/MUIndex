@@ -162,4 +162,55 @@ public class CrawlCyclePostgresTests
 
         await Assert.That(await new NpgsqlCrawlCycles(database.DataSource).IsInstalledAsync()).IsTrue();
     }
+
+    /// <summary>
+    /// The window sums the cycles inside it and none outside it.
+    /// </summary>
+    /// <remarks>
+    /// The status page's history is ten one-minute rows, which on a healthy crawl are nearly
+    /// identical and say almost nothing; the figure a reader can actually use is what the loop got
+    /// through over a span. Counted from <c>finished_at</c>, the same column the history orders on,
+    /// so a cycle appears in exactly one of "the last ten" and "the last day" per its own clock.
+    /// </remarks>
+    [Test]
+    public async Task TheWindowSumsTheCyclesInsideItAndIgnoresTheRest()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        var cycles = new NpgsqlCrawlCycles(database.DataSource);
+
+        await cycles.RecordAsync(Cycle(Now.AddHours(-30), considered: 100, answered: 90));
+        await cycles.RecordAsync(Cycle(Now.AddHours(-20), considered: 40, answered: 39));
+        await cycles.RecordAsync(Cycle(Now.AddMinutes(-5), considered: 8, answered: 6));
+
+        var window = await cycles.WindowAsync(Now, TimeSpan.FromHours(24));
+
+        await Assert.That(window.Cycles).IsEqualTo(2).Because("the thirty-hour-old cycle is outside");
+        await Assert.That(window.Considered).IsEqualTo(48);
+        await Assert.That(window.Answered).IsEqualTo(45);
+        await Assert.That(window.Failed).IsEqualTo(3);
+        await Assert.That(window.Span).IsEqualTo(TimeSpan.FromHours(24));
+    }
+
+    /// <summary>
+    /// A window with no cycles in it is zeroes, not null and not an exception.
+    /// </summary>
+    /// <remarks>
+    /// <c>SUM</c> over no rows is <c>NULL</c> per row, which is the shape that breaks: the page asks
+    /// this on every render, including a deployment's first, and a null-mapped int throws.
+    /// </remarks>
+    [Test]
+    public async Task AnEmptyWindowIsZeroesRatherThanNothing()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        var cycles = new NpgsqlCrawlCycles(database.DataSource);
+
+        await cycles.RecordAsync(Cycle(Now.AddDays(-3), considered: 100, answered: 90));
+
+        var window = await cycles.WindowAsync(Now, TimeSpan.FromHours(24));
+
+        await Assert.That(window.Cycles).IsEqualTo(0);
+        await Assert.That(window.Probed).IsEqualTo(0);
+        await Assert.That(window.IsEmpty).IsTrue();
+    }
+
 }

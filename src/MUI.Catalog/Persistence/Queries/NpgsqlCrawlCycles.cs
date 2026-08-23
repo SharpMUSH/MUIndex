@@ -39,6 +39,17 @@ public interface ICrawlCycles
     Task<IReadOnlyList<CrawlCycleRecord>> RecentAsync(int count, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// The cycles that finished inside a window, summed.
+    /// </summary>
+    /// <remarks>
+    /// Aggregated in the database rather than by summing <see cref="RecentAsync"/> in the caller: the
+    /// window is a day and the history is ten rows, so the two disagree the moment the loop runs more
+    /// than ten cycles a day — which it does, at one a minute.
+    /// </remarks>
+    Task<CrawlWindow> WindowAsync(
+        DateTimeOffset now, TimeSpan span, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Whether migration 0017 has been applied.
     /// </summary>
     /// <remarks>
@@ -206,6 +217,41 @@ public sealed class NpgsqlCrawlCycles(NpgsqlDataSource source) : ICrawlCycles
             .ToList();
     }
 
+    public async Task<CrawlWindow> WindowAsync(
+        DateTimeOffset now,
+        TimeSpan span,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        // COALESCE on every column because SUM over no rows is one row of nulls, not no rows — and
+        // this is asked on every render of the status page, including a deployment's first.
+        var row = await connection.QuerySingleAsync<WindowRow>(new CommandDefinition(
+            """
+            SELECT COUNT(*)                   AS Cycles,
+                   COALESCE(SUM(considered), 0) AS Considered,
+                   COALESCE(SUM(probed), 0)     AS Probed,
+                   COALESCE(SUM(answered), 0)   AS Answered,
+                   COALESCE(SUM(failed), 0)     AS Failed,
+                   COALESCE(SUM(errored), 0)    AS Errored,
+                   COALESCE(SUM(opted_out), 0)  AS OptedOut
+              FROM crawl_cycle
+             WHERE finished_at >= @since
+            """,
+            new { since = (now - span).ToUniversalTime() },
+            cancellationToken: cancellationToken));
+
+        return new CrawlWindow(
+            span,
+            (int)row.Cycles,
+            (int)row.Considered,
+            (int)row.Probed,
+            (int)row.Answered,
+            (int)row.Failed,
+            (int)row.Errored,
+            (int)row.OptedOut);
+    }
+
     public async Task<int> SweepAsync(DateTimeOffset before, CancellationToken cancellationToken = default)
     {
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
@@ -223,6 +269,25 @@ public sealed class NpgsqlCrawlCycles(NpgsqlDataSource source) : ICrawlCycles
         return await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
             "SELECT to_regclass('public.crawl_cycle') IS NOT NULL",
             cancellationToken: cancellationToken));
+    }
+
+    /// <summary>
+    /// The summed window.
+    /// </summary>
+    /// <remarks>
+    /// <c>long</c> because <c>COUNT</c> and <c>SUM(int)</c> come back as <c>bigint</c> in PostgreSQL;
+    /// mapping them onto <c>int</c> here is an <c>InvalidCastException</c> from Dapper, not a
+    /// narrowing conversion.
+    /// </remarks>
+    private sealed class WindowRow
+    {
+        public long Cycles { get; init; }
+        public long Considered { get; init; }
+        public long Probed { get; init; }
+        public long Answered { get; init; }
+        public long Failed { get; init; }
+        public long Errored { get; init; }
+        public long OptedOut { get; init; }
     }
 
     /// <summary>The flattened join, before the nullable half is folded back into a record.</summary>

@@ -12,18 +12,34 @@
     exact URL off a log line, wanting to know who is knocking and how to stop it. This page answers a
     different question — is the instrument behind every measurement on the site actually running, and
     what did it just do — so it links to About rather than repeating it.
+
+    Four bands, reader first, because two audiences were interleaved here in the order the sections
+    were written rather than the order anybody reads them:
+
+      1. the instrument   — is it running, how big is the job, what did it get through
+      2. the three feeds  — what the crawler found, lost and got back
+      3. what changed     — the field transitions, which is the payoff of all of the above
+      4. the queue        — cycles and next-up, the machine's own bookkeeping, demoted
+
+    Only the intro keeps `.prose`. Its 62ch measure is a *reading* width, and applying it to the
+    whole page put a status board — key/value pairs, dated lists, three feed columns that already
+    know how to sit side by side — into a 500px ribbon 2,700px long, with two thirds of a desktop
+    window empty beside it. Bands 2 and 4 are grids that collapse to one column at the site's
+    existing 56.25em step, so the narrow case is unchanged.
 *@
 
 @if (Plain)
 {
-    <pre class="mono plain">@PlainText.RenderCrawler(Tag, Pulse, Recent, RecentChanges, DueSoon, Feeds, Now)</pre>
+    <pre class="mono plain">@PlainText.RenderCrawler(Tag, Pulse, Window, Recent, RecentChanges, DueSoon, Feeds, Now)</pre>
 }
 else
 {
-    <section class="prose">
-        <h1>@L("crawler.page.title")</h1>
-        <p class="lede">@L("crawler.page.lede")</p>
-        <p class="faint"><a href="@Http.Link("/about")">@L("crawler.page.aboutLink")</a></p>
+    <section class="status-page">
+        <div class="prose">
+            <h1>@L("crawler.page.title")</h1>
+            <p class="lede">@L("crawler.page.lede")</p>
+            <p class="faint"><a href="@Http.Link("/about")">@L("crawler.page.aboutLink")</a></p>
+        </div>
 
         @if (Pulse.State(Now) is CrawlState.NotYet)
         {
@@ -32,45 +48,83 @@ else
         }
         else
         {
-            <dl class="identity mono">
-                <dt class="kicker" translate="yes">@L("crawler.page.statusLabel")</dt>
-                <dd>@CrawlerCopy.State(Tag, Pulse, Now)</dd>
-                <dt class="kicker" translate="yes">@L("crawler.page.registryLabel")</dt>
-                <dd>@CrawlerCopy.Registry(Tag, Pulse)</dd>
+            @*
+                Band 1. The pulse is a sentence and gets to be one; the three figures beside it are
+                counts and go in the tiles the front page already uses for counts. On the front page
+                the crawler strip is deliberately a step smaller and dimmer than the figures it
+                qualifies — here the instrument is the subject, so it leads at the figures' own size.
+            *@
+            <p class="pulse mono">
+                <span class="@StateClass" aria-hidden="true">●</span>
+                @CrawlerCopy.State(Tag, Pulse, Now)
+            </p>
 
-                @if (CrawlerCopy.FullCycle(Tag, Pulse) is { } cycle)
-                {
-                    <dt class="kicker" translate="yes">@L("crawler.page.cycleLabel")</dt>
-                    <dd>
-                        @cycle
-                        @if (CrawlerCopy.CycleFinishedAt(Tag, Pulse) is { } finished)
-                        {
-                            <br /><span class="faint">@finished</span>
-                        }
-                    </dd>
-                }
-            </dl>
-
-            <h2 class="kicker">@L("crawler.history.title")</h2>
-
-            @if (Recent.Count == 0)
-            {
-                <p class="faint">@L("crawler.history.empty")</p>
-            }
-            else
-            {
-                <ul class="mono">
-                    @foreach (var past in Recent)
+            <ul class="tiles">
+                <li>
+                    <span class="kicker">@L("crawler.tile.registry")</span>
+                    <span class="figure mono">@Messages.Figure(Tag, Pulse.TargetsKnown)</span>
+                </li>
+                <li>
+                    <span class="kicker">@L("crawler.tile.dueNow")</span>
+                    <span class="figure mono">@Messages.Figure(Tag, Pulse.DueNow)</span>
+                    @if (NextIn is { } soon)
                     {
-                        <li>@Dates.Stamp(Tag, past.FinishedAt) — @CrawlerCopy.Cycle(Tag, past)</li>
+                        <span class="tile-note mono faint">@soon</span>
                     }
-                </ul>
+                </li>
+                @*
+                    Omitted rather than zeroed when the window could not be read. A figure of 0 beside
+                    a pulse reading "quiet" is our own failed query rendered as the crawler having done
+                    nothing all day — rule 4 pointed inward, and the loudest possible place to get it
+                    wrong. A missing tile says nothing, which is what we know.
+                *@
+                @if (Window is { } window)
+                {
+                    <li>
+                        <span class="kicker">@Messages.Say(Tag, "crawler.tile.probed", ("span", WindowLength))</span>
+                        <span class="figure mono">@Messages.Figure(Tag, window.Probed)</span>
+                        <span class="tile-note mono faint">@CrawlerCopy.WindowOutcome(Tag, window)</span>
+                    </li>
+                }
+            </ul>
+
+            @if (CrawlerCopy.FullCycle(Tag, Pulse) is { } cycle)
+            {
+                @* The newest cycle's own breakdown, under the tiles it is the last increment of —
+                   the same place and the same register as the front page's provenance strip. *@
+                <p class="cycle-line mono faint">
+                    @cycle
+                    @if (CrawlerCopy.CycleFinishedAt(Tag, Pulse) is { } finished)
+                    {
+                        <span class="sep" aria-hidden="true">·</span>
+                        @finished
+                    }
+                </p>
             }
 
+            @*
+                Band 2. All three registers, not two. "Newly discovered" was left on the front page
+                and this page's lede apologised for its absence — but found, lost and returned are
+                one question asked three ways, and this is the page about the thing that answers it.
+                The front page keeps its copy: there it means "what's new in the hobby", here it
+                means "what the crawler turned up".
+            *@
             <h2 class="kicker">@L("crawler.liveness.title")</h2>
             <p class="faint">@L("crawler.liveness.lede")</p>
 
             <div class="feeds">
+                <section class="feed feed-new" aria-labelledby="feed-new">
+                    <h3 id="feed-new" class="kicker">@L("feed.newlyDiscovered")</h3>
+                    @if (Feeds.NewlyDiscovered.Count == 0)
+                    {
+                        <p class="faint">@L("feed.nothingNew")</p>
+                    }
+                    @foreach (var entry in Feeds.NewlyDiscovered)
+                    {
+                        <FeedCard Entry="entry" Kind="FeedKind.NewlyDiscovered" Now="Now" ShowRegister="false" />
+                    }
+                </section>
+
                 <section class="feed feed-dark" aria-labelledby="feed-dark">
                     <h3 id="feed-dark" class="kicker">@L("feed.wentDark")</h3>
                     @if (Feeds.WentDark.Count == 0)
@@ -96,6 +150,12 @@ else
                 </section>
             </div>
 
+            @*
+                Band 3. A table rather than a list of wrapped sentences: every row is the same four
+                facts, and at 62ch each of them wrapped onto two lines with the game's link stranded
+                on the second. Full width, above the queue, because it is the only section here with
+                proper nouns in it.
+            *@
             <h2 class="kicker">@L("crawler.recent.title")</h2>
             <p class="faint">@L("crawler.recent.lede")</p>
 
@@ -105,39 +165,110 @@ else
             }
             else
             {
-                <ul class="mono">
-                    @foreach (var change in RecentChanges)
-                    {
-                        <li>
-                            @Dates.Stamp(Tag, change.At) —
-                            <a href="@Http.Link($"/g/{change.Slug}")">@change.Name</a>
-                            @change.Field: @(change.OldValue is { } old ? $"{old} → {change.NewValue}" : change.NewValue)
-                        </li>
-                    }
-                </ul>
+                <table class="transitions">
+                    <thead>
+                        <tr>
+                            <th scope="col">@L("crawler.recent.col.when")</th>
+                            <th scope="col">@L("crawler.recent.col.game")</th>
+                            <th scope="col">@L("crawler.recent.col.field")</th>
+                            <th scope="col">@L("crawler.recent.col.value")</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var change in RecentChanges)
+                        {
+                            <tr>
+                                <td class="when mono"><Moment At="change.At" Now="Now" Ago="true" /></td>
+                                <td class="game">
+                                    <a href="@Http.Link($"/g/{change.Slug}")"><GameName Name="@change.Name" /></a>
+                                </td>
+                                <td class="field mono">@change.Field</td>
+                                <td class="value mono">
+                                    @if (change.OldValue is { } old)
+                                    {
+                                        <span class="was">@old</span>
+                                        <span class="arrow" aria-hidden="true">→</span>
+                                    }
+                                    <span class="is">@change.NewValue</span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
             }
 
-            <h2 class="kicker">@L("crawler.due.title")</h2>
-            <p class="faint">@L("crawler.due.lede")</p>
-
-            @if (DueSoon.Count == 0)
-            {
-                <p class="faint">@L("crawler.due.empty")</p>
-            }
-            else
-            {
-                <ul class="mono">
-                    @foreach (var target in DueSoon)
+            @*
+                Band 4. The bookkeeping, last and side by side. Ten one-minute rows are the least
+                informative block on the page — on a healthy registry most of them read "nothing due
+                this cycle" — so the day's total goes in the lede above them and the rows stay as the
+                evidence for it. Reading order is column-then-column here, which is what `.two-up`
+                does to focus order; it is only safe because these are the last two things on the page.
+            *@
+            <div class="two-up queue">
+                <section aria-labelledby="cycles">
+                    <h2 id="cycles" class="kicker">@L("crawler.history.title")</h2>
+                    @* Same rule as the tile: "no cycle finished in the last 24h" is a sentence we may
+                       only write when a query came back and said so. *@
+                    @if (Window is { } counted)
                     {
-                        <li>@Dates.Stamp(Tag, target.NextProbeAt) — @($"{target.Host}:{target.Port}")</li>
+                        <p class="faint">@CrawlerCopy.WindowCycles(Tag, counted)</p>
                     }
-                </ul>
-            }
+
+                    @if (Recent.Count == 0)
+                    {
+                        <p class="faint">@L("crawler.history.empty")</p>
+                    }
+                    else
+                    {
+                        <ul class="mono ticks">
+                            @foreach (var past in Recent)
+                            {
+                                <li>
+                                    <span class="when faint">@Dates.Stamp(Tag, past.FinishedAt)</span>
+                                    <span class="what">@CrawlerCopy.Cycle(Tag, past)</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </section>
+
+                <section aria-labelledby="due">
+                    <h2 id="due" class="kicker">@L("crawler.due.title")</h2>
+                    <p class="faint">@L("crawler.due.lede")</p>
+
+                    @if (DueSoon.Count == 0)
+                    {
+                        <p class="faint">@L("crawler.due.empty")</p>
+                    }
+                    else
+                    {
+                        <ul class="mono ticks">
+                            @foreach (var target in DueSoon)
+                            {
+                                <li>
+                                    <span class="when faint">@Dates.Stamp(Tag, target.NextProbeAt)</span>
+                                    <span class="what">@($"{target.Host}:{target.Port}")</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </section>
+            </div>
         }
     </section>
 }
 
 @code {
+    /// <summary>
+    /// How far back the throughput figure looks.
+    /// </summary>
+    /// <remarks>
+    /// A day rather than an hour: the loop runs about once a minute, so an hour is sixty rows of
+    /// small numbers and a day is the first span on which "how much does this get through" has a
+    /// stable answer. The cycle log's own TTL is thirty days, so this is comfortably inside it.
+    /// </remarks>
+    private static readonly TimeSpan Day = TimeSpan.FromHours(24);
+
     [SupplyParameterFromQuery(Name = "plain")] private string? PlainFlag { get; set; }
 
     private bool Plain => Truthy.Is(PlainFlag);
@@ -153,6 +284,9 @@ else
 
     private CrawlerPulse Pulse = CrawlerPulse.Unknown;
 
+    /// <summary>The day's throughput, or null when the read failed — see <see cref="ICrawlerPulse"/>.</summary>
+    private CrawlWindow? Window;
+
     private IReadOnlyList<CrawlCycleRecord> Recent = [];
 
     private IReadOnlyList<RecentGameChange> RecentChanges = [];
@@ -161,14 +295,36 @@ else
 
     private LivenessFeeds Feeds = new([], [], []);
 
+    /// <summary>
+    /// The window's length, worded — the kicker says which span the figure is over.
+    /// </summary>
+    /// <remarks>
+    /// Read from <see cref="Day"/> rather than from the answer, so the wording exists whether or not
+    /// the answer does. The age ladder rather than <see cref="Wording.Duration"/>: the latter rolls
+    /// twenty-four hours up to "1d", and "probed in 1d" reads as a duration the probing took.
+    /// </remarks>
+    private string WindowLength => Relative.Format(Tag, Day);
+
+    // Only when there is something to wait for: on a backlog the soonest target is in the past, and
+    // "next in -4m" is not a fact about anything.
+    private string? NextIn => Pulse.NextDueAt is { } next && next > Now
+        ? Messages.Say(Tag, "crawler.tile.nextIn", ("in", Relative.Format(Tag, next - Now)))
+        : null;
+
+    // Working is the only state that gets the "present" colour, exactly as the front-page strip
+    // decides it: quiet is faint rather than red, because we do not know that anything is wrong.
+    private string StateClass =>
+        Pulse.State(Now) is CrawlState.Working ? "state-present" : "state-unknown";
+
     protected override async Task OnParametersSetAsync()
     {
-        // The three Pulses calls answer their own demo-safe fallback (Unknown / empty) for a missing
+        // The Pulses calls answer their own demo-safe fallback (Unknown / empty) for a missing
         // table or a failed query — see StoredCrawlerPulse. The two IGameQueries calls have no such
         // wrapper (production is NpgsqlGameQueries, and a query failing there throws), so they are
         // caught here on the same terms: a failed section reads as "nothing found", never a 500 for
         // the whole page over one section's query.
         Pulse = await Pulses.ReadAsync(Now);
+        Window = await Pulses.WindowAsync(Now, Day);
         Recent = await Pulses.RecentAsync(10);
         DueSoon = await Pulses.DueSoonAsync(Now, 10);
 

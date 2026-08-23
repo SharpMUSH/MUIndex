@@ -32,6 +32,38 @@ public sealed record CrawlCycleRecord(
 }
 
 /// <summary>
+/// What the crawl loop got through over a span — the sum of the cycles that finished inside it.
+/// </summary>
+/// <remarks>
+/// A different question from <see cref="CrawlCycleRecord"/>, and deliberately not one: a cycle is a
+/// batch the loop happened to claim, so ten of them in a row on a quiet registry are ten near-identical
+/// lines that answer "is it running" a tenth time and "how much does it get through" not at all.
+/// <para>
+/// Every counter here is <b>ours</b> — probes we sent, answers we got, dials that failed. None of it
+/// is a statement about any game (rule 5): <see cref="Failed"/> counts probes that did not complete,
+/// which is a fact about this crawler's afternoon and not about whether anybody's server was up.
+/// </para>
+/// </remarks>
+/// <param name="Span">The window asked for, carried so the sentence can name it.</param>
+/// <param name="Cycles">How many completed cycles fell inside it.</param>
+public sealed record CrawlWindow(
+    TimeSpan Span,
+    int Cycles,
+    int Considered,
+    int Probed,
+    int Answered,
+    int Failed,
+    int Errored,
+    int OptedOut)
+{
+    /// <summary>A window nothing finished in — a fresh deployment, or a genuinely idle day.</summary>
+    public static CrawlWindow Empty(TimeSpan span) => new(span, 0, 0, 0, 0, 0, 0, 0);
+
+    /// <summary>Whether any cycle finished inside the window at all.</summary>
+    public bool IsEmpty => Cycles == 0;
+}
+
+/// <summary>
 /// What the crawler has been doing lately, read from what it wrote.
 /// </summary>
 /// <remarks>

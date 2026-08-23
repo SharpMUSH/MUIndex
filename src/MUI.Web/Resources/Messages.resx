@@ -3030,11 +3030,11 @@
     <comment>the crawler status page's history list, before any cycle has completed</comment>
   </data>
   <data name="crawler.liveness.title" xml:space="preserve">
-    <value>went dark, came back</value>
+    <value>found, lost, back</value>
     <comment>the crawler status page's went-dark/came-back section</comment>
   </data>
   <data name="crawler.liveness.lede" xml:space="preserve">
-    <value>The other two liveness feeds — newly discovered stays on the front page.</value>
+    <value>The three liveness registers, as the crawler wrote them.</value>
     <comment>the crawler status page's went-dark/came-back section</comment>
   </data>
   <data name="crawler.recent.title" xml:space="preserve">
@@ -3060,6 +3060,54 @@
   <data name="crawler.due.empty" xml:space="preserve">
     <value>Nothing is due.</value>
     <comment>the crawler status page's next-up list, when nothing is due</comment>
+  </data>
+  <data name="crawler.tile.registry" xml:space="preserve">
+    <value>addresses in the registry</value>
+    <comment>the crawler status page's figure tiles</comment>
+  </data>
+  <data name="crawler.tile.dueNow" xml:space="preserve">
+    <value>due now</value>
+    <comment>the crawler status page's figure tiles</comment>
+  </data>
+  <data name="crawler.tile.nextIn" xml:space="preserve">
+    <value>next in {in}</value>
+    <comment>the crawler status page's figure tiles</comment>
+  </data>
+  <data name="crawler.tile.probed" xml:space="preserve">
+    <value>probed in {span}</value>
+    <comment>the crawler status page's figure tiles; {span} is a duration like 24h</comment>
+  </data>
+  <data name="crawler.window.outcome" xml:space="preserve">
+    <value>{answered, plural, one {# answered} other {# answered}} · {failed, plural, one {# failed} other {# failed}}</value>
+    <comment>what the crawler's own probes came to over the window — never a claim about a game</comment>
+  </data>
+  <data name="crawler.window.plain" xml:space="preserve">
+    <value>{probed, plural, one {# probed} other {# probed}} in the last {span} · {answered, plural, one {# answered} other {# answered}} · {failed, plural, one {# failed} other {# failed}}</value>
+    <comment>the same window as one line, for the plain-text rendering</comment>
+  </data>
+  <data name="crawler.history.lede" xml:space="preserve">
+    <value>{cycles, plural, one {# cycle} other {# cycles}} finished in the last {span}. The newest are listed.</value>
+    <comment>how many cycles finished in the window the ten listed rows are a sample of</comment>
+  </data>
+  <data name="crawler.history.ledeEmpty" xml:space="preserve">
+    <value>No cycle finished in the last {span}.</value>
+    <comment>no cycle in the window; names no cause</comment>
+  </data>
+  <data name="crawler.recent.col.when" xml:space="preserve">
+    <value>when</value>
+    <comment>column head on the crawler status page's changes table</comment>
+  </data>
+  <data name="crawler.recent.col.game" xml:space="preserve">
+    <value>game</value>
+    <comment>column head on the crawler status page's changes table</comment>
+  </data>
+  <data name="crawler.recent.col.field" xml:space="preserve">
+    <value>field</value>
+    <comment>column head on the crawler status page's changes table</comment>
+  </data>
+  <data name="crawler.recent.col.value" xml:space="preserve">
+    <value>value</value>
+    <comment>column head on the crawler status page's changes table</comment>
   </data>
   <data name="preview.documentTitle" xml:space="preserve">
     <value>{page} — {site}</value>

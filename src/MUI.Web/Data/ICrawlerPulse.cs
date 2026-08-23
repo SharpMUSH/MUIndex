@@ -29,6 +29,22 @@ public interface ICrawlerPulse
     /// </remarks>
     Task<IReadOnlyList<DueTarget>> DueSoonAsync(
         DateTimeOffset now, int count, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// What the loop got through over a span — the status page's headline figure for its own
+    /// throughput — or null when it could not be read.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null and <see cref="CrawlWindow.Empty"/> are different answers and may not be merged.</b>
+    /// Empty is a measurement: the query ran and no cycle finished inside the span, which is a true
+    /// thing to print. Null is the absence of one, and a zero printed in its place is our own failed
+    /// read dressed as the instrument having done nothing — on the one page whose job is saying
+    /// whether the instrument is working, beside a pulse that already reads "quiet". That is rule 4
+    /// ("an unreadable WHO yields unknown, never zero") turned on ourselves, and it is why the
+    /// return type is nullable rather than a convenient zero: every caller has to answer for it.
+    /// </remarks>
+    Task<CrawlWindow?> WindowAsync(
+        DateTimeOffset now, TimeSpan span, CancellationToken cancellationToken = default);
 }
 
 /// <summary>One address queued for its next probe, as the status page shows it.</summary>
@@ -86,6 +102,27 @@ public sealed class StoredCrawlerPulse(
             logger?.LogWarning(error, "Could not read the crawler's cycle history; the status page omits it");
 
             return [];
+        }
+    }
+
+    public async Task<CrawlWindow?> WindowAsync(
+        DateTimeOffset now,
+        TimeSpan span,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await cycles.WindowAsync(now, span, cancellationToken);
+        }
+        catch (Exception error) when (error is not OperationCanceledException
+            || !cancellationToken.IsCancellationRequested)
+        {
+            logger?.LogWarning(error, "Could not read the crawler's window; the status page omits it");
+
+            // Null rather than an empty window: see the interface. A failed read is not a measured
+            // zero, and this is the fallback the sibling methods' empty lists cannot express here —
+            // an empty list renders as no rows, but an empty window renders as the figure 0.
+            return null;
         }
     }
 

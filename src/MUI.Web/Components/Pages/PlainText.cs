@@ -661,6 +661,7 @@ public static class PlainText
     public static string RenderCrawler(
         string tag,
         CrawlerPulse pulse,
+        CrawlWindow? window,
         IReadOnlyList<CrawlCycleRecord> recent,
         IReadOnlyList<RecentGameChange> recentChanges,
         IReadOnlyList<DueTarget> dueSoon,
@@ -689,6 +690,12 @@ public static class PlainText
 
         b.AppendLine(CrawlerCopy.State(tag, pulse, now));
         b.AppendLine(CrawlerCopy.Registry(tag, pulse));
+        // Omitted when the window could not be read, exactly as the rendered page omits its tile: a
+        // line of zeroes here is the same false claim, in the rendering a reader is likelier to quote.
+        if (window is { } read)
+        {
+            b.AppendLine(CrawlerCopy.WindowLine(tag, read));
+        }
 
         if (CrawlerCopy.FullCycle(tag, pulse) is { } cycle)
         {
@@ -701,25 +708,12 @@ public static class PlainText
         }
 
         b.AppendLine();
-        b.AppendLine(Messages.For(tag, "crawler.history.title"));
-
-        if (recent.Count == 0)
-        {
-            b.AppendLine(Messages.For(tag, "crawler.history.empty"));
-        }
-        else
-        {
-            foreach (var past in recent)
-            {
-                b.AppendLine($"  {Dates.Stamp(tag, past.FinishedAt)} — {CrawlerCopy.Cycle(tag, past)}");
-            }
-        }
-
-        b.AppendLine();
         b.AppendLine(Messages.For(tag, "crawler.liveness.title"));
         Wrap(b, Messages.For(tag, "crawler.liveness.lede"), string.Empty);
         b.AppendLine();
 
+        // The same three registers, in the same order, as the rendered page's feed columns.
+        Feed(b, tag, "feed.plain.newlyDiscovered", feeds.NewlyDiscovered, "feed.nothingNew", now);
         Feed(b, tag, "feed.plain.wentDark", feeds.WentDark, "feed.nothingDark", now);
         Feed(b, tag, "feed.plain.cameBack", feeds.CameBack, "feed.nothingBack", now);
 
@@ -741,6 +735,26 @@ public static class PlainText
                     $"{Dates.Stamp(tag, change.At)} — {change.Name} {change.Field}: {value}"
                         + $" · {Path(tag, $"/g/{change.Slug}")}",
                     "  ");
+            }
+        }
+
+        b.AppendLine();
+        b.AppendLine(Messages.For(tag, "crawler.history.title"));
+
+        if (window is { } counted)
+        {
+            Wrap(b, CrawlerCopy.WindowCycles(tag, counted), string.Empty);
+        }
+
+        if (recent.Count == 0)
+        {
+            b.AppendLine(Messages.For(tag, "crawler.history.empty"));
+        }
+        else
+        {
+            foreach (var past in recent)
+            {
+                b.AppendLine($"  {Dates.Stamp(tag, past.FinishedAt)} — {CrawlerCopy.Cycle(tag, past)}");
             }
         }
 
