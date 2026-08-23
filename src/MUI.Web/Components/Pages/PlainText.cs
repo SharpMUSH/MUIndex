@@ -661,6 +661,7 @@ public static class PlainText
     public static string RenderCrawler(
         string tag,
         CrawlerPulse pulse,
+        CrawlWindow window,
         IReadOnlyList<CrawlCycleRecord> recent,
         IReadOnlyList<RecentGameChange> recentChanges,
         IReadOnlyList<DueTarget> dueSoon,
@@ -668,6 +669,7 @@ public static class PlainText
         DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(pulse);
+        ArgumentNullException.ThrowIfNull(window);
         ArgumentNullException.ThrowIfNull(recent);
         ArgumentNullException.ThrowIfNull(recentChanges);
         ArgumentNullException.ThrowIfNull(dueSoon);
@@ -689,6 +691,7 @@ public static class PlainText
 
         b.AppendLine(CrawlerCopy.State(tag, pulse, now));
         b.AppendLine(CrawlerCopy.Registry(tag, pulse));
+        b.AppendLine(CrawlerCopy.WindowLine(tag, window));
 
         if (CrawlerCopy.FullCycle(tag, pulse) is { } cycle)
         {
@@ -701,25 +704,12 @@ public static class PlainText
         }
 
         b.AppendLine();
-        b.AppendLine(Messages.For(tag, "crawler.history.title"));
-
-        if (recent.Count == 0)
-        {
-            b.AppendLine(Messages.For(tag, "crawler.history.empty"));
-        }
-        else
-        {
-            foreach (var past in recent)
-            {
-                b.AppendLine($"  {Dates.Stamp(tag, past.FinishedAt)} — {CrawlerCopy.Cycle(tag, past)}");
-            }
-        }
-
-        b.AppendLine();
         b.AppendLine(Messages.For(tag, "crawler.liveness.title"));
         Wrap(b, Messages.For(tag, "crawler.liveness.lede"), string.Empty);
         b.AppendLine();
 
+        // The same three registers, in the same order, as the rendered page's feed columns.
+        Feed(b, tag, "feed.plain.newlyDiscovered", feeds.NewlyDiscovered, "feed.nothingNew", now);
         Feed(b, tag, "feed.plain.wentDark", feeds.WentDark, "feed.nothingDark", now);
         Feed(b, tag, "feed.plain.cameBack", feeds.CameBack, "feed.nothingBack", now);
 
@@ -741,6 +731,22 @@ public static class PlainText
                     $"{Dates.Stamp(tag, change.At)} — {change.Name} {change.Field}: {value}"
                         + $" · {Path(tag, $"/g/{change.Slug}")}",
                     "  ");
+            }
+        }
+
+        b.AppendLine();
+        b.AppendLine(Messages.For(tag, "crawler.history.title"));
+        Wrap(b, CrawlerCopy.WindowCycles(tag, window), string.Empty);
+
+        if (recent.Count == 0)
+        {
+            b.AppendLine(Messages.For(tag, "crawler.history.empty"));
+        }
+        else
+        {
+            foreach (var past in recent)
+            {
+                b.AppendLine($"  {Dates.Stamp(tag, past.FinishedAt)} — {CrawlerCopy.Cycle(tag, past)}");
             }
         }
 

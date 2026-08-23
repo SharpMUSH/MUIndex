@@ -1143,6 +1143,91 @@ p.crawler .state-present { text-shadow: var(--glow); }
    and the eye cannot run down three lists that are drawn as different kinds of thing. */
 .feed-row.returned .feed-state .state-present { color: var(--accent); }
 
+/* ── /crawler: the status board ────────────────────────────────────────────
+   `.prose`'s 62ch is a reading measure, right for the intro paragraph and wrong for everything
+   under it: three feed columns, a four-column table and two lists of timestamps, squeezed into a
+   500px ribbon nearly three screens long with two thirds of the window empty beside it. Only the
+   intro keeps the measure now. Every band below is a grid that collapses at the same 56.25em step
+   the rest of the site collapses at, so the narrow case is exactly what it was.               */
+
+.status-page > .prose { margin-bottom: calc(var(--cpad) * 1.5); }
+
+/* The pulse leads at the figures' own size. On the front page the same sentence is deliberately a
+   step smaller and dimmer than the counts it sits under, because there it is provenance for
+   somebody else's numbers; here the instrument is the subject of the page. */
+.status-page .pulse {
+    margin: 0 0 var(--cpad);
+    display: flex; align-items: baseline; gap: 10px;
+    font-size: var(--fs-md); color: var(--text);
+}
+.status-page .pulse .state-present { text-shadow: var(--glow); }
+
+/* A third line the front page's four tiles don't carry: the figure is a count, the note is what the
+   count is made of. */
+ul.tiles .tile-note { font-size: var(--fs-sm); line-height: 1.5; }
+
+/* The newest cycle, banded under the tiles it is the last increment of — same hairlines, same
+   register as the front page's provenance strip. */
+.status-page .cycle-line {
+    margin: 12px 0 0; padding: 11px 0; font-size: var(--fs-sm);
+    border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft);
+}
+.status-page .cycle-line .sep { padding: 0 4px; }
+
+.status-page h2 { margin-top: calc(var(--cpad) * 2); }
+.status-page .feeds { margin-top: var(--cpad); }
+
+/* Four facts per row, the same four in every row, which is a table. Written as sentences at 62ch
+   each of them wrapped onto a second line with the game's own link stranded on it. */
+table.transitions {
+    width: 100%; margin: var(--cpad) 0 0; border-collapse: collapse;
+    font-size: var(--fs-sm); color: var(--dim);
+    /*
+      Fixed, so the four widths are a decision rather than an auction between a long field name and a
+      longer value. An auto table's min-content width is the sum of what its cells refuse to go below,
+      and `capability.tls.declared` beside `1358670 → 1361433` refused hard enough to push the whole
+      document 70px past a 430px viewport — the one thing no page here may do.
+    */
+    table-layout: fixed;
+}
+/* Root font-size is 62.5%, so a rem here is 10px: 9rem is 90, not 144. */
+table.transitions th:nth-child(1), table.transitions td:nth-child(1) { width: 9rem; }
+table.transitions th:nth-child(2), table.transitions td:nth-child(2) { width: 24%; }
+table.transitions th:nth-child(3), table.transitions td:nth-child(3) { width: 20rem; }
+table.transitions th, table.transitions td {
+    text-align: left; padding: 7px 14px 7px 0; vertical-align: baseline;
+    border-bottom: 1px solid var(--line-soft);
+}
+table.transitions thead th {
+    font: var(--fs-2xs)/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--faint); border-bottom: 1px solid var(--line);
+}
+table.transitions tbody tr:last-child td { border-bottom: 0; }
+table.transitions td.when { white-space: nowrap; color: var(--faint); }
+table.transitions td.field { color: var(--faint); overflow-wrap: anywhere; }
+/* A game named for its hostname is one unbreakable token, and a fixed column does not grow for it —
+   it overprinted the field beside it at 430 until this. */
+table.transitions td.game { overflow-wrap: anywhere; }
+table.transitions td.game a { color: var(--text); text-decoration: none; }
+table.transitions td.game a:hover { text-decoration: underline; text-underline-offset: 3px; }
+/* A DESCRIPTION or a connect-screen line is long and arbitrary: it wraps inside its own cell rather
+   than widening the table past the shell, which is the one thing this page may not do. */
+table.transitions td.value { overflow-wrap: anywhere; }
+table.transitions td.value .was { color: var(--faint); }
+table.transitions td.value .arrow { padding: 0 4px; color: var(--faint); }
+table.transitions td.value .is { color: var(--text); }
+
+/* The queue: two lists of "when — what", which is one shape twice rather than two designs. */
+.two-up.queue { margin-top: calc(var(--cpad) * 2); }
+ul.ticks { list-style: none; margin: var(--cpad) 0 0; padding: 0; font-size: var(--fs-sm); }
+ul.ticks li {
+    display: flex; flex-wrap: wrap; gap: 2px 10px;
+    padding: 6px 0; border-bottom: 1px solid var(--line-soft);
+}
+ul.ticks li:last-child { border-bottom: 0; }
+ul.ticks .when { flex: none; }
+ul.ticks .what { color: var(--dim); min-width: 0; overflow-wrap: anywhere; }
+
 /*
   The language switcher, in the bar beside the text link and the theme control — the three controls
   that change how the page is read rather than which page it is. It used to be the far end of a
@@ -1341,7 +1426,9 @@ form.locale select:focus { outline: none; }
 }
 .archive-plate strong { color: var(--text); font-weight: 500; }
 
-/* Kept for any surface that still wants two columns; the game page is one column now. */
+/* Two columns where the content is two lists rather than one argument — /crawler's queue band.
+   The game page is one column and stays that way (see the mockup QA's F1: a whole column first in
+   the DOM threw focus order backwards by 800px). */
 .two-up { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: calc(var(--cpad) * 2); }
 
 /*
@@ -1932,6 +2019,9 @@ dl.archive-facts dd { margin: 0 0 6px; color: var(--dim); }
 @media (max-width: 56.25em) {
     .feeds { grid-template-columns: minmax(0, 1fr); }
 
+    /* The collapse this class never had, which is half of why nothing used it. */
+    .two-up { grid-template-columns: minmax(0, 1fr); }
+
     /*
       All 168 cells at 12px rather than a scrolling grid — the whole week at a glance is the reason
       anyone opens this page on a phone, and a heatmap you have to drag is one you cannot read.
@@ -1939,6 +2029,15 @@ dl.archive-facts dd { margin: 0 0 6px; color: var(--dim); }
     table.heat { border-spacing: 1px; }
     table.heat td { width: 12px; height: 12px; border-radius: 2px; }
     table.heat th { padding: 1px 3px; font-size: 0.9rem; }
+}
+
+/* The changes table keeps its four columns on a phone — a table stripped to blocks loses the header
+   association a screen reader reads each cell against — but the two fixed columns give ground first. */
+@media (max-width: 38.75em) {
+    table.transitions th:nth-child(1), table.transitions td:nth-child(1) { width: 6rem; }
+    table.transitions th:nth-child(2), table.transitions td:nth-child(2) { width: 30%; }
+    table.transitions th:nth-child(3), table.transitions td:nth-child(3) { width: 9rem; }
+    table.transitions th, table.transitions td { padding-right: 8px; }
 }
 
 /* All three motions become plain state changes, and nothing updates under the reader. */

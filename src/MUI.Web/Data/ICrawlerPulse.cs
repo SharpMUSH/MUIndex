@@ -29,6 +29,12 @@ public interface ICrawlerPulse
     /// </remarks>
     Task<IReadOnlyList<DueTarget>> DueSoonAsync(
         DateTimeOffset now, int count, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// What the loop got through over a span — the status page's headline figure for its own throughput.
+    /// </summary>
+    Task<CrawlWindow> WindowAsync(
+        DateTimeOffset now, TimeSpan span, CancellationToken cancellationToken = default);
 }
 
 /// <summary>One address queued for its next probe, as the status page shows it.</summary>
@@ -86,6 +92,24 @@ public sealed class StoredCrawlerPulse(
             logger?.LogWarning(error, "Could not read the crawler's cycle history; the status page omits it");
 
             return [];
+        }
+    }
+
+    public async Task<CrawlWindow> WindowAsync(
+        DateTimeOffset now,
+        TimeSpan span,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await cycles.WindowAsync(now, span, cancellationToken);
+        }
+        catch (Exception error) when (error is not OperationCanceledException
+            || !cancellationToken.IsCancellationRequested)
+        {
+            logger?.LogWarning(error, "Could not read the crawler's window; the status page omits it");
+
+            return CrawlWindow.Empty(span);
         }
     }
 

@@ -102,6 +102,21 @@ public static partial class Messages
     public static string Count(string tag, int count) =>
         For(tag, "facet.count", new Dictionary<string, object?> { ["count"] = count });
 
+    /// <summary>
+    /// A bare figure, grouped as the locale groups digits.
+    /// </summary>
+    /// <remarks>
+    /// The same culture <see cref="IcuMessage"/> resolves <c>#</c> and <c>{n, number}</c> against, so
+    /// a figure and the sentence under it cannot disagree about where the separators go — which is
+    /// what "1490" above "1,361 answered" was, on one tile.
+    /// </remarks>
+    public static string Figure(string tag, int value)
+    {
+        ArgumentNullException.ThrowIfNull(tag);
+
+        return value.ToString("N0", Locales.CultureOf(tag));
+    }
+
     /// <summary>The raw pattern a locale would use, English included, or null.</summary>
     public static string? Pattern(string tag, string id)
     {

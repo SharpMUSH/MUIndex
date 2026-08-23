@@ -286,6 +286,147 @@ public class CrawlerPageTests
             .Because("the demo site has no crawler, same as the rendered page's empty state");
     }
 
+    /// <summary>
+    /// The day's throughput is on the page, and the ten-row history is labelled as a sample of it.
+    /// </summary>
+    /// <remarks>
+    /// The history is ten rows whatever the loop did. Without the window figure beside it, a crawler
+    /// that ran fourteen hundred cycles today and one that ran ten and stopped render identically —
+    /// which is the whole reason the tallest block on this page was also the least informative.
+    /// </remarks>
+    [Test]
+    public async Task TheDayFigureSaysWhatTheTenRowHistoryCannot()
+    {
+        var pulse = Pulse(Cycle(1, 1, 1, 0, 0, 0));
+
+        var html = await Render.ComponentAsync<Components.Pages.Crawler>(
+            new Dictionary<string, object?>(),
+            services =>
+            {
+                services.AddSingleton<ICrawlerPulse>(new StubCrawlerPulse(pulse, [Cycle(1, 1, 1, 0, 0, 0)])
+                {
+                    Window = new CrawlWindow(
+                        TimeSpan.FromHours(24), Cycles: 1412, Considered: 1500, Probed: 1490,
+                        Answered: 1361, Failed: 129, Errored: 0, OptedOut: 0),
+                });
+                services.AddSingleton<TimeProvider>(new FixedClock(Now));
+                services.AddSingleton<IGameQueries>(new StubChangeQueries());
+            });
+
+        var text = Render.Text(html);
+
+        await Assert.That(text).Contains("1,490").Because("the figure is what the loop probed in the window");
+        await Assert.That(text).Contains("1,361 answered");
+        await Assert.That(text).Contains("129 failed");
+        await Assert.That(text).Contains("1,412 cycles");
+    }
+
+    /// <summary>
+    /// A day with no cycle in it says so, and does not say why.
+    /// </summary>
+    /// <remarks>
+    /// Rule 5 pointed inward, the same discipline the pulse's "quiet" already keeps: an empty window
+    /// is consistent with a crashed host, a lease held by a replica, and a registry with nothing due,
+    /// and this page may not pick one.
+    /// </remarks>
+    [Test]
+    public async Task AnEmptyWindowNamesNoCause()
+    {
+        var pulse = Pulse(Cycle(1, 1, 1, 0, 0, 0));
+
+        var html = await Render.ComponentAsync<Components.Pages.Crawler>(
+            new Dictionary<string, object?>(),
+            services =>
+            {
+                services.AddSingleton<ICrawlerPulse>(new StubCrawlerPulse(pulse, []));
+                services.AddSingleton<TimeProvider>(new FixedClock(Now));
+                services.AddSingleton<IGameQueries>(new StubChangeQueries());
+            });
+
+        var words = Render.Words(html).ToLowerInvariant();
+
+        await Assert.That(words).Contains("no cycle finished in the last 24h");
+
+        foreach (var forbidden in new[] { "down", "stopped", "stalled", "crashed", "uptime", "offline" })
+        {
+            await Assert.That(words).DoesNotContain(forbidden)
+                .Because($"an empty window may not be given the cause '{forbidden}'");
+        }
+    }
+
+    /// <summary>
+    /// All three liveness registers, on the page about the thing that writes them.
+    /// </summary>
+    /// <remarks>
+    /// Newly discovered used to be left on the front page and this page's lede apologised for its
+    /// absence. Found, lost and returned are one question asked three ways.
+    /// </remarks>
+    [Test]
+    public async Task ThePageCarriesAllThreeLivenessRegisters()
+    {
+        var pulse = Pulse(Cycle(1, 1, 1, 0, 0, 0));
+        var found = new FeedEntry(Guid.NewGuid(), "brand-new", "Brand New MUSH", Now.AddHours(-1), string.Empty);
+        var dark = new FeedEntry(Guid.NewGuid(), "verdigris", "Verdigris", Now.AddHours(-3), "connection refused");
+        var back = new FeedEntry(Guid.NewGuid(), "aardwolf", "Aardwolf MUD", Now.AddMinutes(-40), string.Empty);
+
+        var html = await Render.ComponentAsync<Components.Pages.Crawler>(
+            new Dictionary<string, object?>(),
+            services =>
+            {
+                services.AddSingleton<ICrawlerPulse>(new StubCrawlerPulse(pulse, [Cycle(1, 1, 1, 0, 0, 0)]));
+                services.AddSingleton<TimeProvider>(new FixedClock(Now));
+                services.AddSingleton<IGameQueries>(new StubChangeQueries
+                {
+                    Feeds = new LivenessFeeds([found], [dark], [back]),
+                });
+            });
+
+        var text = Render.Text(html);
+
+        await Assert.That(text).Contains(Messages.For(Locales.SourceTag, "feed.newlyDiscovered"));
+        await Assert.That(text).Contains("Brand New MUSH");
+        await Assert.That(text).Contains("Verdigris");
+        await Assert.That(text).Contains("Aardwolf MUD");
+    }
+
+    /// <summary>
+    /// The bands are grids, and only the intro keeps the reading measure.
+    /// </summary>
+    /// <remarks>
+    /// The whole page was inside <c>.prose</c>, whose 62ch is a measure for paragraphs — which put
+    /// three feed columns, a four-column table and two dated lists into a 500px ribbon with two
+    /// thirds of the window empty beside it, and collapsed <c>.feeds</c>' own auto-fit to one column.
+    /// </remarks>
+    [Test]
+    public async Task OnlyTheIntroKeepsTheReadingMeasure()
+    {
+        var pulse = Pulse(Cycle(1, 1, 1, 0, 0, 0));
+
+        var html = await Render.ComponentAsync<Components.Pages.Crawler>(
+            new Dictionary<string, object?>(),
+            services =>
+            {
+                services.AddSingleton<ICrawlerPulse>(new StubCrawlerPulse(pulse, [Cycle(1, 1, 1, 0, 0, 0)]));
+                services.AddSingleton<TimeProvider>(new FixedClock(Now));
+                services.AddSingleton<IGameQueries>(new StubChangeQueries(
+                    new RecentGameChange(
+                        Guid.NewGuid(), "m-u-s-h", "M*U*S*H", "CODEBASE", FieldSource.Mssp,
+                        "PennMUSH 1.8.7p0", "PennMUSH 1.8.8p0", Now.AddMinutes(-4))));
+            });
+
+        await Assert.That(html).Contains("class=\"status-page\"");
+        await Assert.That(html).Contains("class=\"feeds\"").Because("the three registers sit side by side");
+        await Assert.That(html).Contains("<table class=\"transitions\"")
+            .Because("four facts per row, the same four every row, is a table");
+
+        var prose = html.IndexOf("class=\"prose\"", StringComparison.Ordinal);
+        var feeds = html.IndexOf("class=\"feeds\"", StringComparison.Ordinal);
+
+        await Assert.That(prose).IsGreaterThan(-1);
+        await Assert.That(feeds).IsGreaterThan(prose)
+            .Because("the measure wraps the intro only, and the bands come after it");
+    }
+
     private static Task<string> RenderAsync(ICrawlerPulse pulse) =>
         Render.ComponentAsync<Components.Pages.Crawler>(
             new Dictionary<string, object?>(),
@@ -301,6 +442,8 @@ public class CrawlerPageTests
     {
         public IReadOnlyList<DueTarget> Due { get; init; } = [];
 
+        public CrawlWindow? Window { get; init; }
+
         public Task<CrawlerPulse> ReadAsync(DateTimeOffset now, CancellationToken cancellationToken = default) =>
             Task.FromResult(pulse);
 
@@ -314,6 +457,12 @@ public class CrawlerPageTests
             int count,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(Due);
+
+        public Task<CrawlWindow> WindowAsync(
+            DateTimeOffset now,
+            TimeSpan span,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(Window ?? CrawlWindow.Empty(span));
     }
 
     /// <summary>Answers only <see cref="RecentFieldChangesAsync"/> and <see cref="FeedsAsync"/>, which is all this page asks of it.</summary>

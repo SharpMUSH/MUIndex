@@ -105,6 +105,12 @@ public sealed class FakeCrawlCycles(DateTimeOffset? lastFinishedAt) : ICrawlCycl
         CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<CrawlCycleRecord>>([]);
 
+    public Task<CrawlWindow> WindowAsync(
+        DateTimeOffset now,
+        TimeSpan span,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(CrawlWindow.Empty(span));
+
     public Task<bool> IsInstalledAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(true);
 }

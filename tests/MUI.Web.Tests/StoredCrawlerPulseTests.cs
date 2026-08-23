@@ -76,6 +76,33 @@ public class StoredCrawlerPulseTests
         await Assert.That(await pulse.DueSoonAsync(Now, 10)).IsEmpty();
     }
 
+    /// <summary>
+    /// A failed window read is an empty window, on the same terms as the history and the queue.
+    /// </summary>
+    /// <remarks>
+    /// The figure is the page's headline, and a headline that throws is a 500 on the page whose whole
+    /// job is saying whether the instrument is working. Empty is also honest: no cycle was read.
+    /// </remarks>
+    [Test]
+    public async Task WindowAsyncFallsBackToAnEmptyWindowRatherThanThrowing()
+    {
+        var pulse = new StoredCrawlerPulse(new FakeCrawlCycles { Throws = true }, new FakeCrawlTargets());
+
+        var window = await pulse.WindowAsync(Now, TimeSpan.FromHours(24));
+
+        await Assert.That(window.IsEmpty).IsTrue();
+        await Assert.That(window.Span).IsEqualTo(TimeSpan.FromHours(24));
+    }
+
+    /// <summary>The demo path has no crawler and no invented window either.</summary>
+    [Test]
+    public async Task NoCrawlerPulseHasNoWindowEither()
+    {
+        var window = await new NoCrawlerPulse().WindowAsync(Now, TimeSpan.FromHours(24));
+
+        await Assert.That(window.IsEmpty).IsTrue();
+    }
+
     /// <summary>The demo path has no crawler and no invented queue either.</summary>
     [Test]
     public async Task NoCrawlerPulseHasNoDueTargetsEither()
@@ -86,6 +113,8 @@ public class StoredCrawlerPulseTests
     private sealed class FakeCrawlCycles : ICrawlCycles
     {
         public IReadOnlyList<CrawlCycleRecord> Recent { get; set; } = [];
+
+        public CrawlWindow? Window { get; set; }
 
         public bool Throws { get; set; }
 
@@ -102,6 +131,14 @@ public class StoredCrawlerPulseTests
             int count,
             CancellationToken cancellationToken = default) =>
             Throws ? throw new InvalidOperationException("no database in this test") : Task.FromResult(Recent);
+
+        public Task<CrawlWindow> WindowAsync(
+            DateTimeOffset now,
+            TimeSpan span,
+            CancellationToken cancellationToken = default) =>
+            Throws
+                ? throw new InvalidOperationException("no database in this test")
+                : Task.FromResult(Window ?? CrawlWindow.Empty(span));
 
         public Task<bool> IsInstalledAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(true);

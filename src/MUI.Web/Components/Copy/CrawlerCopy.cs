@@ -125,6 +125,66 @@ public static class CrawlerCopy
                 ("took", Wording.Duration(cycle.Took)));
     }
 
+    /// <summary>
+    /// What came of the window's probes — the note under the throughput figure.
+    /// </summary>
+    /// <remarks>
+    /// <b>Every counter here is ours.</b> "Failed" counts dials of this crawler's that did not
+    /// complete, which is a fact about our afternoon; it is not a count of games that were down, and
+    /// the wording may not drift into saying so (rule 5, pointed inward — same discipline as
+    /// <see cref="State"/>'s refusal to say <em>stopped</em>).
+    /// </remarks>
+    public static string WindowOutcome(string tag, CrawlWindow window)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+
+        return Messages.For(
+            tag,
+            "crawler.window.outcome",
+            new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["answered"] = window.Answered,
+                ["failed"] = window.Failed,
+            });
+    }
+
+    /// <summary>The window as one line, for the plain rendering, which has no tiles to split it over.</summary>
+    public static string WindowLine(string tag, CrawlWindow window)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+
+        return Messages.For(
+            tag,
+            "crawler.window.plain",
+            new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["probed"] = window.Probed,
+                ["answered"] = window.Answered,
+                ["failed"] = window.Failed,
+                ["span"] = Relative.Format(tag, window.Span),
+            });
+    }
+
+    /// <summary>
+    /// How many cycles the window holds, as the sentence above the ten newest of them.
+    /// </summary>
+    /// <remarks>
+    /// The history list is ten rows whatever the loop did, so without this the page cannot tell a
+    /// crawler that ran fourteen hundred cycles today from one that ran ten and stopped.
+    /// </remarks>
+    public static string WindowCycles(string tag, CrawlWindow window)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+
+        var args = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["cycles"] = window.Cycles,
+            ["span"] = Relative.Format(tag, window.Span),
+        };
+
+        return Messages.For(tag, window.IsEmpty ? "crawler.history.ledeEmpty" : "crawler.history.lede", args);
+    }
+
     /// <summary>The backlog, for the plain rendering, which has room for it.</summary>
     public static string Registry(string tag, CrawlerPulse pulse)
     {
