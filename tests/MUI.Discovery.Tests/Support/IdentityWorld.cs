@@ -27,7 +27,13 @@ public sealed class IdentityWorld
     /// </summary>
     public IHostResolver? Resolver { get; set; }
 
-    public IdentityMatcher Matcher => new(Games, Endpoints, Fields, Fields, Options, Resolver);
+    /// <summary>
+    /// The merges in force, which only <c>IdentityMatcher.IdentifiesOneGameAsync</c> reads — to collapse
+    /// listings that are already one game before counting how many publish a connect screen.
+    /// </summary>
+    public InMemoryMergeLog Merges { get; } = new();
+
+    public IdentityMatcher Matcher => new(Games, Endpoints, Fields, Fields, Options, Resolver, Merges);
 
     /// <summary>A game with the stored fields a probe will be scored against.</summary>
     public async Task<Guid> GameAsync(params (string Field, string Value)[] fields)

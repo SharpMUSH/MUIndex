@@ -608,17 +608,17 @@ For everything short of `--seed-exempt`, `/mcp` is the alternative to ssh'ing in
 an authenticated [Model Context Protocol](https://modelcontextprotocol.io) endpoint mounted inside
 this same deployable (Streamable HTTP transport, `ModelContextProtocol.AspNetCore`), so an MCP client
 — Claude Code, calling over HTTPS — can seed the crawler, record an opt-out, list what's due, force a
-crawl pass, read the registry/crawl summary, hand-set one field of one game, rename a game, or merge
-a duplicate pair, without a shell on the box.
+crawl pass, read the registry/crawl summary, hand-set one field of one game, rename a game, or settle
+a duplicate pair either way, without a shell on the box.
 
 Set `MUI_MCP_TOKEN` (`openssl rand -hex 32`, never committed) and point a client at
 `https://<site>/mcp` with `Authorization: Bearer <token>`. Unset, every request gets a 401 and MUI.Web
 says so once at startup — this endpoint fails closed, never open.
 
-The nine tools (`src/MUI.Web/Mcp/CrawlAdminTools.cs`, `src/MUI.Web/Mcp/GameAdminTools.cs`) mirror
+The ten tools (`src/MUI.Web/Mcp/CrawlAdminTools.cs`, `src/MUI.Web/Mcp/GameAdminTools.cs`) mirror
 `mui-crawl`'s CLI surface — `crawl_seed_add`,
 `crawl_opt_out_record`, `crawl_opt_out_check`, `crawl_due_targets`, `crawl_run_cycle`,
-`crawl_summary` — plus three new capabilities. `game_field_set` is a staff override of a single
+`crawl_summary` — plus four capabilities of its own. `game_field_set` is a staff override of a single
 `GameField` row (`FieldSource.Staff`, spec §5.1) for fixing a mis-parsed value by hand without raw
 SQL, and explicitly declines to re-mint a game's slug when the field is `NAME`. `game_rename` (also
 `mui-crawl --rename`) is that missing half: it writes `NAME` through the same staff override and then
@@ -631,7 +631,27 @@ folds a loser slug into a winner slug, resolves an open review naming that pair 
 identity matcher never flagged, recorded as a judgement with no signals. The loser's page 301s to the
 winner's for ever; nothing else about the loser is touched. It refuses — surfacing the schema's own
 message — on a loser already absorbed elsewhere (`merge_log_absorbed_once_idx`) or a redirect chain
-(`merge_log_no_chains`, e.g. a game renamed and then asked to absorb another). `crawl_run_cycle`'s
+(`merge_log_no_chains`, e.g. a game renamed and then asked to absorb another).
+
+`game_keep_distinct` (also `mui-crawl --distinct --because`) is §7.3's other verdict, and the one
+the queue could not be drained without: **this pair is two games**. It resolves the open
+`duplicate_review` row with the reason beside it and does nothing else — no redirect, no endpoint
+moved, no field written, because nothing about either game was ever wrong. Order does not matter,
+since nothing is absorbed. It refuses when no open review names the pair (there is nothing to close,
+and "two games" is what the catalogue already says about every pair nobody has asked about) and when a
+merge still in force has already made the two one listing — revert that first, or the catalogue would
+assert one game and two at once.
+
+Between them these two are the whole of §7.3's operator surface, and until `game_keep_distinct`
+shipped only half of it existed: on 2026-08-21 thirty-one of the sixty-one open rows were pairs
+correctly left unmerged and impossible to clear — a stock RhostMUSH or TinyMUX connect screen, or one
+operator's contact address across the four games they run. A queue whose false positives can never be
+cleared stops being read, and then its true positives stop being acted on. The same pass tightened
+both halves of what put them there: a connect screen published by three or more separate listings is
+no longer read as identity at all (`DiscoveryOptions.SharedBannerListings`), and a `WEBSITE` of
+`http:///` is a placeholder rather than an agreement.
+
+`crawl_run_cycle`'s
 real (non-dry) run reuses the exact same `CrawlCycle` and advisory-lock machinery the hosted crawler
 uses, so it correctly no-ops rather than double-crawls while the hosted crawler holds the lease — see
 the tool's own description for why that is not a bug.

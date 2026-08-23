@@ -65,6 +65,12 @@ public sealed record Arguments
                                   0018). Reversible later by hand against merge_log — nothing here
                                   moves an endpoint, a field or any history, only the redirect.
                                   Needs --because.
+          --distinct <a> <b>      Close a suspected-duplicate pair the other way: record that these
+                                  are two games, and exit. Each may be a slug or a game id. Nothing
+                                  moves and neither page changes — the open duplicate_review row is
+                                  resolved with the reason beside it, which is the only thing that
+                                  stops the pair being asked about again. Refused when a merge
+                                  already made them one listing; revert that first. Needs --because.
           --rename <slug> <newName>
                                   Rename a game and mint it a new, unique slug at once, and exit.
                                   <slug> may be a slug or a game id. Writes NAME as staff first (so
@@ -176,6 +182,12 @@ public sealed record Arguments
     /// </summary>
     public MergeRequest? Merge { get; init; }
 
+    /// <summary>
+    /// The pair to close as two games rather than one (spec §7.3). Unordered — neither side wins,
+    /// because nothing is absorbed. Null when nothing was asked.
+    /// </summary>
+    public DistinctRequest? Distinct { get; init; }
+
     /// <summary>The game to rename and the name to give it (spec §5.7). Null when nothing was asked.</summary>
     public RenameRequest? Rename { get; init; }
 
@@ -286,6 +298,12 @@ public sealed record Arguments
                     parsed = parsed with { Merge = new MergeRequest(winner, loser) };
                     break;
 
+                case "--distinct":
+                    var distinctLeft = Next(args, ref i, "--distinct");
+                    var distinctRight = Next(args, ref i, "--distinct");
+                    parsed = parsed with { Distinct = new DistinctRequest(distinctLeft, distinctRight) };
+                    break;
+
                 case "--rename":
                     var renameSlug = Next(args, ref i, "--rename");
                     var renameName = Next(args, ref i, "--rename");
@@ -345,6 +363,15 @@ public sealed record Arguments
                 $"--merge needs --because: say what convinced you these are one game.{Environment.NewLine}{Usage}");
         }
 
+        // Same rule as --merge's, and for the harder half of the same job: closing a pair as two games
+        // is the judgement that stops it being asked about again, so it is exactly the judgement
+        // somebody later will want to see the reasoning for.
+        if (parsed.Distinct is not null && string.IsNullOrWhiteSpace(parsed.Because))
+        {
+            throw new ArgumentException(
+                $"--distinct needs --because: say what convinced you these are two games.{Environment.NewLine}{Usage}");
+        }
+
         // The fifth. A rename mints a URL the catalogue keeps for ever, on somebody's judgement that
         // the name has settled rather than on §5.7's usual fourteen-day wait; the reason belongs
         // beside the row it lands on, same as the other three consequential writes above.
@@ -375,6 +402,9 @@ public sealed record Arguments
 /// way <see cref="Program"/> already reads one for any other operator surface.
 /// </summary>
 public sealed record MergeRequest(string Winner, string Loser);
+
+/// <summary>A pair to close as two games, named by slug or id. Unordered: nothing is absorbed.</summary>
+public sealed record DistinctRequest(string Left, string Right);
 
 /// <summary>A game to rename and the name to give it, exactly as typed (spec §5.7).</summary>
 public sealed record RenameRequest(string Slug, string NewName);

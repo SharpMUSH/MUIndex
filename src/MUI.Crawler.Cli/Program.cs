@@ -327,11 +327,12 @@ if (arguments.MintNow)
 if (arguments.Merge is { } mergeRequest)
 {
     var gameDirectory = new CatalogueGameDirectory(games);
+    var mergeLog = new NpgsqlMergeLog(source);
     var mergeService = new ReviewMergeService(
         gameDirectory,
         new NpgsqlDuplicateReviewRepository(source),
-        new MergeApplier(
-            new CatalogueEndpointDirectory(endpoints), fields, new NpgsqlMergeLog(source), time),
+        new MergeApplier(new CatalogueEndpointDirectory(endpoints), fields, mergeLog, time),
+        mergeLog,
         time,
         new NpgsqlUnitOfWorkFactory(source));
 
@@ -365,6 +366,13 @@ if (arguments.Merge is { } mergeRequest)
                 Console.WriteLine(result.ResolvedReviewId is { } reviewId
                     ? $"review        {reviewId} resolved, score {result.Score:F2}"
                     : "review        no open review named this pair; recorded as a judgement with no signals");
+                if (result.MootReviewsResolved > 0)
+                {
+                    Console.WriteLine(
+                        $"moot          {result.MootReviewsResolved} further review(s) closed: both sides "
+                        + "now redirect to the winner");
+                }
+
                 return 0;
 
             case MergeVerdict.SelfMerge:
@@ -392,6 +400,78 @@ if (arguments.Merge is { } mergeRequest)
     catch (Exception error) when (error is ArgumentException or InvalidOperationException)
     {
         Console.Error.WriteLine($"merge         refused: {error.Message}");
+        return 1;
+    }
+}
+
+// §7.3's other verdict: the pair is two games. The row is closed with the reason beside it and nothing
+// else happens — which is the point, since the only thing a false positive needs is to stop being asked
+// about. Deliberately has no winner: nothing is absorbed, so neither side is named first.
+if (arguments.Distinct is { } distinctRequest)
+{
+    var mergeLog = new NpgsqlMergeLog(source);
+    var distinctService = new ReviewMergeService(
+        new CatalogueGameDirectory(games),
+        new NpgsqlDuplicateReviewRepository(source),
+        new MergeApplier(new CatalogueEndpointDirectory(endpoints), fields, mergeLog, time),
+        mergeLog,
+        time,
+        new NpgsqlUnitOfWorkFactory(source));
+
+    try
+    {
+        var left = await ResolveGameIdAsync(games, distinctRequest.Left, CancellationToken.None);
+        var right = await ResolveGameIdAsync(games, distinctRequest.Right, CancellationToken.None);
+
+        if (left is not { } leftId)
+        {
+            Console.Error.WriteLine($"distinct      '{distinctRequest.Left}' is not a known slug or game id.");
+            return 1;
+        }
+
+        if (right is not { } rightId)
+        {
+            Console.Error.WriteLine($"distinct      '{distinctRequest.Right}' is not a known slug or game id.");
+            return 1;
+        }
+
+        var verdict = await distinctService.KeepDistinctAsync(
+            leftId, rightId, arguments.Because!, CancellationToken.None);
+
+        switch (verdict)
+        {
+            case DistinctVerdict.Kept(var reviewId, var score):
+                Console.WriteLine(
+                    $"distinct      {distinctRequest.Left} + {distinctRequest.Right}  two games");
+                Console.WriteLine($"review        {reviewId} resolved, score {score:F2}");
+                return 0;
+
+            case DistinctVerdict.NoOpenReview:
+                Console.Error.WriteLine(
+                    "distinct      no open review names this pair; nothing to close.");
+                return 1;
+
+            case DistinctVerdict.SameGame:
+                Console.Error.WriteLine("distinct      refused: both sides name the same game.");
+                return 1;
+
+            case DistinctVerdict.UnknownGame(var id):
+                Console.Error.WriteLine($"distinct      refused: {id} does not name a game.");
+                return 1;
+
+            case DistinctVerdict.AlreadyOneListing(var listing):
+                Console.Error.WriteLine(
+                    $"distinct      refused: a merge still in force already makes these one listing "
+                    + $"({listing}). Revert it first.");
+                return 1;
+
+            default:
+                throw new UnreachableException($"Unhandled {nameof(DistinctVerdict)}: {verdict}");
+        }
+    }
+    catch (Exception error) when (error is ArgumentException or InvalidOperationException)
+    {
+        Console.Error.WriteLine($"distinct      refused: {error.Message}");
         return 1;
     }
 }
@@ -503,8 +583,10 @@ var cycle = new CrawlCycle(
             fields,
             new NpgsqlGameFieldIndex(source),
             discovery,
-            hostResolver),
+            hostResolver,
+            new NpgsqlMergeLog(source)),
         new NpgsqlDuplicateReviewRepository(source),
+        new NpgsqlMergeLog(source),
         time,
         loggerFactory.CreateLogger<CatalogueBinder>()),
     new ReferralGraphWriter(new NpgsqlReferralRepository(source), targets, discovery, time),

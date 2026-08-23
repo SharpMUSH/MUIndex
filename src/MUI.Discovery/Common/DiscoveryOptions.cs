@@ -99,6 +99,19 @@ public sealed record DiscoveryOptions
     public double ReviewThreshold { get; init; } = IdentityWeights.ReviewThreshold;
 
     /// <summary>
+    /// How many separate listings must publish one connect screen before it stops being read as
+    /// identity at all — see <c>IdentityMatcher.IdentifiesOneGameAsync</c>.
+    /// </summary>
+    /// <remarks>
+    /// Three, because two is a duplicate and three is a pattern: one game answering at two addresses
+    /// is the ordinary case this signal exists to catch, and a screen a third unrelated listing also
+    /// sends is the codebase's rather than anybody's. Measured from the catalogue, so a codebase that
+    /// ships a distinctive default needs no list entry and a game that hand-edits one keeps its
+    /// signal.
+    /// </remarks>
+    public int SharedBannerListings { get; init; } = 3;
+
+    /// <summary>
     /// Throws when a setting could only have arrived from a typo or a hand-edited file, rather than
     /// starting a run that would be wrong in a way nobody notices until it is on the network.
     /// </summary>
@@ -152,6 +165,13 @@ public sealed record DiscoveryOptions
         if (ReviewThreshold > AutoMergeThreshold)
         {
             throw new ArgumentException("ReviewThreshold cannot exceed AutoMergeThreshold: nothing would ever be reviewed.");
+        }
+
+        if (SharedBannerListings < 2)
+        {
+            throw new ArgumentException(
+                "SharedBannerListings must be at least 2: below that the banner signal never fires, "
+                + "since the game being scored publishes the screen itself.");
         }
     }
 }

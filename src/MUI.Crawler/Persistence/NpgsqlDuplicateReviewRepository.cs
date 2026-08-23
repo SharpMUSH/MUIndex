@@ -112,7 +112,7 @@ public sealed class NpgsqlDuplicateReviewRepository(NpgsqlDataSource source) : I
     }
 
     /// <summary>Closes the pair. The row is kept: a judgement is part of the record.</summary>
-    public async Task ResolveAsync(
+    public async Task<bool> ResolveAsync(
         Guid id, string resolution, DateTimeOffset at, CancellationToken ct, IUnitOfWork? unitOfWork = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resolution);
@@ -127,7 +127,10 @@ public sealed class NpgsqlDuplicateReviewRepository(NpgsqlDataSource source) : I
         {
             var connection = shared?.Connection ?? owned!;
 
-            await connection.ExecuteAsync(new CommandDefinition(
+            // resolved_at IS NULL is what makes this safe under two operators at once: the second
+            // UPDATE matches nothing rather than overwriting the first one's judgement, and the row
+            // count is how the caller learns which of the two it was.
+            return await connection.ExecuteAsync(new CommandDefinition(
                 """
                 UPDATE duplicate_review
                    SET resolved_at = @at, resolution = @resolution
@@ -135,7 +138,7 @@ public sealed class NpgsqlDuplicateReviewRepository(NpgsqlDataSource source) : I
                 """,
                 new { id, resolution, at = at.ToUniversalTime() },
                 transaction: shared?.Transaction,
-                cancellationToken: ct));
+                cancellationToken: ct)) == 1;
         }
         finally
         {

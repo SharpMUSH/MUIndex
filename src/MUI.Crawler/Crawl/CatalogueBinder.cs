@@ -24,6 +24,7 @@ public sealed class CatalogueBinder(
     ISlugHistoryStore slugs,
     IdentityMatcher matcher,
     IDuplicateReviewRepository reviews,
+    IMergeLog merges,
     TimeProvider time,
     ILogger<CatalogueBinder>? logger = null)
 {
@@ -53,6 +54,21 @@ public sealed class CatalogueBinder(
             // the one time they're compared and never be re-scored otherwise.
             if (await matcher.RivalAsync(result, known, cancellationToken) is not { CandidateGameId: { } rival } score)
             {
+                return new Binding(known, Created: false, ReviewedAgainst: null);
+            }
+
+            // A pair somebody already merged is not a pair. Absorbing a game does not stop it being
+            // probed — a merge is a redirect and the loser keeps every endpoint and target it had — so
+            // without this the winner scores as its own rival on every probe of the absorbed address,
+            // and a review opens on a question that has been answered. That is not hypothetical: it
+            // re-opened twenty-one of them in prod, every one stamped after the merge that settled it.
+            if (await merges.AreOneListingAsync(known, rival, cancellationToken))
+            {
+                logger?.LogDebug(
+                    "{Host}:{Port} scored {Score:F2} against a listing it has already been merged with; "
+                    + "no review opened",
+                    result.Host, result.Port, score.Score);
+
                 return new Binding(known, Created: false, ReviewedAgainst: null);
             }
 

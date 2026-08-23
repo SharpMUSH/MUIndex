@@ -85,4 +85,25 @@ public class MsspDefaultsTests
         await Assert.That(MsspDefaults.IsPlaceholder("0")).IsTrue();
         await Assert.That(MsspDefaults.MeaningfulName("0", "PennMUSH")).IsNull();
     }
+
+    [Test]
+    public async Task AUrlWithNoHostIsAPlaceholder()
+    {
+        // What an unconfigured CoffeeMud publishes for WEBSITE. It is a non-answer wearing a URL's
+        // clothes, and it reached §7.3 as a matched WebsiteOrContact between every game that had not
+        // filled it in -- four such pairs were open in production on 2026-08-21, all of them different
+        // games on different hosts agreeing only on having left the field alone.
+        await Assert.That(MsspDefaults.IsPlaceholder("http:///")).IsTrue();
+        await Assert.That(MsspDefaults.IsPlaceholder("https:///")).IsTrue();
+        await Assert.That(MsspDefaults.IsPlaceholder("http://")).IsTrue();
+    }
+
+    [Test]
+    public async Task ARealUrlIsNotAPlaceholder()
+    {
+        // The other half, which matters more: this list erases an answer, so it must not reach a URL
+        // that names a host.
+        await Assert.That(MsspDefaults.IsPlaceholder("http://corvid.example.org")).IsFalse();
+        await Assert.That(MsspDefaults.IsPlaceholder("https://coffeemud.net:27744/")).IsFalse();
+    }
 }
