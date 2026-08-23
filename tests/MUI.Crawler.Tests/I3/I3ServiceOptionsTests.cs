@@ -76,4 +76,76 @@ public class I3ServiceOptionsTests
 
         await Assert.That(options.Pass.AskEvery).IsGreaterThan(options.Interval);
     }
+
+    /// <summary>
+    /// Root validation has to catch an enabled pass with no key, because root validation is what
+    /// <c>AddMuiCrawler</c> calls.
+    /// </summary>
+    /// <remarks>
+    /// <c>I3ServiceOptions.Validate</c> has always refused this, but nothing called it until
+    /// <c>I3Service.ExecuteAsync</c> — by which point the hosted service is running, and an
+    /// exception out of a <c>BackgroundService</c> takes the whole web tier with it. A deployment
+    /// that enabled the pass and forgot the key got a dead site rather than a startup error naming
+    /// the setting. <c>CrawlerSettings.Apply</c> already validated for the configuration path; this
+    /// closes the same hole for a host that builds <c>CrawlerOptions</c> directly.
+    /// </remarks>
+    [Test]
+    public async Task RootValidationRefusesAnEnabledPassWithNoKey()
+    {
+        var options = new CrawlerOptions { I3 = new I3ServiceOptions { Enabled = true } };
+
+        await Assert.That(options.Validate).Throws<InvalidOperationException>();
+    }
+
+    /// <summary>
+    /// The default graph a host gets must still validate. I3 is off unless asked for, so root
+    /// validation is a no-op on it — this is the assertion that lets the one above be safe to add.
+    /// </summary>
+    [Test]
+    public async Task DefaultCrawlerOptionsStillValidate()
+    {
+        var options = new CrawlerOptions();
+
+        options.Validate();
+
+        await Assert.That(options.I3.Enabled).IsFalse();
+    }
+
+    /// <summary>An enabled pass with a key passes root validation, so the gate is not simply "off".</summary>
+    [Test]
+    public async Task RootValidationAcceptsAnEnabledPassWithAKey()
+    {
+        var options = new CrawlerOptions
+        {
+            I3 = new I3ServiceOptions
+            {
+                Enabled = true,
+                Gateway = new GatewayOptions { ApiKey = "not-a-real-key" },
+            },
+        };
+
+        options.Validate();
+
+        await Assert.That(options.I3.Enabled).IsTrue();
+    }
+
+    /// <summary>
+    /// The DNS claim sweep had the same gap, and it is closed in the same place.
+    /// </summary>
+    /// <remarks>
+    /// <c>DnsClaimSweeper</c> validated its own options inside <c>ExecuteAsync</c> too, so a
+    /// non-positive interval was a dead web tier rather than a startup error. Same defect, same
+    /// method, same fix — and unlike the two passes it is on by default, so a deployment does not
+    /// have to have opted into anything to be exposed to it.
+    /// </remarks>
+    [Test]
+    public async Task RootValidationRefusesANonPositiveSweepInterval()
+    {
+        var options = new CrawlerOptions
+        {
+            DnsClaims = new DnsClaimSweepOptions { Interval = TimeSpan.Zero },
+        };
+
+        await Assert.That(options.Validate).Throws<ArgumentException>();
+    }
 }
