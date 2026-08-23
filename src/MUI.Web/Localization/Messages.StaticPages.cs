@@ -288,6 +288,7 @@ public static partial class Messages
         ["source.i3"] = "I3",
         ["source.mssp"] = "MSSP",
         ["source.info"] = "INFO",
+        ["source.aresCentral"] = "AresCentral",
         ["source.i3Mudlist"] = "the I3 mudlist",
         ["source.banner"] = "the connect screen",
     };

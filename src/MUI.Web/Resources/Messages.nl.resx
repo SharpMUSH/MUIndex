@@ -1392,6 +1392,9 @@
   <data name="source.info" xml:space="preserve">
     <value>INFO</value>
   </data>
+  <data name="source.aresCentral" xml:space="preserve">
+    <value>AresCentral</value>
+  </data>
   <data name="source.i3Mudlist" xml:space="preserve">
     <value>de I3-mudlist</value>
   </data>

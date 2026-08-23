@@ -42,6 +42,21 @@ public enum FieldSource
     Info,
 
     /// <summary>
+    /// A value AresCentral holds: the game told the AresMUSH community hub, and the hub told us
+    /// through an API whose maintainer issued us credentials.
+    /// </summary>
+    /// <remarks>
+    /// Declared, not measured — nobody here read this off the game's own socket. Ranks below
+    /// <see cref="Mssp"/>, because a game speaking to us directly and now beats a hub repeating a
+    /// claim of unknown age, and above <see cref="I3Mudlist"/>, because AresCentral is
+    /// authenticated, curated by the codebase's own author, and excludes games marked In Development
+    /// and games long offline, where the live I3 mudlist carries <c>test</c> and <c>Your MUD Name</c>
+    /// beside the real entries. Never above <see cref="Staff"/> or <see cref="Owner"/>: a hub does
+    /// not police what a game calls itself, and a human correction wins.
+    /// </remarks>
+    AresCentral,
+
+    /// <summary>
     /// A value the Intermud-3 mudlist carried: the mud told a router, and the router told us.
     /// </summary>
     /// <remarks>

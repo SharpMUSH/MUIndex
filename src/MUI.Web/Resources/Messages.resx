@@ -1900,6 +1900,10 @@
     <value>INFO</value>
     <comment>how a value reached us, one id per source</comment>
   </data>
+  <data name="source.aresCentral" xml:space="preserve">
+    <value>AresCentral</value>
+    <comment>how a value reached us, one id per source; a proper noun, not translated</comment>
+  </data>
   <data name="source.i3Mudlist" xml:space="preserve">
     <value>the I3 mudlist</value>
     <comment>how a value reached us, one id per source</comment>

@@ -133,4 +133,37 @@ public class FieldPrecedenceTests
             await Assert.That(chip).IsEqualTo(FieldSources.IsMeasured(source));
         }
     }
+
+    /// <summary>
+    /// A hub repeating a claim of unknown age loses to the game speaking to us directly now, and
+    /// beats the I3 mudlist, which is unauthenticated and carries `test` beside the real entries.
+    /// </summary>
+    [Test]
+    public async Task AresCentralRanksBelowMsspAndAboveTheI3Mudlist()
+    {
+        await Assert.That(FieldPrecedence.RankOf(FieldSource.Mssp))
+            .IsLessThan(FieldPrecedence.RankOf(FieldSource.AresCentral));
+        await Assert.That(FieldPrecedence.RankOf(FieldSource.AresCentral))
+            .IsLessThan(FieldPrecedence.RankOf(FieldSource.I3Mudlist));
+    }
+
+    /// <summary>A human correction outranks any hub, always (§5.1).</summary>
+    [Test]
+    public async Task StaffAndOwnerStillOutrankAresCentral()
+    {
+        await Assert.That(FieldPrecedence.RankOf(FieldSource.Staff))
+            .IsLessThan(FieldPrecedence.RankOf(FieldSource.AresCentral));
+        await Assert.That(FieldPrecedence.RankOf(FieldSource.Owner))
+            .IsLessThan(FieldPrecedence.RankOf(FieldSource.AresCentral));
+    }
+
+    /// <summary>
+    /// The rung is stored as text, so inserting a member mid-enum may not change what is written.
+    /// </summary>
+    [Test]
+    public async Task TheRungRoundTripsThroughItsDatabaseSpelling()
+    {
+        await Assert.That(SqlEnums.ToDb(FieldSource.AresCentral)).IsEqualTo("ares_central");
+        await Assert.That(SqlEnums.ToFieldSource("ares_central")).IsEqualTo(FieldSource.AresCentral);
+    }
 }
