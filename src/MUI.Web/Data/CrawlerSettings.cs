@@ -223,15 +223,17 @@ public static class CrawlerSettings
             builder.Ares = builder.Ares with { Hub = builder.Ares.Hub with { ApiKey = key } };
         }
 
-        // Both halves absent, and nobody asked: this deployment has never heard of AresCentral, so
-        // it is switched off and comes up exactly as it did before the pass existed. One half present
-        // is a different thing entirely — somebody was configuring this and stopped — and falls
-        // through to Validate, which says so.
-        if (asked is null
-            && string.IsNullOrWhiteSpace(builder.Ares.Hub.ClientId)
-            && string.IsNullOrWhiteSpace(builder.Ares.Hub.ApiKey))
+        // Nobody said either way, so the credentials decide. Neither half present means this
+        // deployment has never heard of AresCentral and comes up exactly as it did before the pass
+        // existed. Either half present means somebody was configuring this, so the pass is switched
+        // on and Validate below says so out loud if they only got halfway.
+        if (asked is null)
         {
-            builder.Ares = builder.Ares with { Enabled = false };
+            builder.Ares = builder.Ares with
+            {
+                Enabled = !string.IsNullOrWhiteSpace(builder.Ares.Hub.ClientId)
+                    || !string.IsNullOrWhiteSpace(builder.Ares.Hub.ApiKey),
+            };
         }
 
         builder.Ares.Validate();

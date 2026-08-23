@@ -8,14 +8,34 @@ namespace MUI.Crawler.Tests;
 public class AresServiceOptionsTests
 {
     /// <summary>
-    /// On by default, unlike I3's. Joining I3 registers a name on somebody else's router permanently
-    /// and must never be a side effect of <c>compose up</c>; a GET against a documented API with our
-    /// own credentials registers nothing at all.
+    /// Off unless a host turns it on, and safe by construction rather than by a correction applied
+    /// somewhere else.
+    /// </summary>
+    /// <remarks>
+    /// <c>Validate</c> throws when the pass is on without credentials, so a default of <c>true</c>
+    /// would crash any host that built <c>CrawlerOptions</c> by hand — on a feature it never asked
+    /// for. <c>CrawlerSettings.Apply</c> is what turns this on once it finds a credential pair; the
+    /// default may not depend on that call having happened.
+    /// </remarks>
+    [Test]
+    public async Task ThePassIsOffUnlessAHostTurnsItOn()
+    {
+        await Assert.That(new AresServiceOptions().Enabled).IsFalse();
+    }
+
+    /// <summary>
+    /// The graph a host gets by default has to be startable. Anything <c>AddMuiCrawlerCore</c>
+    /// registers from a hand-built <c>CrawlerOptions</c> must survive its own validation, or a
+    /// consumer that never touches configuration binding cannot start at all.
     /// </summary>
     [Test]
-    public async Task ThePassIsOnByDefault()
+    public async Task DefaultCrawlerOptionsValidateWithNoCredentialsAnywhere()
     {
-        await Assert.That(new AresServiceOptions().Enabled).IsTrue();
+        var options = new CrawlerOptions();
+
+        options.Ares.Validate();
+
+        await Assert.That(options.Ares.Enabled).IsFalse();
     }
 
     /// <summary>

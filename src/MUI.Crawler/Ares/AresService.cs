@@ -12,16 +12,22 @@ namespace MUI.Crawler;
 public sealed record AresServiceOptions
 {
     /// <summary>
-    /// Whether this deployable runs the AresCentral pass. <b>On by default</b>, unlike I3's.
+    /// Whether this deployable runs the AresCentral pass. <b>Off unless a host turns it on.</b>
     /// </summary>
     /// <remarks>
-    /// I3 is off by default because joining the network registers a name on somebody else's router
-    /// permanently, and that must never happen as a side effect of <c>compose up</c>. This is a GET
-    /// against a documented API with credentials a deployment either holds or does not; it registers
-    /// nothing. A deployment with no credentials never runs it, because the host turns it off when it
-    /// finds none rather than because the default said so.
+    /// Off by default for a different reason than I3's. I3 is off because joining the network
+    /// registers a name on somebody else's router permanently; this is off because <b>a pass with no
+    /// credentials cannot do anything except fail</b>, and <see cref="Validate"/> throws when it is
+    /// on without them — so a default of <c>true</c> would mean any host that built
+    /// <c>CrawlerOptions</c> by hand crashed at startup on a feature it never asked for.
+    /// <para>
+    /// Safe by construction rather than by a correction applied elsewhere. <c>CrawlerSettings.Apply</c>
+    /// turns this on the moment it finds a credential pair, which is where "on as soon as you have
+    /// credentials" actually lives — a default that had to be undone by a later call is the same
+    /// shape of bug as a gate defaulting to a claim about somebody's consent.
+    /// </para>
     /// </remarks>
-    public bool Enabled { get; init; } = true;
+    public bool Enabled { get; init; }
 
     /// <summary>Which advisory lock the pass competes for (spec §12).</summary>
     public long AdvisoryLockKey { get; init; } = AdvisoryLease.AresKey;
