@@ -661,7 +661,7 @@ public static class PlainText
     public static string RenderCrawler(
         string tag,
         CrawlerPulse pulse,
-        CrawlWindow window,
+        CrawlWindow? window,
         IReadOnlyList<CrawlCycleRecord> recent,
         IReadOnlyList<RecentGameChange> recentChanges,
         IReadOnlyList<DueTarget> dueSoon,
@@ -669,7 +669,6 @@ public static class PlainText
         DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(pulse);
-        ArgumentNullException.ThrowIfNull(window);
         ArgumentNullException.ThrowIfNull(recent);
         ArgumentNullException.ThrowIfNull(recentChanges);
         ArgumentNullException.ThrowIfNull(dueSoon);
@@ -691,7 +690,12 @@ public static class PlainText
 
         b.AppendLine(CrawlerCopy.State(tag, pulse, now));
         b.AppendLine(CrawlerCopy.Registry(tag, pulse));
-        b.AppendLine(CrawlerCopy.WindowLine(tag, window));
+        // Omitted when the window could not be read, exactly as the rendered page omits its tile: a
+        // line of zeroes here is the same false claim, in the rendering a reader is likelier to quote.
+        if (window is { } read)
+        {
+            b.AppendLine(CrawlerCopy.WindowLine(tag, read));
+        }
 
         if (CrawlerCopy.FullCycle(tag, pulse) is { } cycle)
         {
@@ -736,7 +740,11 @@ public static class PlainText
 
         b.AppendLine();
         b.AppendLine(Messages.For(tag, "crawler.history.title"));
-        Wrap(b, CrawlerCopy.WindowCycles(tag, window), string.Empty);
+
+        if (window is { } counted)
+        {
+            Wrap(b, CrawlerCopy.WindowCycles(tag, counted), string.Empty);
+        }
 
         if (recent.Count == 0)
         {

@@ -23,11 +23,13 @@ public sealed class NoCrawlerPulse : ICrawlerPulse
         CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<CrawlCycleRecord>>([]);
 
-    public Task<CrawlWindow> WindowAsync(
+    public Task<CrawlWindow?> WindowAsync(
         DateTimeOffset now,
         TimeSpan span,
         CancellationToken cancellationToken = default) =>
-        Task.FromResult(CrawlWindow.Empty(span));
+        // Null, not an empty window: "this demo measured nothing" and "the crawler probed nothing in
+        // the last day" are different sentences, and only the first one is true here.
+        Task.FromResult<CrawlWindow?>(null);
 
     public Task<IReadOnlyList<DueTarget>> DueSoonAsync(
         DateTimeOffset now,

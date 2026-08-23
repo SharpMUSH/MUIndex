@@ -72,11 +72,20 @@ else
                         <span class="tile-note mono faint">@soon</span>
                     }
                 </li>
-                <li>
-                    <span class="kicker">@Messages.Say(Tag, "crawler.tile.probed", ("span", WindowLength))</span>
-                    <span class="figure mono">@Messages.Figure(Tag, Window.Probed)</span>
-                    <span class="tile-note mono faint">@CrawlerCopy.WindowOutcome(Tag, Window)</span>
-                </li>
+                @*
+                    Omitted rather than zeroed when the window could not be read. A figure of 0 beside
+                    a pulse reading "quiet" is our own failed query rendered as the crawler having done
+                    nothing all day — rule 4 pointed inward, and the loudest possible place to get it
+                    wrong. A missing tile says nothing, which is what we know.
+                *@
+                @if (Window is { } window)
+                {
+                    <li>
+                        <span class="kicker">@Messages.Say(Tag, "crawler.tile.probed", ("span", WindowLength))</span>
+                        <span class="figure mono">@Messages.Figure(Tag, window.Probed)</span>
+                        <span class="tile-note mono faint">@CrawlerCopy.WindowOutcome(Tag, window)</span>
+                    </li>
+                }
             </ul>
 
             @if (CrawlerCopy.FullCycle(Tag, Pulse) is { } cycle)
@@ -198,7 +207,12 @@ else
             <div class="two-up queue">
                 <section aria-labelledby="cycles">
                     <h2 id="cycles" class="kicker">@L("crawler.history.title")</h2>
-                    <p class="faint">@CrawlerCopy.WindowCycles(Tag, Window)</p>
+                    @* Same rule as the tile: "no cycle finished in the last 24h" is a sentence we may
+                       only write when a query came back and said so. *@
+                    @if (Window is { } counted)
+                    {
+                        <p class="faint">@CrawlerCopy.WindowCycles(Tag, counted)</p>
+                    }
 
                     @if (Recent.Count == 0)
                     {
@@ -270,7 +284,8 @@ else
 
     private CrawlerPulse Pulse = CrawlerPulse.Unknown;
 
-    private CrawlWindow Window = CrawlWindow.Empty(Day);
+    /// <summary>The day's throughput, or null when the read failed — see <see cref="ICrawlerPulse"/>.</summary>
+    private CrawlWindow? Window;
 
     private IReadOnlyList<CrawlCycleRecord> Recent = [];
 
@@ -284,10 +299,11 @@ else
     /// The window's length, worded — the kicker says which span the figure is over.
     /// </summary>
     /// <remarks>
-    /// The age ladder rather than <see cref="Wording.Duration"/>: the latter rolls twenty-four hours
-    /// up to "1d", and "probed in 1d" reads as a duration the probing took.
+    /// Read from <see cref="Day"/> rather than from the answer, so the wording exists whether or not
+    /// the answer does. The age ladder rather than <see cref="Wording.Duration"/>: the latter rolls
+    /// twenty-four hours up to "1d", and "probed in 1d" reads as a duration the probing took.
     /// </remarks>
-    private string WindowLength => Relative.Format(Tag, Window.Span);
+    private string WindowLength => Relative.Format(Tag, Day);
 
     // Only when there is something to wait for: on a backlog the soonest target is in the past, and
     // "next in -4m" is not a fact about anything.

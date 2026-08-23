@@ -355,6 +355,45 @@ public class CrawlerPageTests
     }
 
     /// <summary>
+    /// A window that could not be read is left off the page, not printed as a day of zeroes.
+    /// </summary>
+    /// <remarks>
+    /// The failure mode this guards is specific and loud: <c>PROBED IN 24H / 0</c> at figure size,
+    /// under a pulse that on an unreachable database already reads "quiet", with "no cycle finished
+    /// in the last 24h" under the history — three statements the page never measured, agreeing with
+    /// each other that the crawler is dead. The sibling sections can fall back to "nothing found"
+    /// because an empty list renders as no rows; a window of zeroes renders as a claim.
+    /// </remarks>
+    [Test]
+    public async Task AWindowThatCouldNotBeReadIsOmittedRatherThanPrintedAsZero()
+    {
+        var pulse = Pulse(Cycle(1, 1, 1, 0, 0, 0));
+
+        var html = await Render.ComponentAsync<Components.Pages.Crawler>(
+            new Dictionary<string, object?>(),
+            services =>
+            {
+                services.AddSingleton<ICrawlerPulse>(new StubCrawlerPulse(pulse, [Cycle(1, 1, 1, 0, 0, 0)])
+                {
+                    WindowUnavailable = true,
+                });
+                services.AddSingleton<TimeProvider>(new FixedClock(Now));
+                services.AddSingleton<IGameQueries>(new StubChangeQueries());
+            });
+
+        var words = Render.Words(html).ToLowerInvariant();
+
+        await Assert.That(words).DoesNotContain("probed in 24h")
+            .Because("the tile is the claim, and there is nothing to claim");
+        await Assert.That(words).DoesNotContain("no cycle finished in the last 24h")
+            .Because("that sentence is a measurement, and no measurement was read");
+
+        // What the pulse itself answered is unaffected — one unavailable figure costs one figure.
+        await Assert.That(words).Contains("addresses in the registry");
+        await Assert.That(html).Contains(Messages.For(Locales.SourceTag, "crawler.history.title"));
+    }
+
+    /// <summary>
     /// All three liveness registers, on the page about the thing that writes them.
     /// </summary>
     /// <remarks>
@@ -444,6 +483,9 @@ public class CrawlerPageTests
 
         public CrawlWindow? Window { get; init; }
 
+        /// <summary>The read failed, which is not the same answer as a window holding nothing.</summary>
+        public bool WindowUnavailable { get; init; }
+
         public Task<CrawlerPulse> ReadAsync(DateTimeOffset now, CancellationToken cancellationToken = default) =>
             Task.FromResult(pulse);
 
@@ -458,11 +500,11 @@ public class CrawlerPageTests
             CancellationToken cancellationToken = default) =>
             Task.FromResult(Due);
 
-        public Task<CrawlWindow> WindowAsync(
+        public Task<CrawlWindow?> WindowAsync(
             DateTimeOffset now,
             TimeSpan span,
             CancellationToken cancellationToken = default) =>
-            Task.FromResult(Window ?? CrawlWindow.Empty(span));
+            Task.FromResult(WindowUnavailable ? null : Window ?? CrawlWindow.Empty(span));
     }
 
     /// <summary>Answers only <see cref="RecentFieldChangesAsync"/> and <see cref="FeedsAsync"/>, which is all this page asks of it.</summary>
