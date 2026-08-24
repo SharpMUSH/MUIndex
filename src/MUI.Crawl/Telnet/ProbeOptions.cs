@@ -112,23 +112,27 @@ public sealed record ProbeOptions
     public TimeSpan BannerPatience { get; init; } = TimeSpan.FromMilliseconds(2500);
 
     /// <summary>
-    /// How long the residue flush waits for an MSSP round trip already in flight before deciding
-    /// nothing was negotiated.
+    /// A bounded backstop: how long the residue flush waits for a <c>WILL MSSP</c> delayed by the
+    /// network before deciding nothing was negotiated.
     /// </summary>
     /// <remarks>
-    /// <c>WILL MSSP</c> is negotiated on connect, but the report itself is a second round trip — our
-    /// <c>DO MSSP</c>, then the server's subnegotiation — and the flush decision used to read
-    /// <c>seen.Supported</c> at whatever instant it happened to reach it, with no allowance for that
-    /// round trip still being in flight. A server slow enough for the gap to matter is exactly the
-    /// kind that hangs up on the flush's blank line (see <see cref="TelnetProbe.AskFollowUpsAsync"/>),
-    /// so losing the race did not mean "no measurement this cycle" — it meant the flush killed the
-    /// session before a report the game was already sending could land, and
-    /// <c>FieldObservations.Measured</c> then wrote the honest-negative <c>false</c> for a game that
-    /// does offer MSSP. Measured in production as <c>capability.mssp.measured</c> flapping true/false
-    /// across ordinary crawl cycles for DIKU-family games (God Wars Legends, GodWars: Apocalypse) that
-    /// answer MSSP cleanly every time when probed directly. Paid only by the narrow population already
-    /// about to be flushed blind — every game that has negotiated anything else by this point already
-    /// skips the wait, the same way it already skips the flush.
+    /// The real fix is <c>Watched.Mssp.OnNegotiationChangedAsync</c> noting <c>MSSP</c> the instant
+    /// TelnetNegotiationCore's own state machine confirms the real <c>WILL MSSP</c> — long before this
+    /// line runs in the ordinary case, since that happens during initial connect negotiation and the
+    /// flush decision comes after the banner has settled, any pre-login prompts are answered, and any
+    /// who's-online menu is tried. This grace only matters if the network itself delays that exchange
+    /// past all of that — the flush decision used to read <c>seen.Supported</c> at whatever instant it
+    /// happened to reach it, with no allowance for a delayed <c>WILL</c> at all. A server slow enough
+    /// for the gap to matter is exactly the kind that hangs up on the flush's blank line (see
+    /// <see cref="TelnetProbe.AskFollowUpsAsync"/>), so losing the race did not mean "no measurement
+    /// this cycle" — it meant the flush ending the session before negotiation the game was already
+    /// completing could be observed, and <c>FieldObservations.Measured</c> then wrote the
+    /// honest-negative <c>false</c> for a game that does offer MSSP. Measured in production as
+    /// <c>capability.mssp.measured</c> flapping true/false across ordinary crawl cycles for DIKU-family
+    /// games (God Wars Legends, GodWars: Apocalypse) that answer MSSP cleanly every time when probed
+    /// directly. Paid only by the narrow population already about to be flushed blind — every game that
+    /// has negotiated anything else by this point already skips the wait, the same way it already
+    /// skips the flush.
     /// </remarks>
     public TimeSpan MsspSettleGrace { get; init; } = TimeSpan.FromMilliseconds(1500);
 
