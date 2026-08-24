@@ -430,19 +430,29 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // and paid only by the games already about to be flushed blind: anything that has
             // negotiated something else by now already has Supported non-empty and never enters
             // the loop below.
-            var parsedOurNegotiation = seen.Supported.Count > 0;
+            //
+            // Two fields, not one: the MSSP callback (see Build below) sets MsspOutcome a
+            // statement before it calls Note("MSSP"), and Supported takes its own lock on that
+            // second statement alone — nothing ties the two together for a reader on this thread.
+            // Treating Supported by itself as the signal left a reader able to observe
+            // MsspOutcome already Received while Supported was still momentarily empty, which
+            // would have exited the wait early and then flushed anyway on the strength of a stale
+            // read. Either field alone is authoritative for "something happened here", so the two
+            // are read as one fact throughout rather than composed into a race.
+            bool NegotiatedSomething() =>
+                seen.Supported.Count > 0 || seen.MsspOutcome is not MsspOutcome.NotOffered;
 
-            if (!alreadyFlushed && !parsedOurNegotiation && seen.MsspOutcome is MsspOutcome.NotOffered)
+            var parsedOurNegotiation = NegotiatedSomething();
+
+            if (!alreadyFlushed && !parsedOurNegotiation)
             {
                 var deadline = DateTime.UtcNow + _options.MsspSettleGrace;
-                while (seen.MsspOutcome is MsspOutcome.NotOffered
-                    && seen.Supported.Count == 0
-                    && DateTime.UtcNow < deadline)
+                while (!NegotiatedSomething() && DateTime.UtcNow < deadline)
                 {
                     await Task.Delay(_options.PollInterval, cancellationToken);
                 }
 
-                parsedOurNegotiation = seen.Supported.Count > 0;
+                parsedOurNegotiation = NegotiatedSomething();
             }
 
             if (!alreadyFlushed && !parsedOurNegotiation)
