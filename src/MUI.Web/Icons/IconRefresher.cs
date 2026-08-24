@@ -34,6 +34,32 @@ public sealed class IconRefresher(
 
     private const int PerPass = 20;
 
+    /// <summary>
+    /// How long a URL that has failed <paramref name="failures"/> times running waits before we ask
+    /// it again: one pass, then doubling, capped at <see cref="Stale"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The cap is the staleness window on purpose — a web server that has been down for a fortnight
+    /// is asked as often as an icon we already hold is re-checked, which is the least this loop can
+    /// do for anybody and still be said to be watching.
+    /// </para>
+    /// <para>
+    /// Doubling rather than a flat retry because the flat version is what production did: fifteen
+    /// dead URLs, forty-eight requests each per day, indefinitely, to strangers who never asked us
+    /// to. The first retry is still one pass away, so a game whose host blipped is not punished for
+    /// it.
+    /// </para>
+    /// </remarks>
+    internal static TimeSpan Backoff(int failures)
+    {
+        // Shifting by the count would overflow long before the cap bites; 20 doublings is already
+        // several years of interval and the Min below flattens everything past the first eight.
+        var doublings = Math.Clamp(failures - 1, 0, 20);
+
+        return TimeSpan.FromTicks(Math.Min(Interval.Ticks << doublings, Stale.Ticks));
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using var timer = new PeriodicTimer(Interval, time);
@@ -64,7 +90,8 @@ public sealed class IconRefresher(
     /// </remarks>
     internal async Task<int> PassAsync(CancellationToken cancellationToken)
     {
-        var due = await icons.DueAsync(PerPass, time.GetUtcNow() - Stale, cancellationToken);
+        var now = time.GetUtcNow();
+        var due = await icons.DueAsync(PerPass, now - Stale, now, cancellationToken);
         var fetched = 0;
 
         foreach (var candidate in due)
@@ -74,16 +101,37 @@ public sealed class IconRefresher(
                 ? candidate.ETag
                 : null;
 
-            if (await fetcher.FetchAsync(candidate.GameId, candidate.DeclaredUrl, etag, cancellationToken)
-                is not { } icon)
+            var result = await fetcher.FetchAsync(
+                candidate.GameId, candidate.DeclaredUrl, etag, cancellationToken);
+
+            if (result is { Outcome: IconFetchOutcome.Fetched, Icon: { } icon })
             {
-                // Refused, unreachable, unchanged or not an image we serve. Nothing is written in any
-                // of those cases, and nothing about it enters the game's record (rule 5).
+                await icons.UpsertAsync(icon, cancellationToken);
+                fetched++;
                 continue;
             }
 
-            await icons.UpsertAsync(icon, cancellationToken);
-            fetched++;
+            // Unchanged is not a failure and gets no back-off: the far end honoured our ETag, which
+            // means the bytes on the page are right. It writes nothing either, so the row keeps the
+            // fetch time it had and comes round again on the ordinary staleness schedule.
+            if (result.Outcome is IconFetchOutcome.Unchanged)
+            {
+                continue;
+            }
+
+            // Refused, unreachable, or not an image we serve. Nothing about it enters the game's
+            // record (rule 5) — what is written is that this site tried, which is what lets the next
+            // pass reach somebody else and this URL wait its turn.
+            var failures = candidate.Failures + 1;
+
+            await icons.RecordFailureAsync(
+                new IconAttempt(
+                    candidate.GameId,
+                    candidate.DeclaredUrl,
+                    now,
+                    failures,
+                    now + Backoff(failures)),
+                cancellationToken);
         }
 
         if (fetched > 0)

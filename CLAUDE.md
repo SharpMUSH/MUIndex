@@ -129,7 +129,18 @@ gate never ruled on, the body read to a ceiling rather than trusted to `Content-
 content type read from the bytes by `ImageHeader` rather than from any header. **SVG is refused** —
 it is a document that can carry script, and serving one from our origin is an XSS hole with an image
 tag in front of it. `ImageHeader` parses headers and does not decode: no image library, no decoder
-attack surface reached by an owner-supplied URL.
+attack surface reached by an owner-supplied URL. PNG, JPEG, GIF, WebP, ICO and BMP — the last two
+because `favicon.ico` is what a MU\* operator has to hand, and more of the catalogue's declared
+`ICON`s name one than name anything else.
+
+**The handler still follows no redirect; `IconFetcher` follows exactly one, and runs the gate again
+on the target.** The difference is the whole point — an address nobody ruled on versus an address
+ruled on the same way the first one was — and it is why the hop lives in the fetcher rather than in
+`AllowAutoRedirect`. One rather than a chain: each further hop is another address to clear for a
+decoration, and a chain longer than one is somebody's tracker or somebody's loop far more often than
+it is a moved logo. What refusing them outright cost, measured: thirteen of the sixty-seven games
+with a declared `ICON` and no cached image answered 3xx, nearly all an `http` URL in `mush.cnf` with
+an `https` web server since put in front of it.
 
 `AresGamesClient` reads the AresCentral games list — one authenticated GET, hourly, against a
 documented API whose maintainer issued this deployment credentials. **This is not that rule being
@@ -154,10 +165,22 @@ the same pattern anyway, so there is one way to do this in the tree. `mui-crawl 
 exception and says so at the call site: a process that makes one request and exits *is* the handler's
 lifetime.
 
-`game_icon` is the **one table here that may be dropped and refilled**. The fact is the `ICON` field;
-those are bytes fetched from the URL it names, so §7.5's "nothing is ever deleted" does not reach
-them. A failed fetch writes nothing at all — no row, no marker, no attempt counter — and the page
-renders the monogram it would have rendered anyway.
+`game_icon` and `icon_attempt` are the **two tables here that may be dropped and refilled**. The fact
+is the `ICON` field; those are bytes fetched from the URL it names and our own notes about fetching
+them, so §7.5's "nothing is ever deleted" does not reach either. A failed fetch writes **nothing
+about the game** — no field, no API value, no change-feed entry — and the page renders the monogram
+it would have rendered anyway.
+
+It does write down **that we tried, and when to try again**, and that is a reversal of the original
+rule ("no row, no marker, no attempt counter") worth knowing the reason for. Rule 5 is about a game's
+public record, and none of `icon_attempt` reaches one. What the absolute version produced instead was
+a queue that could not move: `DueAsync` ranked candidates by what `game_icon` held, a game never
+fetched held nothing, so every such game tied with every other on both sort keys — and `LIMIT 20`
+over a tie is the same twenty rows for ever. Production ran that way for six days, re-fetching the
+same fifteen dead URLs every thirty minutes while forty-seven games with a perfectly good declared
+`ICON` were never attempted once. **A cache with no record of failure cannot tell a candidate it just
+failed from one it has never seen.** The marker is also the back-off, which is the part the operators
+of those fifteen web servers would have cared about.
 
 ## Security: the gate is on the address, not the name
 

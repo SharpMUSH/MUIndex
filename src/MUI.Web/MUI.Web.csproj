@@ -12,6 +12,15 @@
     <ProjectReference Include="..\MUI.Discovery\MUI.Discovery.csproj" />
   </ItemGroup>
 
+  <!--
+    So a test can drive one refresh pass directly rather than through a BackgroundService and a
+    timer. The alternative was widening IconRefresher.PassAsync and its back-off schedule to public,
+    which would publish two members no caller outside this assembly has any business holding.
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="MUI.Web.Tests" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Markdig" />
 

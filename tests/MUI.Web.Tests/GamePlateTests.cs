@@ -29,16 +29,17 @@ public class GamePlateTests
     }
 
     [Test]
-    public async Task NoRowDrawsAPlateAndNoIconPointsOffThisOrigin()
+    public async Task EveryRowDrawsAPlateAndNoIconPointsOffThisOrigin()
     {
-        // The listing row is identity, measurement and freshness only — a 36px square per row is
-        // furniture down a list of five hundred; the game's own page shows the face at real size.
+        // Every row, not most: the plate's job on a listing is a left edge the eye can run down, and
+        // an edge with gaps in it is furniture. A game we hold no icon for gets its monogram, which
+        // is why the count is exact rather than "at least one".
         var html = await Render.PageAsync<Games>([]);
         var rows = html.Split("class=\"game-row").Length - 1;
         var plates = html.Split("class=\"plate").Length - 1;
 
         await Assert.That(rows).IsGreaterThan(0);
-        await Assert.That(plates).IsEqualTo(0);
+        await Assert.That(plates).IsEqualTo(rows);
 
         // §11: an icon is served from this origin or not at all.
         foreach (var src in html.Split("<img").Skip(1))
@@ -85,15 +86,15 @@ public class GamePlateTests
     }
 
     [Test]
-    public async Task NoSurfaceInventsAFaceForAGameThatPublishedNone()
+    public async Task TheGamePageInventsNoFaceForAGameThatPublishedNone()
     {
-        // Neither surface passes Fallback, so a game with no icon gets no element and the title
-        // starts at the left edge.
+        // The page does not pass Fallback, so a game with no icon gets no element and the title
+        // starts at the left edge. One plate at 96px is where a generated monogram would read as a
+        // brand the game supplied; five hundred at 36px down a listing is where it reads as an edge,
+        // which is why the listing does pass it and this asserts only the page.
         var page = await Render.PageAsync<Game>(new() { ["Slug"] = "m-u-s-h" });
-        var listing = await Render.PageAsync<Games>([]);
 
         await Assert.That(page).DoesNotContain("class=\"plate");
-        await Assert.That(listing).DoesNotContain("class=\"plate");
 
         // Still one implementation behind the parameter, so the two surfaces can't diverge.
         var withFallback = await Render.ComponentAsync<GamePlate>(new()
