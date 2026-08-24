@@ -32,20 +32,48 @@ public class GamePlateTests
     public async Task EveryRowDrawsAPlateAndNoIconPointsOffThisOrigin()
     {
         // Every row, not most: the plate's job on a listing is a left edge the eye can run down, and
-        // an edge with gaps in it is furniture. A game we hold no icon for gets its monogram, which
-        // is why the count is exact rather than "at least one".
+        // an edge with gaps in it is furniture. Asserted per row rather than as a total — a page with
+        // one row holding two plates and another holding none has the same total and none of the
+        // edge, which is the failure this exists to catch.
         var html = await Render.PageAsync<Games>([]);
-        var rows = html.Split("class=\"game-row").Length - 1;
-        var plates = html.Split("class=\"plate").Length - 1;
+        var rows = Rows(html);
 
-        await Assert.That(rows).IsGreaterThan(0);
-        await Assert.That(plates).IsEqualTo(rows);
+        await Assert.That(rows).IsNotEmpty();
+
+        foreach (var row in rows)
+        {
+            await Assert.That(row.Split("class=\"plate").Length - 1).IsEqualTo(1);
+
+            // The fixture holds bytes for nobody, so every row here is the fallback — which is the
+            // half of the plate that PR #89's removal took away from 95% of the catalogue.
+            await Assert.That(row).Contains("class=\"plate mono\" aria-hidden=\"true\"");
+        }
 
         // §11: an icon is served from this origin or not at all.
         foreach (var src in html.Split("<img").Skip(1))
         {
             await Assert.That(src[..src.IndexOf('>')]).DoesNotContain("src=\"http");
         }
+    }
+
+    /// <summary>The listing's rows, one string each.</summary>
+    /// <remarks>
+    /// Bounded to the games list before splitting: past its close are other pages' plates and, on a
+    /// row-by-row assertion, the tail after the last row would otherwise carry the whole document.
+    /// The list holds no nested <c>ul</c>, so its first closing tag is its own.
+    /// </remarks>
+    private static string[] Rows(string html)
+    {
+        var open = html.IndexOf("<ul class=\"games\">", StringComparison.Ordinal);
+
+        if (open < 0)
+        {
+            return [];
+        }
+
+        var close = html.IndexOf("</ul>", open, StringComparison.Ordinal);
+
+        return [.. html[open..close].Split("class=\"game-row").Skip(1)];
     }
 
     [Test]
