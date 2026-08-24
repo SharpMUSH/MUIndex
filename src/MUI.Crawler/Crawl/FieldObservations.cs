@@ -162,8 +162,14 @@ public static class FieldObservations
     /// options, so publishing "does not offer MSDP" on that strength is our own instrumentation
     /// recorded as a fact about their game (rule 5). MSSP is different because the spec says a server
     /// should send <c>IAC WILL MSSP</c> during initial negotiation, and we give every server a full
-    /// connected session to do so — an absence after that is a real measurement. Servers that only
-    /// respond to <c>IAC DO MSSP</c> rather than advertising it themselves will appear as
+    /// connected session to do so — an absence after that is a real measurement, now that <c>Watched
+    /// .Mssp</c> notes the real <c>WILL</c> the moment TelnetNegotiationCore's own state machine
+    /// confirms it (<c>OnNegotiationChangedAsync</c>, not the report and not plugin construction) and
+    /// <c>TelnetProbe</c>'s residue flush waits a bounded backstop for that specific exchange rather
+    /// than treating a <c>WILL</c> delayed by the network as one more case of "negotiated nothing"
+    /// (<c>ProbeOptions.MsspSettleGrace</c>; found flapping <c>capability.mssp.measured</c> true/false
+    /// in production for DIKU-family games that answer MSSP cleanly on every direct probe). Servers
+    /// that only respond to <c>IAC DO MSSP</c> rather than advertising it themselves will appear as
     /// <see cref="MsspOutcome.NotOffered"/> until TNC gains a client-side request.
     /// <see cref="MsspOutcome.RejectedTooLarge"/> is not that case and is recorded as present: the
     /// server offered, we just chose not to hold the reply (§6.4). A protocol the library named that
@@ -190,8 +196,13 @@ public static class FieldObservations
                 CapabilityFields.Measured("MXP"), FieldSource.Banner, "true");
         }
 
-        // The one honest negative — see the remarks above for the caveat about IAC DO MSSP-only servers.
-        if (result.MsspOutcome is MsspOutcome.NotOffered)
+        // The one honest negative — see the remarks above for the caveat about IAC DO MSSP-only
+        // servers. Guarded on OfferedOptions too: the loop above already wrote `true` for MSSP if
+        // OfferedOptions names it (which now happens from the real negotiation event, not only from
+        // the report arriving), and writing `false` in the same batch would contradict a measurement
+        // this very probe just made (rule 5) — whichever value FieldReconciler happened to apply last
+        // would silently discard the other.
+        if (result.MsspOutcome is MsspOutcome.NotOffered && !result.OfferedOptions.Contains(MsspCapability))
         {
             yield return new FieldObservation(
                 CapabilityFields.Measured(MsspCapability), FieldSource.Handshake, "false");

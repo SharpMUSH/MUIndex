@@ -20,6 +20,29 @@ internal static class Watched
             note(ProtocolName);
             return base.OnEnabledAsync();
         }
+
+        /// <summary>
+        /// The real signal for MSSP specifically, unlike every other protocol here. TNC's own
+        /// <c>ConfigureStateMachine</c> for <c>MSSPProtocol</c> calls <c>OnNegotiatedAsync(true)</c>
+        /// from <c>OnWillMSSPAsync</c> — the moment the peer's actual <c>WILL MSSP</c> arrives, before
+        /// we have even sent <c>DO MSSP</c> back — so this fires on the real exchange, not on plugin
+        /// construction the way <see cref="OnEnabledAsync"/> above does (verified against the pinned
+        /// package's decompiled IL, not assumed: <c>OnEnabledAsync</c> is reachable in this library
+        /// only through <c>ProtocolPluginManager.EnablePluginAsync</c>, which nothing here calls, so it
+        /// never fires at all in practice). Noted under the literal capability name, not
+        /// <see cref="MSSPProtocol.ProtocolName"/> — <see cref="OnEnabledAsync"/>'s <c>note(ProtocolName)</c>
+        /// above would write the long descriptive string instead and mint a second, wrong field if it
+        /// ever ran, which is one more reason it staying dead is not a loss.
+        /// </summary>
+        protected override ValueTask OnNegotiationChangedAsync(bool isNegotiated)
+        {
+            if (isNegotiated)
+            {
+                note("MSSP");
+            }
+
+            return base.OnNegotiationChangedAsync(isNegotiated);
+        }
     }
 
     internal sealed class Gmcp(Action<string> note) : GMCPProtocol

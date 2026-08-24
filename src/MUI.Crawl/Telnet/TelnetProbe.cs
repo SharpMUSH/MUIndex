@@ -417,9 +417,36 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // TelnetNegotiationCore versions after that was first written down.
             //
             // The test is positive evidence, so the uncertain cases fall the safe way: a server
-            // that negotiated late, or declined everything, is indistinguishable from one that
-            // parsed nothing, and is flushed exactly as it is today.
+            // that declined everything is indistinguishable from one that parsed nothing, and is
+            // flushed exactly as it is today. MSSP is the one exception, and only here — elsewhere
+            // "negotiated late" and "negotiated nothing" are rightly the same case, but MSSP's WILL
+            // lands on connect while its report is a second round trip (our DO, then the server's
+            // subnegotiation), so reading Supported at whatever instant this line happens to run
+            // could catch that round trip mid-flight. A server slow enough for the gap to matter is
+            // exactly the kind this flush hangs up on, so losing the race did not use to mean "no
+            // measurement this cycle" — it meant the flush ending the session before a report
+            // already in transit could land, recorded downstream as the honest negative
+            // FieldObservations.Measured writes for a game that never offered MSSP at all.
+            //
+            // Watched.Mssp notes "MSSP" the moment TelnetNegotiationCore's own state machine calls
+            // OnNegotiatedAsync(true) from OnWillMSSPAsync — the real WILL, not the report and not
+            // plugin construction — so Supported is already correct here in the overwhelming
+            // majority of probes, well before this line runs; the wait below is a bounded backstop
+            // for a WILL delayed by the network, not the primary mechanism. Bounded and paid only by
+            // the games already about to be flushed blind: anything that has negotiated something
+            // else by now already has Supported non-empty and never enters the loop.
             var parsedOurNegotiation = seen.Supported.Count > 0;
+
+            if (!alreadyFlushed && !parsedOurNegotiation)
+            {
+                var deadline = DateTime.UtcNow + _options.MsspSettleGrace;
+                while (seen.Supported.Count == 0 && DateTime.UtcNow < deadline)
+                {
+                    await Task.Delay(_options.PollInterval, cancellationToken);
+                }
+
+                parsedOurNegotiation = seen.Supported.Count > 0;
+            }
 
             if (!alreadyFlushed && !parsedOurNegotiation)
             {
