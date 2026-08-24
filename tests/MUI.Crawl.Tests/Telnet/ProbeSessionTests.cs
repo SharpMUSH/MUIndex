@@ -33,6 +33,7 @@ public class ProbeSessionTests
         WhoGrace = TimeSpan.FromMilliseconds(700),
         PollInterval = TimeSpan.FromMilliseconds(15),
         Timeout = TimeSpan.FromSeconds(20),
+        MsspSettleGrace = TimeSpan.FromMilliseconds(400),
     };
 
     [Test]
@@ -584,6 +585,48 @@ public class ProbeSessionTests
         // would stay green while the negotiation branch it guards quietly stopped being exercised.
         await Assert.That(game.Received.Where(line => line.Trim().Length > 0)
             .All(line => TelnetProbe.PermittedCommands.Contains(line.Trim()))).IsTrue();
+    }
+
+    /// <summary>
+    /// A server that has negotiated MSSP but whose report is still in flight is waited for, rather
+    /// than having the flush read <c>Supported</c> at whatever instant it happens to still be empty.
+    /// </summary>
+    /// <remarks>
+    /// The production bug this fixes: <c>capability.mssp.measured</c> flapping true/false across
+    /// ordinary crawl cycles for the same DIKU-family games (God Wars Legends, GodWars: Apocalypse),
+    /// which answer MSSP cleanly on every direct <c>mui-probe</c>. <c>WILL MSSP</c> negotiates on
+    /// connect, same as it always has, but the report itself is a second round trip; before
+    /// <c>MsspSettleGrace</c> existed, a server slow enough for that round trip to still be open when
+    /// this flush decision ran was flushed exactly like one that had negotiated nothing at all — and
+    /// this fixture also hangs up on that blank line, the DIKU shape that made the loss permanent
+    /// rather than just late. <see cref="AServerThatParsedOurNegotiationIsNotSentTheFlush"/> covers the
+    /// case where the report has already landed by the time this line runs; this covers the case
+    /// where it hasn't yet, but is still coming.
+    /// </remarks>
+    [Test]
+    public async Task AMsspReportStillInFlightIsWaitedForBeforeTheFlush()
+    {
+        await using var game = new FakeGame
+        {
+            AnnouncesMssp = true,
+            MsspReportDelay = TimeSpan.FromMilliseconds(200),
+            Banner = "Welcome to Mortal Realms\r\nMrMud 1.4\r\n",
+            BannerTail = "Who art thou: ",
+            HangsUpOnBlankLine = true,
+            WhoReply = "Player Name        On For Idle\r\n7 Players logged in, 22 record, no maximum.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        // The report landed, so nothing was flushed and the session survived to answer WHO.
+        await Assert.That(game.Received).DoesNotContain(string.Empty);
+
+        // The measurement itself: MSSP was seen, not written off as absent.
+        await Assert.That(result.OfferedOptions).Contains("MSSP");
+        await Assert.That(result.MsspOutcome).IsEqualTo(MsspOutcome.Received);
+
+        await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.Count);
+        await Assert.That(result.Who.Count).IsEqualTo(7);
     }
 
     /// <summary>
@@ -1389,6 +1432,13 @@ public class ProbeSessionTests
         /// </remarks>
         public bool AnnouncesMssp { get; init; }
 
+        /// <summary>
+        /// How long <see cref="AnnouncesMssp"/>'s report is withheld after our <c>DO MSSP</c> arrives
+        /// — <c>WILL MSSP</c> still negotiates on connect, same as always, so this models a server
+        /// that has agreed to MSSP but whose report is still in flight, not one that never offered it.
+        /// </summary>
+        public TimeSpan MsspReportDelay { get; init; }
+
         public ProbeTarget Target => new(
             IPAddress.Loopback.ToString(),
             ((IPEndPoint)_listener.LocalEndpoint).Port);
@@ -1536,7 +1586,19 @@ public class ProbeSessionTests
                 var mssp = new MSSPProtocol();
                 // Deliberately not the WHO fixture's 7: if MSSP ever leaked into the WHO reading, two
                 // matching numbers would hide it.
-                mssp.SetMSSPConfig(() => new MSSPConfig { Name = "NukeFire", Players = 99 });
+                mssp.SetMSSPConfig(() =>
+                {
+                    // Blocking on purpose: this runs inside the library's own DO-MSSP handler, so a
+                    // delay here holds back only the report, after WILL/DO have already gone both
+                    // ways — the shape MsspReportDelay exists to model. TelnetNegotiationCore gives
+                    // this callback no async form to delay through instead.
+                    if (MsspReportDelay > TimeSpan.Zero)
+                    {
+                        Thread.Sleep(MsspReportDelay);
+                    }
+
+                    return new MSSPConfig { Name = "NukeFire", Players = 99 };
+                });
                 builder = builder.AddPlugin(mssp);
             }
 

@@ -162,7 +162,11 @@ public static class FieldObservations
     /// options, so publishing "does not offer MSDP" on that strength is our own instrumentation
     /// recorded as a fact about their game (rule 5). MSSP is different because the spec says a server
     /// should send <c>IAC WILL MSSP</c> during initial negotiation, and we give every server a full
-    /// connected session to do so — an absence after that is a real measurement. Servers that only
+    /// connected session to do so — an absence after that is a real measurement, now that
+    /// <c>TelnetProbe</c>'s own residue flush waits out an MSSP round trip already in flight rather
+    /// than treating it as one more case of "negotiated nothing" (<c>ProbeOptions.MsspSettleGrace</c>;
+    /// found flapping <c>capability.mssp.measured</c> true/false in production for DIKU-family games
+    /// that answer MSSP cleanly on every direct probe). Servers that only
     /// respond to <c>IAC DO MSSP</c> rather than advertising it themselves will appear as
     /// <see cref="MsspOutcome.NotOffered"/> until TNC gains a client-side request.
     /// <see cref="MsspOutcome.RejectedTooLarge"/> is not that case and is recorded as present: the
@@ -190,8 +194,12 @@ public static class FieldObservations
                 CapabilityFields.Measured("MXP"), FieldSource.Banner, "true");
         }
 
-        // The one honest negative — see the remarks above for the caveat about IAC DO MSSP-only servers.
-        if (result.MsspOutcome is MsspOutcome.NotOffered)
+        // The one honest negative — see the remarks above for the caveat about IAC DO MSSP-only
+        // servers. Guarded on OfferedOptions too, on top of TelnetProbe's own MsspSettleGrace: the
+        // loop above already wrote `true` for MSSP if OfferedOptions names it, and writing `false`
+        // in the same batch would contradict a measurement this very probe just made (rule 5) —
+        // whichever value FieldReconciler happened to apply last would silently discard the other.
+        if (result.MsspOutcome is MsspOutcome.NotOffered && !result.OfferedOptions.Contains(MsspCapability))
         {
             yield return new FieldObservation(
                 CapabilityFields.Measured(MsspCapability), FieldSource.Handshake, "false");
