@@ -1724,17 +1724,16 @@ ul.games > li.game-row:hover { background: var(--raised); }
    13px by 20px over a 46px floor — is what puts a comfortable target under every name. */
 ul.games > li.game-row { min-height: 46px; padding: var(--row-pad) var(--gutter); }
 
-/* Three columns: the game's face, what it is, and what we measured. The plate is what gives a
-   five-hundred-row list a left edge the eye can run down — before it, every row began with a
-   different-length name and the only way to find a game was to read them. `start` rather than
-   `baseline` because a 36px box has no baseline worth aligning a name to. */
-/* Two zones on the row and a third under them: identity on the left, measurement on the right, and
-   the meta line spanning beneath the name. The handoff's geometry exactly. */
 /*
-  Three columns and two lines: identity, measurement, freshness across the top, and the machine
-  facts spanning beneath. The count and the age are siblings on one baseline — they were a nested
-  two-row grid in the third column, which stacked the age under the count and left neither able to
-  line up down the page.
+  Five tracks and two lines: the game's face, then identity, measurement and freshness across the
+  top, and the machine facts spanning beneath. The count and the age are siblings on one baseline —
+  they were a nested two-row grid in the third column, which stacked the age under the count and left
+  neither able to line up down the page.
+
+  The plate is what gives a five-hundred-row list a left edge the eye can run down: before it every
+  row began with a different-length name and the only way to find a game was to read them. It spans
+  both lines rather than sitting on the first, so the meta line runs under the name and not under the
+  square.
 
   The three measurement tracks are fixed lengths, not `auto`. Every row builds its own grid, so an
   `auto` track is sized by that row's content alone and nothing lines up with the row above: "219"
@@ -1747,11 +1746,12 @@ ul.games > li.game-row { min-height: 46px; padding: var(--row-pad) var(--gutter)
   size to whatever is on screen: a page whose busiest game has four digits would draw its columns
   differently from the next page, which is the same movement one scroll further away. The widths
   below hold the widest thing each column can carry — "no count" at 62px, a six-glyph trend, and
-  "never" — so the geometry is a property of the listing rather than of a page of it.
+  "never" — so the geometry is a property of the listing rather than of a page of it. The plate's own
+  track is `auto` and can be, because the plate is one fixed square on every row by construction.
 */
 .row-main {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 6.4rem 5.2rem 4rem;
+    grid-template-columns: auto minmax(0, 1fr) 6.4rem 5.2rem 4rem;
     gap: 3px 20px;
     align-items: baseline;
 }
@@ -1762,19 +1762,27 @@ ul.games > li.game-row { min-height: 46px; padding: var(--row-pad) var(--gutter)
   only the first.
 */
 .row-main .row-text { display: contents; }
-.row-main .row-head  { grid-column: 1; grid-row: 1; min-width: 0; }
-.row-main .row-count { grid-column: 2; grid-row: 1; }
+.row-main .row-head  { grid-column: 2; grid-row: 1; min-width: 0; }
+.row-main .row-count { grid-column: 3; grid-row: 1; }
 
 /* Explicit, not left to the grid's own auto-flow — an item with no placement of its own falls to a
    new implicit row once every explicit column in row 1 is taken, putting the trend on a line below
    the count it describes rather than beside it. */
-.row-main .row-trend { grid-column: 3; grid-row: 1; }
-.row-main .row-seen  { grid-column: 4; grid-row: 1; }
-.row-main .meta      { grid-column: 1 / -1; grid-row: 2; min-width: 0; }
+.row-main .row-trend { grid-column: 4; grid-row: 1; }
+.row-main .row-seen  { grid-column: 5; grid-row: 1; }
+
+/* From the name's column, not the plate's: the meta line belongs to the text block, and starting it
+   at the card edge would put a codebase and a protocol list under the square instead. */
+.row-main .meta      { grid-column: 2 / -1; grid-row: 2; min-width: 0; }
 
 /* The row's own plate. Same recessed square, same border, same monogram treatment as the game
    page's — one vocabulary at two sizes, so a reader who has seen the page recognises the row. */
 .row-main .plate {
+    /* Both lines, and `start` rather than the row's `baseline`: a 36px box has no baseline worth
+       aligning a name to, and letting it take one dropped it half a line below the text it belongs
+       beside. */
+    grid-column: 1; grid-row: 1 / span 2; align-self: start;
+
     width: 3.6rem; height: 3.6rem; flex: none;
     border: 1px solid var(--line); border-radius: 6px;
     background: var(--recessed); color: var(--dim);

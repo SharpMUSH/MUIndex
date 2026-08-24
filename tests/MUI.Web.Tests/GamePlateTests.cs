@@ -29,22 +29,51 @@ public class GamePlateTests
     }
 
     [Test]
-    public async Task NoRowDrawsAPlateAndNoIconPointsOffThisOrigin()
+    public async Task EveryRowDrawsAPlateAndNoIconPointsOffThisOrigin()
     {
-        // The listing row is identity, measurement and freshness only — a 36px square per row is
-        // furniture down a list of five hundred; the game's own page shows the face at real size.
+        // Every row, not most: the plate's job on a listing is a left edge the eye can run down, and
+        // an edge with gaps in it is furniture. Asserted per row rather than as a total — a page with
+        // one row holding two plates and another holding none has the same total and none of the
+        // edge, which is the failure this exists to catch.
         var html = await Render.PageAsync<Games>([]);
-        var rows = html.Split("class=\"game-row").Length - 1;
-        var plates = html.Split("class=\"plate").Length - 1;
+        var rows = Rows(html);
 
-        await Assert.That(rows).IsGreaterThan(0);
-        await Assert.That(plates).IsEqualTo(0);
+        await Assert.That(rows).IsNotEmpty();
+
+        foreach (var row in rows)
+        {
+            await Assert.That(row.Split("class=\"plate").Length - 1).IsEqualTo(1);
+
+            // The fixture holds bytes for nobody, so every row here is the fallback — which is the
+            // half of the plate that PR #89's removal took away from 95% of the catalogue.
+            await Assert.That(row).Contains("class=\"plate mono\" aria-hidden=\"true\"");
+        }
 
         // §11: an icon is served from this origin or not at all.
         foreach (var src in html.Split("<img").Skip(1))
         {
             await Assert.That(src[..src.IndexOf('>')]).DoesNotContain("src=\"http");
         }
+    }
+
+    /// <summary>The listing's rows, one string each.</summary>
+    /// <remarks>
+    /// Bounded to the games list before splitting: past its close are other pages' plates and, on a
+    /// row-by-row assertion, the tail after the last row would otherwise carry the whole document.
+    /// The list holds no nested <c>ul</c>, so its first closing tag is its own.
+    /// </remarks>
+    private static string[] Rows(string html)
+    {
+        var open = html.IndexOf("<ul class=\"games\">", StringComparison.Ordinal);
+
+        if (open < 0)
+        {
+            return [];
+        }
+
+        var close = html.IndexOf("</ul>", open, StringComparison.Ordinal);
+
+        return [.. html[open..close].Split("class=\"game-row").Skip(1)];
     }
 
     [Test]
@@ -85,15 +114,15 @@ public class GamePlateTests
     }
 
     [Test]
-    public async Task NoSurfaceInventsAFaceForAGameThatPublishedNone()
+    public async Task TheGamePageInventsNoFaceForAGameThatPublishedNone()
     {
-        // Neither surface passes Fallback, so a game with no icon gets no element and the title
-        // starts at the left edge.
+        // The page does not pass Fallback, so a game with no icon gets no element and the title
+        // starts at the left edge. One plate at 96px is where a generated monogram would read as a
+        // brand the game supplied; five hundred at 36px down a listing is where it reads as an edge,
+        // which is why the listing does pass it and this asserts only the page.
         var page = await Render.PageAsync<Game>(new() { ["Slug"] = "m-u-s-h" });
-        var listing = await Render.PageAsync<Games>([]);
 
         await Assert.That(page).DoesNotContain("class=\"plate");
-        await Assert.That(listing).DoesNotContain("class=\"plate");
 
         // Still one implementation behind the parameter, so the two surfaces can't diverge.
         var withFallback = await Render.ComponentAsync<GamePlate>(new()

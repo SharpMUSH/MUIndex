@@ -62,6 +62,93 @@ public class ImageHeaderTests
     }
 
     /// <summary>
+    /// An ICO states each image's size in one byte apiece, and the largest is the one we report.
+    /// </summary>
+    /// <remarks>
+    /// A multi-size icon is one file the browser picks from, so reporting the smallest entry would
+    /// let a 256×256 image through a ceiling that exists to bound what we store.
+    /// </remarks>
+    [Test]
+    public async Task AnIcoIsReadFromItsDirectoryAndTakesItsLargestEntry()
+    {
+        var read = ImageHeader.Read(Ico((16, 16), (48, 32), (32, 32)));
+
+        await Assert.That(read!.ContentType).IsEqualTo("image/x-icon");
+        await Assert.That(read.Width).IsEqualTo(48);
+        await Assert.That(read.Height).IsEqualTo(32);
+    }
+
+    /// <summary>Zero in an ICO's size byte means 256, which is the one value it cannot hold.</summary>
+    [Test]
+    public async Task AnIcoSizeByteOfZeroMeans256()
+    {
+        var read = ImageHeader.Read(Ico((0, 0)));
+
+        await Assert.That(read!.Width).IsEqualTo(256);
+        await Assert.That(read.Height).IsEqualTo(256);
+    }
+
+    /// <summary>
+    /// A cursor is not an icon: the same container, a hotspot where the colour planes go, and not a
+    /// thing anybody meant to publish as their logo.
+    /// </summary>
+    [Test]
+    public async Task ACursorIsNotAnIcon()
+    {
+        var bytes = Ico((32, 32));
+        bytes[2] = 2;
+
+        await Assert.That(ImageHeader.Read(bytes)).IsNull();
+    }
+
+    /// <summary>
+    /// A directory claiming more entries than the body holds is a truncated file, not an icon.
+    /// </summary>
+    [Test]
+    public async Task AnIcoPromisingMoreThanItHoldsIsRefused()
+    {
+        var bytes = Ico((32, 32));
+        BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(4), 40);
+
+        await Assert.That(ImageHeader.Read(bytes)).IsNull();
+    }
+
+    /// <summary>
+    /// A BMP holds two signed dimensions after a DIB header whose length says how wide they are.
+    /// </summary>
+    [Test]
+    [Arguments(40)]
+    [Arguments(108)]
+    [Arguments(124)]
+    public async Task ABmpIsReadFromWhicheverDibHeaderItCarries(int dib)
+    {
+        var read = ImageHeader.Read(Bmp(dib, 120, 64));
+
+        await Assert.That(read!.ContentType).IsEqualTo("image/bmp");
+        await Assert.That(read.Width).IsEqualTo(120);
+        await Assert.That(read.Height).IsEqualTo(64);
+    }
+
+    /// <summary>The oldest DIB header holds 16-bit dimensions and has to be read as such.</summary>
+    [Test]
+    public async Task ABitmapCoreHeaderHoldsNarrowerDimensions()
+    {
+        var read = ImageHeader.Read(Bmp(12, 90, 45));
+
+        await Assert.That(read!.Width).IsEqualTo(90);
+        await Assert.That(read.Height).IsEqualTo(45);
+    }
+
+    /// <summary>
+    /// A negative height means the rows are stored top-down, not that the image has a negative size.
+    /// </summary>
+    [Test]
+    public async Task ATopDownBmpIsAsTallAsItsHeightsMagnitude()
+    {
+        await Assert.That(ImageHeader.Read(Bmp(40, 120, -64))!.Height).IsEqualTo(64);
+    }
+
+    /// <summary>
     /// SVG is not an image this site will serve, however much it looks like one.
     /// </summary>
     /// <remarks>SVG is a document that can carry script — served from our own origin it's an XSS hole with an image tag in front of it.</remarks>
@@ -107,6 +194,45 @@ public class ImageHeaderTests
     public async Task AZeroDimensionIsTreatedAsAnUnreadableHeader()
     {
         await Assert.That(ImageHeader.Read(Png(0, 32))).IsNull();
+    }
+
+    /// <summary>An ICO directory with one 16-byte entry per size given, and no image data behind it.</summary>
+    private static byte[] Ico(params (byte Width, byte Height)[] entries)
+    {
+        var bytes = new byte[6 + (entries.Length * 16)];
+
+        BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(2), 1);
+        BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(4), (ushort)entries.Length);
+
+        for (var entry = 0; entry < entries.Length; entry++)
+        {
+            bytes[6 + (entry * 16)] = entries[entry].Width;
+            bytes[7 + (entry * 16)] = entries[entry].Height;
+        }
+
+        return bytes;
+    }
+
+    /// <summary>A BMP file header and the first two fields of whichever DIB header was asked for.</summary>
+    private static byte[] Bmp(int dibLength, int width, int height)
+    {
+        var bytes = new byte[26];
+
+        "BM"u8.CopyTo(bytes);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(14), (uint)dibLength);
+
+        if (dibLength == 12)
+        {
+            BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(18), (ushort)width);
+            BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(20), (ushort)height);
+
+            return bytes;
+        }
+
+        BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(18), width);
+        BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(22), height);
+
+        return bytes;
     }
 
     private static byte[] Png(uint width, uint height)

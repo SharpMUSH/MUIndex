@@ -65,7 +65,7 @@ public class IconStorePostgresTests
 
         await FieldAsync(db, game, FieldSource.Mssp, "https://corvid.example/logo.png");
 
-        var due = await icons.DueAsync(10, Now, None);
+        var due = await icons.DueAsync(10, Now, Now, None);
 
         await Assert.That(due.Count).IsEqualTo(1);
         await Assert.That(due[0].DeclaredUrl).IsEqualTo("https://corvid.example/logo.png");
@@ -90,7 +90,7 @@ public class IconStorePostgresTests
         await FieldAsync(db, game, FieldSource.Mssp, "https://corvid.example/config.png");
         await FieldAsync(db, game, FieldSource.Owner, "https://corvid.example/chosen.png");
 
-        var due = await icons.DueAsync(10, Now, None);
+        var due = await icons.DueAsync(10, Now, Now, None);
 
         await Assert.That(due.Single().DeclaredUrl).IsEqualTo("https://corvid.example/chosen.png");
     }
@@ -119,7 +119,7 @@ public class IconStorePostgresTests
         await icons.UpsertAsync(
             Icon(moved, "https://moved.example/old.png") with { FetchedAt = Now }, None);
 
-        var due = await icons.DueAsync(10, Now.AddDays(-7), None);
+        var due = await icons.DueAsync(10, Now.AddDays(-7), Now, None);
 
         await Assert.That(due.Select(d => d.GameId)).IsEquivalentTo(new[] { moved, stale });
         await Assert.That(due[0].GameId).IsEqualTo(moved);
@@ -136,7 +136,7 @@ public class IconStorePostgresTests
         await FieldAsync(db, game, FieldSource.Mssp, "https://corvid.example/logo.png");
         await icons.UpsertAsync(Icon(game, "https://corvid.example/logo.png"), None);
 
-        await Assert.That(await icons.DueAsync(10, Now.AddDays(-7), None)).IsEmpty();
+        await Assert.That(await icons.DueAsync(10, Now.AddDays(-7), Now, None)).IsEmpty();
     }
 
     /// <summary>
@@ -157,9 +157,131 @@ public class IconStorePostgresTests
         await FieldAsync(db, game, FieldSource.Mssp, "https://corvid.example/config.png");
         await FieldAsync(db, game, FieldSource.Owner, string.Empty);
 
-        var due = await icons.DueAsync(10, Now, None);
+        var due = await icons.DueAsync(10, Now, Now, None);
 
         await Assert.That(due.Single().DeclaredUrl).IsEqualTo("https://corvid.example/config.png");
+    }
+
+    /// <summary>
+    /// The bug this table exists for: a bounded pass over candidates that all tie must not return the
+    /// same ones for ever.
+    /// </summary>
+    /// <remarks>
+    /// Every game with a declared <c>ICON</c> and nothing cached held nothing to rank by, so all of
+    /// them tied on both sort keys and <c>LIMIT</c> chose the same rows every time. A failed fetch
+    /// wrote nothing, so nothing ever broke the tie. Production ran this way for six days: fifteen
+    /// URLs re-fetched every thirty minutes, all failing, while forty-seven games were never
+    /// attempted once. Two games and a limit of one is the same shape at the smallest size that shows
+    /// it.
+    /// </remarks>
+    [Test]
+    public async Task ACandidateThatFailedIsNotOfferedAgainAheadOfOneNeverTried()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var first = await Seed.GameAsync(db, slug: "first", name: "First");
+        var second = await Seed.GameAsync(db, slug: "second", name: "Second");
+        var icons = new NpgsqlIconStore(db.DataSource);
+
+        await FieldAsync(db, first, FieldSource.Mssp, "https://first.example/logo.png");
+        await FieldAsync(db, second, FieldSource.Mssp, "https://second.example/logo.png");
+
+        var head = (await icons.DueAsync(1, Now, Now, None)).Single();
+
+        await icons.RecordFailureAsync(
+            new IconAttempt(head.GameId, head.DeclaredUrl, Now, 1, Now.AddMinutes(30)), None);
+
+        // Half an hour on: the one that failed is back in the queue, and behind the one that has
+        // still never been asked.
+        var next = (await icons.DueAsync(1, Now, Now.AddHours(1), None)).Single();
+
+        await Assert.That(next.GameId).IsNotEqualTo(head.GameId);
+    }
+
+    /// <summary>A URL that just failed is not asked again until its back-off has elapsed.</summary>
+    /// <remarks>
+    /// The other half of the same fix, and the half the operators of fifteen web servers would have
+    /// cared about: forty-eight requests a day each, indefinitely, for an image that was not there.
+    /// </remarks>
+    [Test]
+    public async Task AFailedUrlWaitsOutItsBackOff()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var icons = new NpgsqlIconStore(db.DataSource);
+
+        await FieldAsync(db, game, FieldSource.Mssp, "https://corvid.example/logo.png");
+        await icons.RecordFailureAsync(
+            new IconAttempt(game, "https://corvid.example/logo.png", Now, 1, Now.AddHours(2)), None);
+
+        await Assert.That(await icons.DueAsync(10, Now, Now.AddHours(1), None)).IsEmpty();
+        await Assert.That(await icons.DueAsync(10, Now, Now.AddHours(3), None)).IsNotEmpty();
+    }
+
+    /// <summary>
+    /// A new address is a new question: the old one's failures neither delay it nor count against it.
+    /// </summary>
+    /// <remarks>
+    /// An owner who fixes a broken <c>ICON</c> would otherwise serve out the back-off earned by the
+    /// URL they had just replaced — up to a week of it, for having corrected the thing we were
+    /// complaining about.
+    /// </remarks>
+    [Test]
+    public async Task AnAttemptAgainstAnAddressTheGameHasLeftDelaysNothing()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var icons = new NpgsqlIconStore(db.DataSource);
+
+        await FieldAsync(db, game, FieldSource.Mssp, "https://corvid.example/new.png");
+        await icons.RecordFailureAsync(
+            new IconAttempt(game, "https://corvid.example/old.png", Now, 6, Now.AddDays(7)), None);
+
+        var due = await icons.DueAsync(10, Now, Now.AddMinutes(1), None);
+
+        await Assert.That(due.Single().DeclaredUrl).IsEqualTo("https://corvid.example/new.png");
+        await Assert.That(due[0].Failures).IsEqualTo(0);
+    }
+
+    /// <summary>The failure count is what the caller sizes the next back-off from, so it comes back.</summary>
+    [Test]
+    public async Task TheFailureCountComesBackWithTheCandidate()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var icons = new NpgsqlIconStore(db.DataSource);
+
+        await FieldAsync(db, game, FieldSource.Mssp, "https://corvid.example/logo.png");
+        await icons.RecordFailureAsync(
+            new IconAttempt(game, "https://corvid.example/logo.png", Now, 3, Now.AddHours(2)), None);
+
+        await Assert.That((await icons.DueAsync(10, Now, Now.AddHours(3), None)).Single().Failures)
+            .IsEqualTo(3);
+    }
+
+    /// <summary>
+    /// An icon that arrives clears the failures behind it, so the next one starts from the beginning.
+    /// </summary>
+    /// <remarks>
+    /// Left standing, a game that failed six times and then succeeded would serve a week's back-off
+    /// the first time its web server so much as hiccuped.
+    /// </remarks>
+    [Test]
+    public async Task AFetchedIconClearsWhatFailedBeforeIt()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var icons = new NpgsqlIconStore(db.DataSource);
+
+        await FieldAsync(db, game, FieldSource.Mssp, "https://corvid.example/logo.png");
+        await icons.RecordFailureAsync(
+            new IconAttempt(game, "https://corvid.example/logo.png", Now, 4, Now.AddDays(1)), None);
+
+        await icons.UpsertAsync(Icon(game, "https://corvid.example/logo.png"), None);
+
+        await using var connection = await db.DataSource.OpenConnectionAsync();
+
+        await Assert.That(await connection.ExecuteScalarAsync<int>(
+            "SELECT count(*)::int FROM icon_attempt")).IsEqualTo(0);
     }
 
     private static GameIcon Icon(Guid game, string url) =>

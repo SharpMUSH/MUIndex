@@ -128,8 +128,20 @@ else
                 }
                 <li class="game-row @(g.State is LifecycleState.Archived ? "archived" : null)">
                     @* Three zones — identity · measurement · freshness — with metadata spanning
-                       underneath. No plate/icon on a row: that lives on the game page (GamePlate). *@
+                       underneath, and the game's face holding the left edge of all of it. *@
                     <div class="row-main">
+                        @* The icon a game published where we hold one, and its monogram otherwise —
+                           the two drawn identically on purpose, because "declared no icon" and "we
+                           could not fetch the one it declared" are our afternoon and its choice, and
+                           only one of them is a fact about the game (rule 5).
+
+                           Fallback is on here and off on the game page, and the difference is the
+                           surface rather than an inconsistency: a page has one plate, where a
+                           monogram would be a brand we invented at 96px; a listing has five hundred,
+                           where the plate's job is a left edge the eye can run down, and a column
+                           that appears on one row in twenty is furniture rather than an edge. *@
+                        <GamePlate Slug="@g.Slug" Name="@g.Name" HasIcon="g.HasIcon" Fallback="true" />
+
                         <div class="row-text">
                             <p class="row-head">
                                 <a class="name" href="@Http.Link($"/g/{g.Slug}")"><GameName Name="@g.Name" /></a>
@@ -215,8 +227,8 @@ else
                         </p>
 
                         @* Its own column, same grid row as row-count rather than falling to an
-                           implicit row below it (row-main's grid-template-columns carries four now,
-                           not three) — a reader scans the row once, left to right, rather than
+                           implicit row below it (row-main's grid-template-columns carries five now:
+                           the plate and four) — a reader scans the row once, left to right, rather than
                            finding the count and then hunting a line down for what it did lately. The
                            fitted line's own figure is shown beside the glyph, not just its direction:
                            a bare glyph said "up" without saying by how much. Players rather than a

@@ -41,7 +41,13 @@ public static class IconEndpoint
                 client.DefaultRequestHeaders.UserAgent.ParseAdd(
                     $"mu-index-crawler/1.0 (+{s.GetRequiredService<ProbeOptions>().InfoUrl})");
 
-                client.DefaultRequestHeaders.Accept.ParseAdd("image/png, image/jpeg, image/gif, image/webp");
+                // The formats ImageHeader reads, and no wildcard: a server that varies on Accept
+                // should hear the same list the parser enforces, rather than be invited to send an
+                // SVG we would then refuse. x-icon and vnd.microsoft.icon are one format under the
+                // two names servers actually use for it.
+                client.DefaultRequestHeaders.Accept.ParseAdd(
+                    "image/png, image/jpeg, image/gif, image/webp, image/x-icon, "
+                    + "image/vnd.microsoft.icon, image/bmp");
             })
             .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
             {
