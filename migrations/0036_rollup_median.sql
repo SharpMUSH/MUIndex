@@ -80,6 +80,22 @@ $$;
 --     non-DEFAULT value into column median_count" — so the writer cannot drift out of step with the
 --     histogram even by accident.
 --
+-- ON COST, since "it is a function call per row" is the obvious worry: it is, and PostgreSQL does
+-- NOT memoise it. Measured on 17.11 with a deliberately mis-declared IMMUTABLE counter, 5,000 rows
+-- holding the SAME histogram cost 5,000 evaluations and the same wall time as 5,000 rows holding
+-- 5,000 different ones. There is no cross-row result cache for a scalar expression (PG14's Memoize
+-- node caches a nested-loop join's inner side, which is a different thing), so identical inputs buy
+-- nothing.
+--
+-- It does not matter, and the reason is the point of the whole change: this is paid once per row
+-- WRITE rather than on every read. ~0.22ms per row, against a walk that previously ran on every
+-- listing assembly over the whole trend span. The rollup writes one row per (game, day) per pass,
+-- and in the ordinary case only the current day's row changes at all.
+--
+-- Better still, and worth knowing before anyone adds a column here: an UPDATE that touches no column
+-- the expression depends on evaluates it ZERO times. 5,000 rows updated on an unrelated column, no
+-- evaluations. So a future column on presence_rollup_day does not make every write pay for a median.
+--
 -- THE ONE TRAP: editing presence_histogram_median later does NOT recompute what is already stored.
 -- PostgreSQL trusts the IMMUTABLE promise and never revisits a written row. If the definition ever
 -- has to change, the migration that changes it must also force a rewrite (an ALTER TABLE that
