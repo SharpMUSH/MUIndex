@@ -352,12 +352,24 @@ public sealed partial class NpgsqlGameQueries(
     /// <see cref="GrowthTrend.Span"/> — what <see cref="GrowthTrend.Of"/> fits a trend line through.
     /// </summary>
     /// <remarks>
-    /// One frequency table per (game, day) rather than per game — the same walk
-    /// <see cref="PlayersOverWindowAsync"/> uses to find one window's median, run once per day instead
-    /// of once over the whole span, so a day the crawler barely touched a game is absent rather than
-    /// diluting a pooled figure or being read as a zero (rule 4). Raw samples cover today, since the
-    /// day rollup only reaches back through <c>presence_rollup_state</c>'s high-water mark; older days
-    /// read the rollup's own histogram, which survives retention dropping raw partitions (§5.2).
+    /// One median per (game, day) rather than per game — unlike
+    /// <see cref="PlayersOverWindowAsync"/>, which pools a whole window into one distribution, this
+    /// asks the question once per day, so a day the crawler barely touched a game is absent rather
+    /// than diluting a pooled figure or being read as a zero (rule 4).
+    /// <para>
+    /// Split at the rollup watermark, because only the unfinished end of the span still needs
+    /// arithmetic. Days that closed before it read <c>median_count</c> straight off the row — a
+    /// stored generated column since migration 0036, and the reason this query stopped expanding
+    /// every histogram in the trend span on every request. The watermark's own day is the one raw
+    /// samples can still add to, so it and anything after it keep the frequency walk: the rollup
+    /// holds the part already aggregated and raw holds the rest, and they have to be summed before
+    /// a median means anything.
+    /// </para>
+    /// <para>
+    /// That the two agree is not assumed. The column is the same walk as a pure function of one
+    /// histogram, checked against this query's arithmetic and against
+    /// <c>percentile_disc(0.5)</c> on every rollup row in production before 0036 was written.
+    /// </para>
     /// </remarks>
     private static async Task<Dictionary<Guid, List<DailyMedian>>> DailyMediansAsync(
         NpgsqlConnection connection, Guid[] ids, DateTimeOffset now, CancellationToken cancellationToken)
@@ -372,6 +384,37 @@ public sealed partial class NpgsqlGameQueries(
             span AS (
                 SELECT date_trunc('day', @from AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS from_at
             ),
+
+            -- The day the rollup watermark falls inside is the last one raw samples can still add
+            -- to. Every day strictly before it is finished, so its histogram will not change again
+            -- and its median is the one already stored on the row (migration 0036).
+            --
+            -- `-infinity` truncates to `-infinity` (checked on PostgreSQL 17), so a deployment that
+            -- has never rolled up puts nothing in `closed`, nothing in the rollup half of
+            -- `frequency`, and everything in the raw half — which is what this query did before the
+            -- column existed.
+            settled AS (
+                SELECT date_trunc('day', (SELECT at FROM boundary) AT TIME ZONE 'UTC')
+                       AT TIME ZONE 'UTC' AS from_at
+            ),
+
+            -- Finished days: read the median, do not rebuild it. This is the branch that used to
+            -- expand every histogram in the trend span on every request.
+            --
+            -- `counted_samples` rather than a re-derived tally: 0019 constrains the histogram to
+            -- total it, so it is the same number the walk below arrives at, already on the row.
+            closed AS (
+                SELECT r.game_id, r.day, r.median_count AS median, r.counted_samples AS samples
+                  FROM presence_rollup_day r
+                 WHERE r.game_id = ANY(@ids)
+                   AND r.median_count IS NOT NULL
+                   AND r.day >= (SELECT from_at FROM span)
+                   AND r.day < (SELECT from_at FROM settled)
+                   AND r.counted_samples >= @minimumSamplesPerDay
+            ),
+
+            -- Only the unfinished tail is still walked: the watermark's own day, where the rollup
+            -- holds the part already aggregated and raw holds the rest, plus anything after it.
             frequency AS (
                 SELECT p.game_id,
                        date_trunc('day', p.at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS day,
@@ -391,6 +434,7 @@ public sealed partial class NpgsqlGameQueries(
                  WHERE r.game_id = ANY(@ids)
                    AND r.count_histogram IS NOT NULL
                    AND r.day >= (SELECT from_at FROM span)
+                   AND r.day >= (SELECT from_at FROM settled)
                    AND r.day < (SELECT at FROM boundary)
             ),
             counted AS (
@@ -405,9 +449,20 @@ public sealed partial class NpgsqlGameQueries(
                        sum(times) OVER (PARTITION BY game_id, day)                AS samples
                   FROM counted
             )
-            SELECT game_id        AS GameId,
-                   day             AS Day,
-                   min(value)::int AS Median,
+            -- `UNION ALL` and not `UNION`: the two halves cover disjoint day ranges by construction
+            -- (`closed` stops where `settled` begins and `frequency` starts there), so there is
+            -- nothing to deduplicate and asking for a distinct sort would only cost one.
+            SELECT game_id           AS GameId,
+                   day               AS Day,
+                   median::int       AS Median,
+                   samples::int      AS Samples
+              FROM closed
+
+            UNION ALL
+
+            SELECT game_id           AS GameId,
+                   day               AS Day,
+                   min(value)::int   AS Median,
                    max(samples)::int AS Samples
               FROM walked
              WHERE running >= half
