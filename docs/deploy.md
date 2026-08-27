@@ -559,6 +559,19 @@ outlives the rest, so it keeps growing and that is the design working.
 
 **Why 90 days of hourly is not stingy.** The only reader of `presence_rollup_hour` is the heatmap on
 a game's page, which asks for 56 days. Anything kept past that window is storage no surface reads.
+The floors are enforced rather than advisory: raw and hourly below 56 days and daily below a year are
+refused by `PresenceRetentionOptions.Validate`, so 90 is the heatmap window plus slack rather than a
+number anybody derived.
+
+**A long window is a reason to read the daily grain, not to keep more hourly.** The three grains are
+the usual downsampling pyramid, and the thing that makes it work here is that a rollup keeps the whole
+count histogram rather than a summary — so a day's median, peak and distribution stay exactly
+computable for ever, and going up a grain costs time resolution rather than accuracy. A year-long view
+built on `presence_rollup_hour` would be 8,760 points per game for a chart that cannot draw them;
+`presence_rollup_day` answers the same question in 365, with a full distribution behind each, and is
+kept for ever precisely so that it can. Raise `MUI_RETAIN_HOURLY_DAYS` only for a surface that needs
+**hour-of-day detail** older than the window — nothing here does today — and raise it before building
+that surface rather than keeping everything now against a maybe.
 
 **Set it early.** Both raw and hourly are dropped a whole month at a time — raw has been partitioned
 since migration 0003, hourly since 0037 — so the sweep is a `DROP TABLE` per month rather than a
