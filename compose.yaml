@@ -84,6 +84,19 @@ services:
       # `:-true` so the code's own default stays the one default.
       MUI_DNS_CLAIMS_ENABLED: ${MUI_DNS_CLAIMS_ENABLED:-}
 
+      # How long presence is kept, per grain, in whole days (docs/deploy.md, "How long presence is
+      # kept"). Empty rather than a number so the catalogue's own default -- keep everything -- stays
+      # the one default: §15.4 is open, and between an unsettled retention period and a deletion the
+      # conservative answer is to delete nothing. A deployment that has decided otherwise says so in
+      # .env, and a value that is not a positive whole number throws at startup rather than being read
+      # back as "unset".
+      MUI_RETAIN_RAW_DAYS: ${MUI_RETAIN_RAW_DAYS:-}
+      MUI_RETAIN_HOURLY_DAYS: ${MUI_RETAIN_HOURLY_DAYS:-}
+
+      # Left forwardable but expected to stay empty: §5.2 keeps the daily grain for ever, and it is
+      # the copy every other grain may be dropped in favour of.
+      MUI_RETAIN_DAILY_DAYS: ${MUI_RETAIN_DAILY_DAYS:-}
+
       Passkeys__ServerDomain: ${MUI_PASSKEY_DOMAIN:-}
 
       # The shared bearer secret for /mcp — the authenticated MCP endpoint that replaces the

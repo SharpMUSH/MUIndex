@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using MUI.Crawler;
 
 namespace MUI.Web.Data;
@@ -91,6 +93,53 @@ public static class CrawlerSettings
 
     public const string DnsClaimsEnabledConfigurationKey = "Crawler:DnsClaims:Enabled";
 
+    /// <summary>
+    /// How many days of raw <c>presence_sample</c> to keep. Unset keeps everything.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Retention is expressed in days rather than as a preset, because the three grains are three
+    /// separate decisions and <see cref="PresenceRetentionOptions.AsDesigned"/> bundling them hides
+    /// which one an operator meant to change.
+    /// </para>
+    /// <para>
+    /// <b>Unset still keeps everything</b>, which is the default the catalogue ships and this does not
+    /// move: between an unsettled retention period and a deletion, the conservative answer is to
+    /// delete nothing (§15.4). What this adds is the ability to say otherwise without a redeploy.
+    /// The floor under raw is the heatmap window, enforced by <c>PresenceRetentionOptions.Validate</c>
+    /// rather than here.
+    /// </para>
+    /// </remarks>
+    public const string RetainRawDaysEnvironmentVariable = "MUI_RETAIN_RAW_DAYS";
+
+    public const string RetainRawDaysConfigurationKey = "Crawler:Retention:RawDays";
+
+    /// <summary>
+    /// How many days of hourly rollup to keep. Unset keeps everything.
+    /// </summary>
+    /// <remarks>
+    /// The grain that grows fastest and is read the least: measured at ~6,300 rows a day (~503 MB a
+    /// year) against a single reader, the game page's heatmap, which asks for
+    /// <c>PresenceRetentionOptions.HeatmapWindow</c> — 56 days. Anything kept past that window is
+    /// storage no surface reads. Dropped a whole month at a time since migration 0037.
+    /// </remarks>
+    public const string RetainHourlyDaysEnvironmentVariable = "MUI_RETAIN_HOURLY_DAYS";
+
+    public const string RetainHourlyDaysConfigurationKey = "Crawler:Retention:HourlyDays";
+
+    /// <summary>
+    /// How many days of daily rollup to keep. Unset — which is what §5.2 designs for — keeps them
+    /// for ever.
+    /// </summary>
+    /// <remarks>
+    /// Bound here only so that a deployment that has decided otherwise says so in its own
+    /// configuration rather than in a patch. Setting it departs from the design: this is the copy
+    /// every other grain may be dropped in favour of, and nothing outlives it.
+    /// </remarks>
+    public const string RetainDailyDaysEnvironmentVariable = "MUI_RETAIN_DAILY_DAYS";
+
+    public const string RetainDailyDaysConfigurationKey = "Crawler:Retention:DailyDays";
+
     private static readonly char[] Separators = [',', ' ', '\t', '\r', '\n'];
 
     /// <summary>Applies what the environment said, and throws rather than shrugging at a typo.</summary>
@@ -139,6 +188,18 @@ public static class CrawlerSettings
         {
             builder.Seed(address.Host, address.Port);
         }
+
+        var retention = builder.Maintenance.Retention with
+        {
+            RawSamples = Days(configuration, RetainRawDaysEnvironmentVariable, RetainRawDaysConfigurationKey)
+                ?? builder.Maintenance.Retention.RawSamples,
+            HourlyRollups = Days(configuration, RetainHourlyDaysEnvironmentVariable, RetainHourlyDaysConfigurationKey)
+                ?? builder.Maintenance.Retention.HourlyRollups,
+            DailyRollups = Days(configuration, RetainDailyDaysEnvironmentVariable, RetainDailyDaysConfigurationKey)
+                ?? builder.Maintenance.Retention.DailyRollups,
+        };
+
+        builder.Maintenance = builder.Maintenance with { Retention = retention };
 
         return builder;
     }
@@ -248,6 +309,33 @@ public static class CrawlerSettings
             ? [.. list.Split(Separators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .Select(address => CrawlSeed.Parse(address))]
             : [];
+    }
+
+    /// <summary>
+    /// A retention window in whole days, or null where nothing was configured.
+    /// </summary>
+    /// <remarks>
+    /// Throws on a value that is not a positive whole number, for the reason the rest of this file
+    /// throws: <c>MUI_RETAIN_HOURLY_DAYS=ninety</c> read as "unset, so keep everything" is a
+    /// deployment that believes it has bounded its storage and has not. Zero is refused too — a
+    /// retention of nothing would delete every rollup the moment the pass ran, and nobody means that.
+    /// </remarks>
+    private static TimeSpan? Days(IConfiguration configuration, string environmentVariable, string key)
+    {
+        if (Read(configuration, environmentVariable, key) is not { } value)
+        {
+            return null;
+        }
+
+        if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var days)
+            || days <= 0)
+        {
+            throw new ArgumentException(
+                $"{environmentVariable} has to be a whole number of days greater than zero; "
+                + $"'{value}' is not. Leave it unset to keep everything.");
+        }
+
+        return TimeSpan.FromDays(days);
     }
 
     private static string? Read(IConfiguration configuration, string environmentVariable, string key) =>

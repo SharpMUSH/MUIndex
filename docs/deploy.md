@@ -532,6 +532,95 @@ and `CRAWL DELAY` still wins per host, but several hundred connections leave in 
 rather than spread over a day. That is the reason the crawl is off for the first start: a restored
 catalogue turns every mistake in `.env` into a mistake made at once, to everybody in it.
 
+## How long presence is kept
+
+Nothing is deleted unless the deployment says so. The maintenance pass has been running hourly since
+the crawler shipped, but every retention window defaults to "for ever", so all it does out of the box
+is roll up, create partitions ahead, and sweep the two things that have their own TTLs already —
+probe shapes at 14 days and the crawl-cycle log at 30.
+
+Three variables turn it on, each a whole number of days. Leave one unset to keep that grain for ever:
+
+```sh
+MUI_RETAIN_RAW_DAYS=360      # raw presence_sample; floor is the 56-day heatmap window
+MUI_RETAIN_HOURLY_DAYS=360   # presence_rollup_hour
+# MUI_RETAIN_DAILY_DAYS      # leave unset: §5.2 keeps the daily grain for ever
+```
+
+Those are the values this deployment chose: **a year of everything**, ~940 MB steady state against 30
+GB free, with the daily grain still growing for ever underneath at ~68 MB a year. Both numbers are
+bought rather than needed — no surface reads raw past the rollup watermark, and none reads hourly past
+56 days.
+
+**The two upper grains are the same size here, which is worth knowing before trimming either.** The
+pyramid compresses far less than its shape suggests at this crawl cadence: an hourly row summarises
+**1.34** probes on the deployment's own data, because each game is probed about nine times a day and
+those land in about seven distinct hours. Only the daily grain does real compression, at **10.85**
+probes a row. And an hourly row is wider than a raw one (218 against 145 bytes), so a year of hourly
+(~496 MB) costs slightly *more* than a year of raw (~443 MB) while carrying strictly less — no exact
+instants, no per-reading source, no reason a reading was uncountable.
+
+So the middle grain does not exist to save space; it exists to give the day-of-week × hour grid
+something pre-aggregated to read, instead of aggregating raw on every page load. If storage ever has
+to be cut, cut hourly before raw — that is the opposite of the intuition the three-grain shape
+suggests, and the measured numbers are why.
+
+**A long hourly retention is cheap because of pruning, not because the box is big.** The heatmap asks
+for 56 days, so the planner touches two or three monthly partitions and never reads the other ten —
+the older months sit cold on disk instead of competing for the 128 MB of `shared_buffers` the database
+actually has. Retained history costs disk; only *read* history costs memory, and the read window does
+not move when the retention number does. Before 0037 this was not true, and a year of hourly would
+have been a year of rows in one table for every scan to weigh.
+
+**Raising later cannot recover what has already gone, and lowering later is free.** Setting a window
+deletes nothing until data is old enough to fall outside it, so the number is fully reversible for as
+long as the deployment is younger than the window and one-way afterwards. That asymmetry is the
+argument for choosing generously up front and trimming once a real answer exists, rather than the
+reverse.
+
+A value that is not a positive whole number throws at startup rather than being read as "unset". A
+deployment that believes it has bounded its storage and has not is the failure worth being loud
+about; the disk finds out otherwise.
+
+**Why these two grains and not the third.** Measured on this deployment over thirteen days with 931
+games: the hourly rollup takes ~6,300 rows/day at 218 bytes (~503 MB a year) and raw takes ~8,500
+rows/day (~450 MB a year), against the daily rollup's ~790 rows/day (~68 MB a year). The daily grain
+is both the smallest and the one every other grain may be dropped in favour of — it is the copy that
+outlives the rest, so it keeps growing and that is the design working.
+
+**Why 90 days of hourly is not stingy.** The only reader of `presence_rollup_hour` is the heatmap on
+a game's page, which asks for 56 days. Anything kept past that window is storage no surface reads.
+The floors are enforced rather than advisory: raw and hourly below 56 days and daily below a year are
+refused by `PresenceRetentionOptions.Validate`, so 90 is the heatmap window plus slack rather than a
+number anybody derived.
+
+**A long window is a reason to read the daily grain, not to keep more hourly.** The three grains are
+the usual downsampling pyramid, and the thing that makes it work here is that a rollup keeps the whole
+count histogram rather than a summary — so a day's median, peak and distribution stay exactly
+computable for ever, and going up a grain costs time resolution rather than accuracy. A year-long view
+built on `presence_rollup_hour` would be 8,760 points per game for a chart that cannot draw them;
+`presence_rollup_day` answers the same question in 365, with a full distribution behind each, and is
+kept for ever precisely so that it can. Raise `MUI_RETAIN_HOURLY_DAYS` only for a surface that needs
+**hour-of-day detail** older than the window — nothing here does today — and raise it before building
+that surface rather than keeping everything now against a maybe.
+
+**Set it early.** Both raw and hourly are dropped a whole month at a time — raw has been partitioned
+since migration 0003, hourly since 0037 — so the sweep is a `DROP TABLE` per month rather than a
+`DELETE` per row. But the *conversion* in 0037 rewrites the table, and that is cheap while it is small
+and a maintenance window once it is not.
+
+**Each grain keeps a little longer than the number asks, and the two do it differently.** Raw drops
+whole partitions and nothing else, so the month a cutoff falls inside is kept in full until the
+following month's sweep takes it — `RawSamples` says as much in its own summary, and the effect is
+that raw can be held up to a month longer than the figure set here. Hourly drops whole partitions
+*and* then deletes the remainder inside the cutoff's own month, so it tracks the figure closely; that
+delete is bounded by one month's rows however long retention was off.
+
+Retention can never outrun the rollups, and this is enforced rather than documented: raw partitions
+drop only as far as the older of the two rollup watermarks, and the hourly sweep clamps to the daily
+watermark. A grain that has not been read by the grain that replaces it is the only copy there is,
+and the pass will not touch it.
+
 ## What is still open
 
 §15.1 and §15.3 are answered above. Three things this document now touches are not.
