@@ -109,7 +109,7 @@ public sealed class NpgsqlPresenceStore(NpgsqlDataSource source) : IPresenceStor
              month <= PresencePartitions.MonthOf(through);
              month = month.AddMonths(1))
         {
-            var name = PresencePartitions.NameFor(month);
+            var name = PresencePartitions.Samples.NameFor(month);
 
             if (existing.Contains(name))
             {
@@ -169,7 +169,7 @@ public sealed class NpgsqlPresenceStore(NpgsqlDataSource source) : IPresenceStor
         foreach (var name in await PartitionsAsync(cancellationToken))
         {
             // Not ours, so not ours to drop.
-            if (PresencePartitions.MonthFromName(name) is not { } month
+            if (PresencePartitions.Samples.MonthFromName(name) is not { } month
                 || month.AddMonths(1) > boundary)
             {
                 continue;
@@ -199,7 +199,7 @@ public sealed class NpgsqlPresenceStore(NpgsqlDataSource source) : IPresenceStor
         try
         {
             await connection.ExecuteAsync(new CommandDefinition(
-                PresencePartitions.CreateDdl(month), cancellationToken: cancellationToken));
+                PresencePartitions.Samples.CreateDdl(month), cancellationToken: cancellationToken));
         }
         catch (PostgresException error) when (error.SqlState == DuplicateTable)
         {

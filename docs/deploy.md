@@ -532,6 +532,45 @@ and `CRAWL DELAY` still wins per host, but several hundred connections leave in 
 rather than spread over a day. That is the reason the crawl is off for the first start: a restored
 catalogue turns every mistake in `.env` into a mistake made at once, to everybody in it.
 
+## How long presence is kept
+
+Nothing is deleted unless the deployment says so. The maintenance pass has been running hourly since
+the crawler shipped, but every retention window defaults to "for ever", so all it does out of the box
+is roll up, create partitions ahead, and sweep the two things that have their own TTLs already —
+probe shapes at 14 days and the crawl-cycle log at 30.
+
+Three variables turn it on, each a whole number of days. Leave one unset to keep that grain for ever:
+
+```sh
+MUI_RETAIN_RAW_DAYS=90       # raw presence_sample; floor is the 56-day heatmap window
+MUI_RETAIN_HOURLY_DAYS=90    # presence_rollup_hour
+# MUI_RETAIN_DAILY_DAYS      # leave unset: §5.2 keeps the daily grain for ever
+```
+
+A value that is not a positive whole number throws at startup rather than being read as "unset". A
+deployment that believes it has bounded its storage and has not is the failure worth being loud
+about; the disk finds out otherwise.
+
+**Why these two grains and not the third.** Measured on this deployment over thirteen days with 931
+games: the hourly rollup takes ~6,300 rows/day at 218 bytes (~503 MB a year) and raw takes ~8,500
+rows/day (~450 MB a year), against the daily rollup's ~790 rows/day (~68 MB a year). The daily grain
+is both the smallest and the one every other grain may be dropped in favour of — it is the copy that
+outlives the rest, so it keeps growing and that is the design working.
+
+**Why 90 days of hourly is not stingy.** The only reader of `presence_rollup_hour` is the heatmap on
+a game's page, which asks for 56 days. Anything kept past that window is storage no surface reads.
+
+**Set it early.** Both raw and hourly are dropped a whole month at a time — raw has been partitioned
+since migration 0003, hourly since 0037 — so the sweep is a `DROP TABLE` per month rather than a
+`DELETE` per row. The remainder inside the month the boundary falls in is deleted, and that is bounded
+by one month's rows however long retention was off. But the *conversion* in 0037 rewrites the table,
+and that is cheap while it is small and a maintenance window once it is not.
+
+Retention can never outrun the rollups, and this is enforced rather than documented: raw partitions
+drop only as far as the older of the two rollup watermarks, and the hourly sweep clamps to the daily
+watermark. A grain that has not been read by the grain that replaces it is the only copy there is,
+and the pass will not touch it.
+
 ## What is still open
 
 §15.1 and §15.3 are answered above. Three things this document now touches are not.

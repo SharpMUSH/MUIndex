@@ -39,6 +39,20 @@ public sealed class NpgsqlPresenceRollupStore(NpgsqlDataSource source) : IPresen
             return 0;
         }
 
+        // The hourly grain is partitioned (migration 0037) and has no DEFAULT partition, so a bucket
+        // whose month has no partition is not a slow write but a failed one. Ensured here as well as
+        // ahead of time in PresenceMaintenance, for the same reason NpgsqlPresenceStore.AppendAsync
+        // does it per append rather than trusting the maintenance pass: a rollup of a span nobody
+        // anticipated — a backfill, a test, a pass that has not run since before the month turned —
+        // must write its months rather than fail on them.
+        //
+        // `toExclusive` is exclusive, so a span ending exactly at a month boundary must not create the
+        // month it stops short of.
+        if (grain is PresenceGrain.Hour)
+        {
+            await EnsurePartitionsThroughAsync(from, toExclusive.AddTicks(-1), cancellationToken);
+        }
+
         var (table, bucket, unit) = Shape(grain);
 
         // Truncation is UTC on both sides so a session's TimeZone setting can never shift a
@@ -205,6 +219,126 @@ public sealed class NpgsqlPresenceRollupStore(NpgsqlDataSource source) : IPresen
     /// Row-by-row, not by partition: these tables aren't partitioned, since §5.2 keeps the daily grain
     /// forever, so the table that would most want partitioning is the one nothing ever deletes from.
     /// </remarks>
+    private const string LockNotAvailable = "55P03";
+
+    private const string DuplicateTable = "42P07";
+
+    /// <summary>
+    /// Makes every monthly partition of the hourly rollup up to and including
+    /// <paramref name="through"/>, and returns the ones that did not exist yet.
+    /// </summary>
+    /// <remarks>
+    /// The hourly rollup has been partitioned since migration 0037 and has no DEFAULT partition, so a
+    /// month without one is not a slow write but a failed one. Created ahead of need for the same
+    /// reason raw partitions are: the rollup pass writing on the first of the month must not be the
+    /// thing that discovers a database it cannot issue DDL against.
+    /// </remarks>
+    public async Task<IReadOnlyList<string>> EnsurePartitionsThroughAsync(
+        DateTimeOffset from,
+        DateTimeOffset through,
+        CancellationToken cancellationToken = default)
+    {
+        var scheme = PresencePartitions.HourlyRollups;
+        var existing = (await PartitionsAsync(cancellationToken)).ToHashSet(StringComparer.Ordinal);
+        var created = new List<string>();
+
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        for (var month = PresencePartitions.MonthOf(from);
+             month <= PresencePartitions.MonthOf(through);
+             month = month.AddMonths(1))
+        {
+            if (existing.Contains(scheme.NameFor(month)))
+            {
+                continue;
+            }
+
+            try
+            {
+                await connection.ExecuteAsync(new CommandDefinition(
+                    scheme.CreateDdl(month), cancellationToken: cancellationToken));
+
+                created.Add(scheme.NameFor(month));
+            }
+            catch (PostgresException error) when (error.SqlState == DuplicateTable)
+            {
+                // IF NOT EXISTS is checked, not locked, so two workers crossing a month boundary at
+                // the same moment can both decide to create it. The loser's job is already done.
+            }
+        }
+
+        return created;
+    }
+
+    /// <summary>Every partition currently attached to the hourly rollup, oldest first.</summary>
+    public async Task<IReadOnlyList<string>> PartitionsAsync(CancellationToken cancellationToken = default)
+    {
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        var names = await connection.QueryAsync<string>(new CommandDefinition(
+            PresencePartitions.PartitionsSql,
+            new { table = PresencePartitions.HourlyRollups.Table },
+            cancellationToken: cancellationToken));
+
+        return [.. names];
+    }
+
+    /// <summary>
+    /// Drops every whole monthly partition of the hourly rollup that ends at or before
+    /// <paramref name="boundary"/>, and returns their names.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// What <see cref="DeleteBeforeAsync"/> would otherwise do one row at a time. At the measured rate
+    /// (~6,300 rows a day) a year of hourly rollup is over two million rows, and deleting those leaves
+    /// as many dead tuples for autovacuum to walk on a two-core box. Dropping the month is O(1) and
+    /// returns the disk immediately.
+    /// </para>
+    /// <para>
+    /// A partition is dropped only when its whole month is past the boundary — a month the boundary
+    /// falls inside still holds hours that must be kept, and those are left to
+    /// <see cref="DeleteBeforeAsync"/>. Same reading-the-name-not-the-bounds rule as raw presence: a
+    /// partition an operator attached by hand is never ours to drop.
+    /// </para>
+    /// </remarks>
+    public async Task<IReadOnlyList<string>> DropHourPartitionsEndingAtOrBeforeAsync(
+        DateTimeOffset boundary,
+        CancellationToken cancellationToken = default)
+    {
+        var scheme = PresencePartitions.HourlyRollups;
+        var dropped = new List<string>();
+
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        // Dropping a partition takes ACCESS EXCLUSIVE on the parent, which the rollup pass writing
+        // into it would otherwise queue behind. Bounded, so maintenance can never be the reason a
+        // rollup could not be written; whatever is skipped is dropped on the next pass.
+        await connection.ExecuteAsync(new CommandDefinition(
+            "SET lock_timeout = '5s'", cancellationToken: cancellationToken));
+
+        foreach (var name in await PartitionsAsync(cancellationToken))
+        {
+            if (scheme.MonthFromName(name) is not { } month || month.AddMonths(1) > boundary)
+            {
+                continue;
+            }
+
+            try
+            {
+                await connection.ExecuteAsync(new CommandDefinition(
+                    $"DROP TABLE IF EXISTS {name}", cancellationToken: cancellationToken));
+
+                dropped.Add(name);
+            }
+            catch (PostgresException error) when (error.SqlState == LockNotAvailable)
+            {
+                // Something is writing to the month. It will still be droppable next pass.
+            }
+        }
+
+        return dropped;
+    }
+
     public async Task<int> DeleteBeforeAsync(
         PresenceGrain grain,
         DateTimeOffset cutoff,

@@ -47,8 +47,22 @@ public sealed class PresenceMaintenance(
     {
         retention.Validate();
 
-        var created = await samples.EnsurePartitionsThroughAsync(
-            now, now.AddMonths(retention.MonthsOfPartitionsAhead), cancellationToken);
+        var through = now.AddMonths(retention.MonthsOfPartitionsAhead);
+
+        var created = await samples.EnsurePartitionsThroughAsync(now, through, cancellationToken);
+
+        // The hourly rollup is partitioned too since migration 0037, and has no DEFAULT partition
+        // either — so it needs its months made ahead on the same terms, and BEFORE RollUpAsync writes
+        // into them. A rollup that ran first would fail on the first of the month rather than create
+        // what it needed.
+        var createdHourly = await rollups.EnsurePartitionsThroughAsync(now, through, cancellationToken);
+
+        if (createdHourly.Count > 0)
+        {
+            logger?.LogInformation(
+                "Created {Count} hourly rollup partitions: {Partitions}",
+                createdHourly.Count, string.Join(", ", createdHourly));
+        }
 
         var rolled = await RollUpAsync(now, cancellationToken);
         var swept = await SweepRetentionAsync(now, cancellationToken);
@@ -217,8 +231,25 @@ public sealed class PresenceMaintenance(
         {
             // Clamped to the daily watermark: an hourly bucket the daily grain has not read is, again,
             // the only copy there is.
+            var boundary = Min(now - keepHours, dailyThrough);
+
+            // Whole months go as partitions (migration 0037), which is O(1) and returns the disk at
+            // once. A year of hourly rollup is over two million rows at the measured rate, and
+            // deleting those a row at a time would leave as many dead tuples for autovacuum to walk
+            // on a two-core box — the cost this table was partitioned to avoid.
+            var months = await rollups.DropHourPartitionsEndingAtOrBeforeAsync(boundary, cancellationToken);
+
+            if (months.Count > 0)
+            {
+                logger?.LogInformation(
+                    "Dropped {Count} hourly rollup partitions: {Partitions}",
+                    months.Count, string.Join(", ", months));
+            }
+
+            // Then the remainder inside the month the boundary falls in, which no whole-partition drop
+            // can reach. Bounded by a month's worth of rows however long retention has been off.
             hoursDeleted = await rollups.DeleteBeforeAsync(
-                PresenceGrain.Hour, Min(now - keepHours, dailyThrough), cancellationToken);
+                PresenceGrain.Hour, boundary, cancellationToken);
         }
 
         var daysDeleted = 0;
