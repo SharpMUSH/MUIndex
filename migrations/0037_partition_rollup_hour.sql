@@ -78,23 +78,32 @@ CREATE TABLE presence_rollup_hour (
 --
 -- Named presence_rollup_hour_YYYYMM, matching presence_sample_YYYYMM, because the drop path reads a
 -- partition's month back out of its name; anything named otherwise is never dropped by us.
+-- Months are derived and bounded in UTC, never in the session's zone. `month` is deliberately a
+-- zone-less `timestamp` holding a UTC wall clock, converted back with AT TIME ZONE 'UTC' at the point
+-- it becomes a bound -- the same discipline every bucket boundary in this codebase follows, and here
+-- it is load-bearing rather than tidy. PresencePartitions.CreateDdl emits explicit UTC bounds, so a
+-- migration run from a session in, say, America/Chicago would otherwise cut its months at 05:00 UTC
+-- and the next partition the application created would overlap one of these and fail outright.
+-- Measured: under America/Chicago the two spellings do not name the same instant, under UTC they do.
 DO $$
 DECLARE
-    month date;
+    month timestamp;
+    last  timestamp;
 BEGIN
-    FOR month IN
-        SELECT generate_series(
-            date_trunc('month', COALESCE(
-                (SELECT min(hour) FROM presence_rollup_hour_unpartitioned), now())),
-            date_trunc('month', now()) + interval '2 months',
-            interval '1 month')::date
-    LOOP
+    month := date_trunc('month', COALESCE(
+        (SELECT min(hour) FROM presence_rollup_hour_unpartitioned), now()) AT TIME ZONE 'UTC');
+
+    last := date_trunc('month', now() AT TIME ZONE 'UTC') + interval '2 months';
+
+    WHILE month <= last LOOP
         EXECUTE format(
             'CREATE TABLE IF NOT EXISTS %I PARTITION OF presence_rollup_hour '
             || 'FOR VALUES FROM (%L) TO (%L)',
             'presence_rollup_hour_' || to_char(month, 'YYYYMM'),
-            month,
-            month + interval '1 month');
+            month AT TIME ZONE 'UTC',
+            (month + interval '1 month') AT TIME ZONE 'UTC');
+
+        month := month + interval '1 month';
     END LOOP;
 END $$;
 

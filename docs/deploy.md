@@ -575,9 +575,15 @@ that surface rather than keeping everything now against a maybe.
 
 **Set it early.** Both raw and hourly are dropped a whole month at a time — raw has been partitioned
 since migration 0003, hourly since 0037 — so the sweep is a `DROP TABLE` per month rather than a
-`DELETE` per row. The remainder inside the month the boundary falls in is deleted, and that is bounded
-by one month's rows however long retention was off. But the *conversion* in 0037 rewrites the table,
-and that is cheap while it is small and a maintenance window once it is not.
+`DELETE` per row. But the *conversion* in 0037 rewrites the table, and that is cheap while it is small
+and a maintenance window once it is not.
+
+**Each grain keeps a little longer than the number asks, and the two do it differently.** Raw drops
+whole partitions and nothing else, so the month a cutoff falls inside is kept in full until the
+following month's sweep takes it — `RawSamples` says as much in its own summary, and the effect is
+that raw can be held up to a month longer than the figure set here. Hourly drops whole partitions
+*and* then deletes the remainder inside the cutoff's own month, so it tracks the figure closely; that
+delete is bounded by one month's rows however long retention was off.
 
 Retention can never outrun the rollups, and this is enforced rather than documented: raw partitions
 drop only as far as the older of the two rollup watermarks, and the hourly sweep clamps to the daily
