@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+
 using Dapper;
 
 using Npgsql;
@@ -21,14 +23,136 @@ public sealed partial class NpgsqlGameQueries
     {
         ArgumentNullException.ThrowIfNull(filter);
 
-        var now = _time.GetUtcNow();
-
-        await using var connection = await source.OpenConnectionAsync(cancellationToken);
-
         // Archived games leave the default listing (spec §7.5); requesting the archived band lifts
         // just that exclusion. Must lift `archived` only — not `excluded` or `unlisted`, which answer
         // different questions the archive checkbox doesn't ask.
         var includeArchived = filter.IncludeArchived || filter.Band is ActivityBand.Archived;
+
+        var rows = await CatalogueAsync(
+            new CatalogueKey(includeArchived, SortWindows.Of(filter.Sort)), cancellationToken);
+
+        return rows.Count == 0 ? GameListing.Empty : FacetedSearch.Search(rows, filter);
+    }
+
+    /// <summary>
+    /// What a catalogue snapshot is keyed by — everything the assembled rows depend on, and nothing
+    /// a facet selection can change.
+    /// </summary>
+    /// <remarks>
+    /// The window is here because a window sort is the one thing that adds a query
+    /// (<see cref="PlayersOverWindowAsync"/>); the archive toggle because it is the one predicate the
+    /// database applies. Every other facet is arithmetic over the rows, so it cannot be part of the
+    /// key — which is exactly why the key space is a handful of entries rather than the product of
+    /// twelve facets.
+    /// </remarks>
+    private readonly record struct CatalogueKey(bool IncludeArchived, TimeSpan? Window);
+
+    private sealed record CatalogueSnapshot(IReadOnlyList<GameFacetRow> Rows, DateTimeOffset TakenAt);
+
+    /// <summary>
+    /// How long an assembled catalogue is served before it is built again.
+    /// </summary>
+    /// <remarks>
+    /// The crawler writes presence roughly hourly, so a minute of staleness is far inside the
+    /// resolution of the data being shown; what it buys is the difference between assembling the
+    /// catalogue once a minute and assembling it once per request. The figures embedded in a row —
+    /// bands, the freshness chips, "last seen" — are computed against the instant the snapshot was
+    /// taken rather than the instant it is served, which is the honest reading of a cached row and
+    /// is bounded by this constant.
+    /// </remarks>
+    private static readonly TimeSpan CatalogueFreshness = TimeSpan.FromMinutes(1);
+
+    private readonly ConcurrentDictionary<CatalogueKey, Lazy<Task<CatalogueSnapshot>>> _catalogue = new();
+
+    /// <summary>
+    /// The whole catalogue as facet rows — from cache when one is fresh, otherwise built once and
+    /// shared by everyone waiting.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The row set costs seven queries over every game in the catalogue and does not vary with the
+    /// filter, so without this every distinct query string re-ran all seven. That is not a
+    /// theoretical concern: the listing's facets are combinable, so the URL space is the product of
+    /// them all, and a crawler walking it generates a stream of URLs that are each unique and each
+    /// identical in what they cost to answer. Caching the *rendered page* would never hit; caching
+    /// the rows behind it always does.
+    /// </para>
+    /// <para>
+    /// The <see cref="Lazy{T}"/> holds the <see cref="Task"/> rather than the result, which is what
+    /// makes this single-flight: concurrent callers arriving on a cold key await one build instead
+    /// of starting one each. Under the load this exists to survive, a cache that admitted a
+    /// thundering herd on every expiry would be close to no cache at all.
+    /// </para>
+    /// <para>
+    /// The build deliberately does not take the caller's <see cref="CancellationToken"/>. The work is
+    /// shared, so honouring one caller's cancellation would abandon every other caller waiting on
+    /// it — and the callers most likely to disconnect mid-request are precisely the automated ones
+    /// arriving in bulk. A failed build is evicted rather than cached, so the next request retries
+    /// instead of inheriting the exception for the rest of the freshness window.
+    /// </para>
+    /// </remarks>
+    private async Task<IReadOnlyList<GameFacetRow>> CatalogueAsync(
+        CatalogueKey key,
+        CancellationToken cancellationToken)
+    {
+        var entry = Entry(key);
+        var snapshot = await SnapshotAsync(key, entry, cancellationToken);
+
+        if (_time.GetUtcNow() - snapshot.TakenAt < CatalogueFreshness)
+        {
+            return snapshot.Rows;
+        }
+
+        // Stale: drop this entry and take whatever the replacement builds. Whoever wins the race to
+        // re-add does the work and everybody else awaits it. Removing by key *and value* matters —
+        // a plain remove would discard a replacement another caller had already installed.
+        //
+        // Deliberately one rebuild rather than a loop that re-tests freshness: a snapshot is stamped
+        // with the clock that a re-test would read, so a freshness of zero — or a clock that does not
+        // advance, which is every test with a fixed one — would spin for ever rather than answer.
+        // Serving rows one build old is the correct answer to that race anyway; nobody is waiting for
+        // a *newer* catalogue than the one just assembled.
+        Evict(key, entry);
+
+        return (await SnapshotAsync(key, Entry(key), cancellationToken)).Rows;
+    }
+
+    private Lazy<Task<CatalogueSnapshot>> Entry(CatalogueKey key) =>
+        _catalogue.GetOrAdd(
+            key,
+            k => new Lazy<Task<CatalogueSnapshot>>(
+                () => BuildCatalogueAsync(k, CancellationToken.None),
+                LazyThreadSafetyMode.ExecutionAndPublication));
+
+    private async Task<CatalogueSnapshot> SnapshotAsync(
+        CatalogueKey key,
+        Lazy<Task<CatalogueSnapshot>> entry,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await entry.Value.WaitAsync(cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Evict(key, entry);
+            throw;
+        }
+    }
+
+    private void Evict(CatalogueKey key, Lazy<Task<CatalogueSnapshot>> entry) =>
+        ((ICollection<KeyValuePair<CatalogueKey, Lazy<Task<CatalogueSnapshot>>>>)_catalogue)
+            .Remove(new KeyValuePair<CatalogueKey, Lazy<Task<CatalogueSnapshot>>>(key, entry));
+
+    private async Task<CatalogueSnapshot> BuildCatalogueAsync(
+        CatalogueKey key,
+        CancellationToken cancellationToken)
+    {
+        var now = _time.GetUtcNow();
+
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        var includeArchived = key.IncludeArchived;
 
         var rows = (await connection.QueryAsync<GameRow>(new CommandDefinition(
             $"""
@@ -46,7 +170,7 @@ public sealed partial class NpgsqlGameQueries
 
         if (rows.Count == 0)
         {
-            return GameListing.Empty;
+            return new CatalogueSnapshot([], now);
         }
 
         var ids = rows.Select(row => row.Id).ToArray();
@@ -57,7 +181,7 @@ public sealed partial class NpgsqlGameQueries
 
         // Only where the order asks for it. It is an aggregate over the presence series of the whole
         // catalogue, and computing it for a listing sorted by name would be a scan nobody reads.
-        var windows = SortWindows.Of(filter.Sort) is { } span
+        var windows = key.Window is { } span
             ? await PlayersOverWindowAsync(connection, ids, span, now, cancellationToken)
             : [];
 
@@ -130,7 +254,7 @@ public sealed partial class NpgsqlGameQueries
                 Growth: summary.Growth));
         }
 
-        return FacetedSearch.Search(facetRows, filter);
+        return new CatalogueSnapshot(facetRows, now);
     }
 
     /// <summary>A listing with no panel — the same query, projected.</summary>
