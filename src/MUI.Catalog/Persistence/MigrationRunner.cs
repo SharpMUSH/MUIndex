@@ -43,6 +43,12 @@ public sealed class MigrationRunner(NpgsqlDataSource source, ILogger? logger = n
     /// </remarks>
     public const long MigrationKey = 0x4D55495F4D49_4752L;
 
+    /// <summary>How long to wait for the migration lock before giving up and letting the restart retry.</summary>
+    private static readonly TimeSpan LockWait = TimeSpan.FromMinutes(5);
+
+    /// <summary>How often to re-ask while waiting.</summary>
+    private static readonly TimeSpan LockPoll = TimeSpan.FromSeconds(2);
+
     public async Task<IReadOnlyList<string>> ApplyAsync(CancellationToken cancellationToken = default)
     {
         // An empty set means this binary was assembled without migrations/, not that there's
@@ -71,12 +77,8 @@ public sealed class MigrationRunner(NpgsqlDataSource source, ILogger? logger = n
         //
         // Session-level rather than transaction-level: the run spans one transaction per script, so a
         // lock scoped to a transaction would be released between them and let a second replica in
-        // exactly where the damage is. Released by the `finally` below, and by the connection closing
-        // if this process dies holding it -- a crashed replica must not lock out the next start.
-        await connection.ExecuteAsync(new CommandDefinition(
-            "SELECT pg_advisory_lock(@key)",
-            new { key = MigrationKey },
-            cancellationToken: cancellationToken));
+        // exactly where the damage is.
+        await AcquireAsync(connection, cancellationToken);
 
         try
         {
@@ -86,6 +88,79 @@ public sealed class MigrationRunner(NpgsqlDataSource source, ILogger? logger = n
         {
             await connection.ExecuteAsync(new CommandDefinition(
                 "SELECT pg_advisory_unlock(@key)", new { key = MigrationKey }));
+        }
+    }
+
+    /// <summary>
+    /// Takes the migration lock, saying so if it has to wait, and giving up rather than hanging.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Deliberately not a bare <c>pg_advisory_lock</c>, which waits for ever.</b> Postgres frees a
+    /// session lock when the backend goes away, so a replica that crashes mid-migration cannot leak it
+    /// permanently — checked both ways: terminating the backend releases it, and so does the
+    /// <c>DISCARD ALL</c> Npgsql sends when a pooled connection is returned. What is *not* bounded is
+    /// a backend that is wedged rather than dead. TCP keepalive defaults are measured in hours, and
+    /// for all of that time an unbounded waiter would sit in startup holding no lock, doing nothing,
+    /// and logging nothing, on every replica at once. That is a worse outage than the race this lock
+    /// exists to close, and it is silent, which is the part that makes it worse.
+    /// </para>
+    /// <para>
+    /// So: poll, say out loud that we are waiting and why, and fail with something an operator can act
+    /// on rather than hanging. Failing is safe — the process exits before serving, and
+    /// <c>restart: unless-stopped</c> brings it back to try again, by which time the winner has
+    /// normally finished. A replica that cannot get the lock must never carry on and serve: what it
+    /// would be serving is a database whose schema another replica is halfway through changing.
+    /// </para>
+    /// <para>
+    /// The ceiling is generous because a legitimate migration can be slow — 0037 rewrote a table — and
+    /// a loser that gives up too early turns one slow migration into a restart loop across every
+    /// replica.
+    /// </para>
+    /// </remarks>
+    private async Task AcquireAsync(NpgsqlConnection connection, CancellationToken cancellationToken)
+    {
+        var waited = TimeSpan.Zero;
+        var announced = false;
+
+        while (true)
+        {
+            var taken = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+                "SELECT pg_try_advisory_lock(@key)",
+                new { key = MigrationKey },
+                cancellationToken: cancellationToken));
+
+            if (taken)
+            {
+                if (announced)
+                {
+                    logger?.LogInformation(
+                        "Took the migration lock after waiting {Seconds:0}s", waited.TotalSeconds);
+                }
+
+                return;
+            }
+
+            if (!announced)
+            {
+                logger?.LogInformation(
+                    "Another replica is applying migrations; waiting for the schema lock");
+                announced = true;
+            }
+
+            if (waited >= LockWait)
+            {
+                throw new TimeoutException(
+                    $"Waited {LockWait.TotalMinutes:0} minutes for the migration lock and did not get "
+                    + "it. Another replica is applying migrations and has not finished, or a backend "
+                    + "holding the lock is wedged rather than dead — `SELECT pid, query FROM pg_locks "
+                    + "JOIN pg_stat_activity USING (pid) WHERE locktype = 'advisory'` says which. This "
+                    + "process is exiting rather than serving a database whose schema is mid-change; "
+                    + "it will try again when it restarts.");
+            }
+
+            await Task.Delay(LockPoll, cancellationToken);
+            waited += LockPoll;
         }
     }
 

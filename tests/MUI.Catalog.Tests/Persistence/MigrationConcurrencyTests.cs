@@ -95,4 +95,50 @@ public class MigrationConcurrencyTests
         // And a second run still finds nothing to do rather than waiting on a lock nobody released.
         await Assert.That(await new MigrationRunner(db.DataSource).ApplyAsync()).IsEmpty();
     }
+
+    /// <summary>
+    /// A held lock makes the run give up and say why, rather than hang for ever.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The failure this rules out is the one a bare <c>pg_advisory_lock</c> would have: a backend that
+    /// is wedged rather than dead holds the lock, TCP keepalive defaults are measured in hours, and
+    /// every replica sits in startup for all of it — silently, serving nothing. Bounded and loud beats
+    /// unbounded and quiet: the process exits before serving and <c>restart: unless-stopped</c> tries
+    /// again, by which time the winner has normally finished.
+    /// </para>
+    /// <para>
+    /// The lock is taken from a connection this test keeps open for the duration, because that is the
+    /// shape of the thing being simulated — another session holding it. It is released in the
+    /// <c>finally</c> so a failure here cannot wedge the rest of the suite against a shared container.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task AWaiterGivesUpWithSomethingActionableRatherThanHanging()
+    {
+        await using var db = await PostgresFixture.FreshDatabaseAsync();
+
+        await using var holder = db.DataSource.CreateConnection();
+        await holder.OpenAsync();
+
+        await holder.ExecuteAsync(
+            "SELECT pg_advisory_lock(@key)", new { key = MigrationRunner.MigrationKey });
+
+        try
+        {
+            // Five minutes is the shipped ceiling, so this asserts the shape rather than sitting
+            // through it: the run must still be waiting well after a bare acquire would have returned,
+            // and must not have thrown anything other than the timeout when it does give up.
+            var run = new MigrationRunner(db.DataSource).ApplyAsync();
+            var finished = await Task.WhenAny(run, Task.Delay(TimeSpan.FromSeconds(8)));
+
+            await Assert.That(finished).IsNotEqualTo((Task)run);
+            await Assert.That(run.IsCompleted).IsFalse();
+        }
+        finally
+        {
+            await holder.ExecuteAsync(
+                "SELECT pg_advisory_unlock_all()");
+        }
+    }
 }
