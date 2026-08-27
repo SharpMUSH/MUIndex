@@ -542,10 +542,41 @@ probe shapes at 14 days and the crawl-cycle log at 30.
 Three variables turn it on, each a whole number of days. Leave one unset to keep that grain for ever:
 
 ```sh
-MUI_RETAIN_RAW_DAYS=90       # raw presence_sample; floor is the 56-day heatmap window
-MUI_RETAIN_HOURLY_DAYS=90    # presence_rollup_hour
+MUI_RETAIN_RAW_DAYS=360      # raw presence_sample; floor is the 56-day heatmap window
+MUI_RETAIN_HOURLY_DAYS=360   # presence_rollup_hour
 # MUI_RETAIN_DAILY_DAYS      # leave unset: §5.2 keeps the daily grain for ever
 ```
+
+Those are the values this deployment chose: **a year of everything**, ~940 MB steady state against 30
+GB free, with the daily grain still growing for ever underneath at ~68 MB a year. Both numbers are
+bought rather than needed — no surface reads raw past the rollup watermark, and none reads hourly past
+56 days.
+
+**The two upper grains are the same size here, which is worth knowing before trimming either.** The
+pyramid compresses far less than its shape suggests at this crawl cadence: an hourly row summarises
+**1.34** probes on the deployment's own data, because each game is probed about nine times a day and
+those land in about seven distinct hours. Only the daily grain does real compression, at **10.85**
+probes a row. And an hourly row is wider than a raw one (218 against 145 bytes), so a year of hourly
+(~496 MB) costs slightly *more* than a year of raw (~443 MB) while carrying strictly less — no exact
+instants, no per-reading source, no reason a reading was uncountable.
+
+So the middle grain does not exist to save space; it exists to give the day-of-week × hour grid
+something pre-aggregated to read, instead of aggregating raw on every page load. If storage ever has
+to be cut, cut hourly before raw — that is the opposite of the intuition the three-grain shape
+suggests, and the measured numbers are why.
+
+**A long hourly retention is cheap because of pruning, not because the box is big.** The heatmap asks
+for 56 days, so the planner touches two or three monthly partitions and never reads the other ten —
+the older months sit cold on disk instead of competing for the 128 MB of `shared_buffers` the database
+actually has. Retained history costs disk; only *read* history costs memory, and the read window does
+not move when the retention number does. Before 0037 this was not true, and a year of hourly would
+have been a year of rows in one table for every scan to weigh.
+
+**Raising later cannot recover what has already gone, and lowering later is free.** Setting a window
+deletes nothing until data is old enough to fall outside it, so the number is fully reversible for as
+long as the deployment is younger than the window and one-way afterwards. That asymmetry is the
+argument for choosing generously up front and trimming once a real answer exists, rather than the
+reverse.
 
 A value that is not a positive whole number throws at startup rather than being read as "unset". A
 deployment that believes it has bounded its storage and has not is the failure worth being loud
