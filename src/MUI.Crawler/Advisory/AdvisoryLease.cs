@@ -42,6 +42,15 @@ public sealed class AdvisoryLease : IAsyncDisposable
     /// <summary>The presence rollup, partition and retention pass's key (§5.2). <c>MUI_ROLL</c>.</summary>
     public const long PresenceMaintenanceKey = 0x4D55495F524F_4C4CL;
 
+    // RESERVED, and deliberately not declared here: 0x4D55495F4D49_4752 (MUI_MIGR) belongs to
+    // MigrationRunner.MigrationKey. Advisory locks share one namespace per database, so it is written
+    // down beside these so nobody reuses the number -- but it is defined in MUI.Catalog, because the
+    // catalogue does not reference the crawler and the schema run is the catalogue's business.
+    //
+    // It is also used differently: these leases are *tried*, and a replica that loses moves on. That
+    // one is *waited on*, because a replica that carried on serving would be serving a database whose
+    // schema another replica is halfway through changing.
+
     /// <summary>
     /// The Intermud-3 pass's key. <c>MUI_IMUD</c>.
     /// </summary>

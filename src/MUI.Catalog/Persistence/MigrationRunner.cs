@@ -32,6 +32,17 @@ public sealed class MigrationRunner(NpgsqlDataSource source, ILogger? logger = n
     public static IReadOnlyList<Migration> Scripts { get; } = LoadScripts();
 
     /// <summary>Applies whatever has not been applied yet, and returns the names of what it ran.</summary>
+    /// <summary>
+    /// The advisory-lock key the migration run holds. <c>MUI_MIGR</c> in ASCII.
+    /// </summary>
+    /// <remarks>
+    /// Declared here rather than beside the background services' keys in <c>AdvisoryLease</c>, because
+    /// that type lives in <c>MUI.Crawler</c> and the dependency runs the other way -- the catalogue
+    /// does not know the crawler exists. Advisory locks share one namespace per database, so the
+    /// number is reserved there in a comment even though it is defined here.
+    /// </remarks>
+    public const long MigrationKey = 0x4D55495F4D49_4752L;
+
     public async Task<IReadOnlyList<string>> ApplyAsync(CancellationToken cancellationToken = default)
     {
         // An empty set means this binary was assembled without migrations/, not that there's
@@ -46,6 +57,49 @@ public sealed class MigrationRunner(NpgsqlDataSource source, ILogger? logger = n
 
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
+        // Every replica runs this on every start (spec §4.11), so without a lock they run it *at the
+        // same time* -- and the ledger read below is what each one decides from. Two replicas both
+        // seeing a migration missing will both apply it.
+        //
+        // Found in production on 2026-08-27 deploying migration 0037: one replica applied it, the
+        // other was mid-flight in the same script, and its `CREATE TABLE IF NOT EXISTS <partition>`
+        // silently matched the partition the winner had just created and attached elsewhere. Its new
+        // parent therefore had no partitions at all and the copy died on "no partition of relation
+        // presence_rollup_hour found for row", taking the process down with an unhandled exception.
+        // Transactional DDL meant nothing was lost and the replica came back clean on restart, which
+        // is the only reason that was an incident and not a disaster.
+        //
+        // Session-level rather than transaction-level: the run spans one transaction per script, so a
+        // lock scoped to a transaction would be released between them and let a second replica in
+        // exactly where the damage is. Released by the `finally` below, and by the connection closing
+        // if this process dies holding it -- a crashed replica must not lock out the next start.
+        await connection.ExecuteAsync(new CommandDefinition(
+            "SELECT pg_advisory_lock(@key)",
+            new { key = MigrationKey },
+            cancellationToken: cancellationToken));
+
+        try
+        {
+            return await ApplyHeldAsync(connection, cancellationToken);
+        }
+        finally
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                "SELECT pg_advisory_unlock(@key)", new { key = MigrationKey }));
+        }
+    }
+
+    /// <summary>Applies what the ledger says is missing, with the migration lock already held.</summary>
+    /// <remarks>
+    /// <b>The ledger is read here, inside the lock, and never before it.</b> A replica that waited for
+    /// the lock waited precisely because another was applying migrations, so anything it read before
+    /// waiting describes a database that no longer exists. Reading after is what turns the loser of
+    /// the race into a no-op instead of a second application.
+    /// </remarks>
+    private async Task<IReadOnlyList<string>> ApplyHeldAsync(
+        NpgsqlConnection connection,
+        CancellationToken cancellationToken)
+    {
         await connection.ExecuteAsync(new CommandDefinition(LedgerDdl, cancellationToken: cancellationToken));
 
         var already = (await connection.QueryAsync<string>(new CommandDefinition(
