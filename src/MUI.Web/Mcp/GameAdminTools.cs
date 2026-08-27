@@ -38,6 +38,7 @@ public sealed class GameAdminTools(
     SlugMinter minter,
     ReviewMergeService merge,
     TimeProvider time,
+    IListingCache listing,
     ILogger<GameAdminTools>? logger = null)
 {
     [McpServerTool(Name = "game_field_set")]
@@ -112,6 +113,12 @@ public sealed class GameAdminTools(
         var now = time.GetUtcNow();
         var previousValue = await WriteStaffFieldAsync(game.Id, fieldName, value, now, cancellationToken);
 
+        // The listing serves an assembled catalogue with a duration on it, and this is a change
+        // somebody just made on purpose: it belongs on the page when the page is next loaded, not
+        // whenever the duration happens to lapse. Only the deliberate edits do this -- see
+        // IListingCache for why the crawler's own field writes must not.
+        await listing.InvalidateAsync();
+
         logger?.LogInformation(
             "game_field_set: {Slug}.{Field} := {Value} (staff)", game.Slug, fieldName, value);
 
@@ -171,12 +178,26 @@ public sealed class GameAdminTools(
 
         await WriteStaffFieldAsync(game.Id, "NAME", trimmedName, now, cancellationToken);
 
-        var rename = await minter.ApplyAsync(game.Id, trimmedName, cancellationToken)
-            ?? throw new McpException(
-                $"'{trimmedName}' could not be minted a unique slug for '{game.Slug}' right now (a "
-                + "database-level collision SlugMinter could not resolve on this attempt). NAME was "
-                + "still written as staff and will win the ordinary crawl cycle's own re-mint once "
-                + "one next runs.");
+        // `finally`, because the staff NAME above is committed by this point on every path out of
+        // here — including the one the refusal below describes, where the mint failed but the name
+        // was still written. Invalidating only on success would leave the listing showing the old
+        // name for the rest of the duration precisely when the caller has been handed an error
+        // saying the new one was written, which is the worst of both.
+        Rename rename;
+
+        try
+        {
+            rename = await minter.ApplyAsync(game.Id, trimmedName, cancellationToken)
+                ?? throw new McpException(
+                    $"'{trimmedName}' could not be minted a unique slug for '{game.Slug}' right now (a "
+                    + "database-level collision SlugMinter could not resolve on this attempt). NAME was "
+                    + "still written as staff and will win the ordinary crawl cycle's own re-mint once "
+                    + "one next runs.");
+        }
+        finally
+        {
+            await listing.InvalidateAsync();
+        }
 
         logger?.LogInformation(
             "game_rename: {Old} -> {Slug} ({Name}) -- {Because}",
@@ -240,6 +261,9 @@ public sealed class GameAdminTools(
                 throw new McpException($"refused by the database: {databaseMessage}"),
             _ => throw new UnreachableException($"Unhandled {nameof(MergeVerdict)}: {verdict}"),
         };
+
+        // A merge withdraws the loser from the listing outright, so this one is not cosmetic.
+        await listing.InvalidateAsync();
 
         logger?.LogInformation(
             "game_merge: {Loser} -> {Winner} (merge {MergeId}) -- {Because}",

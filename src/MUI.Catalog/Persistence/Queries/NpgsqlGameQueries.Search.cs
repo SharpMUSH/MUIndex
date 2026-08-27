@@ -2,6 +2,8 @@ using Dapper;
 
 using Npgsql;
 
+using ZiggyCreatures.Caching.Fusion;
+
 namespace MUI.Catalog.Persistence;
 
 public sealed partial class NpgsqlGameQueries
@@ -21,14 +23,100 @@ public sealed partial class NpgsqlGameQueries
     {
         ArgumentNullException.ThrowIfNull(filter);
 
-        var now = _time.GetUtcNow();
-
-        await using var connection = await source.OpenConnectionAsync(cancellationToken);
-
         // Archived games leave the default listing (spec §7.5); requesting the archived band lifts
         // just that exclusion. Must lift `archived` only — not `excluded` or `unlisted`, which answer
         // different questions the archive checkbox doesn't ask.
         var includeArchived = filter.IncludeArchived || filter.Band is ActivityBand.Archived;
+
+        var rows = await CatalogueAsync(
+            new CatalogueKey(includeArchived, SortWindows.Of(filter.Sort)), cancellationToken);
+
+        return rows.Count == 0 ? GameListing.Empty : FacetedSearch.Search(rows, filter);
+    }
+
+    /// <summary>
+    /// What a catalogue snapshot is keyed by — everything the assembled rows depend on, and nothing
+    /// a facet selection can change.
+    /// </summary>
+    /// <remarks>
+    /// The window is here because a window sort is the one thing that adds a query
+    /// (<see cref="PlayersOverWindowAsync"/>); the archive toggle because it is the one predicate the
+    /// database applies. Every other facet is arithmetic over the rows, so it cannot be part of the
+    /// key — which is exactly why the key space is a handful of entries rather than the product of
+    /// twelve facets.
+    /// </remarks>
+    private readonly record struct CatalogueKey(bool IncludeArchived, TimeSpan? Window);
+
+    /// <summary>
+    /// How long an assembled catalogue is served before it is built again.
+    /// </summary>
+    /// <remarks>
+    /// The crawler writes presence roughly hourly, so a minute of staleness is far inside the
+    /// resolution of the data being shown; what it buys is the difference between assembling the
+    /// catalogue once a minute and assembling it once per request. Deliberate edits do not wait this
+    /// out — see <see cref="IListingCache"/>, which drops every entry the moment one is made.
+    /// </remarks>
+    internal static readonly TimeSpan CatalogueFreshness = TimeSpan.FromMinutes(1);
+
+    /// <summary>
+    /// The whole catalogue as facet rows — from cache when one is live, otherwise built once and
+    /// shared by everyone waiting.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The row set costs seven queries over every game in the catalogue and does not vary with the
+    /// filter, so without this every distinct query string re-ran all seven. That is not a
+    /// theoretical concern: the listing's facets are combinable, so the URL space is the product of
+    /// them all, and a crawler walking it generates a stream of URLs that are each unique and each
+    /// identical in what they cost to answer. Caching the *rendered page* would never hit; caching
+    /// the rows behind it always does.
+    /// </para>
+    /// <para>
+    /// The property being bought from FusionCache is cache stampede protection: its request
+    /// coalescing runs one factory per key however many callers arrive on a cold one. Under the load
+    /// this exists to survive, a cache that admitted a thundering herd on every expiry would be close
+    /// to no cache at all — so that guarantee, rather than the lookup, is the reason there is a
+    /// library here instead of a dictionary.
+    /// </para>
+    /// <para>
+    /// The factory deliberately ignores the token FusionCache hands it and passes
+    /// <see cref="CancellationToken.None"/> to the build. The work is shared between everyone
+    /// coalesced onto it, so honouring one caller's cancellation would abandon the rest — and the
+    /// callers most likely to disconnect mid-request are precisely the automated ones arriving in
+    /// bulk.
+    /// </para>
+    /// <para>
+    /// Fail-safe is on. If assembling the catalogue throws — the database is refusing connections,
+    /// say — FusionCache serves the last good rows rather than propagating the failure, which is the
+    /// difference between a listing that is an hour stale and a listing that is a stack trace.
+    /// </para>
+    /// </remarks>
+    private async Task<IReadOnlyList<GameFacetRow>> CatalogueAsync(
+        CatalogueKey key,
+        CancellationToken cancellationToken) =>
+        await _cache.GetOrSetAsync<IReadOnlyList<GameFacetRow>>(
+            $"mui:catalogue:archived={key.IncludeArchived}:window={key.Window?.Ticks ?? -1}",
+            async (_, _) => (await BuildCatalogueAsync(key, CancellationToken.None)).Rows,
+            new FusionCacheEntryOptions
+            {
+                Duration = CatalogueFreshness,
+                IsFailSafeEnabled = true,
+                FailSafeMaxDuration = TimeSpan.FromHours(2),
+            },
+            tags: [ListingCache.Tag],
+            token: cancellationToken);
+
+    private sealed record CatalogueSnapshot(IReadOnlyList<GameFacetRow> Rows, DateTimeOffset TakenAt);
+
+    private async Task<CatalogueSnapshot> BuildCatalogueAsync(
+        CatalogueKey key,
+        CancellationToken cancellationToken)
+    {
+        var now = _time.GetUtcNow();
+
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        var includeArchived = key.IncludeArchived;
 
         var rows = (await connection.QueryAsync<GameRow>(new CommandDefinition(
             $"""
@@ -46,7 +134,7 @@ public sealed partial class NpgsqlGameQueries
 
         if (rows.Count == 0)
         {
-            return GameListing.Empty;
+            return new CatalogueSnapshot([], now);
         }
 
         var ids = rows.Select(row => row.Id).ToArray();
@@ -57,7 +145,7 @@ public sealed partial class NpgsqlGameQueries
 
         // Only where the order asks for it. It is an aggregate over the presence series of the whole
         // catalogue, and computing it for a listing sorted by name would be a scan nobody reads.
-        var windows = SortWindows.Of(filter.Sort) is { } span
+        var windows = key.Window is { } span
             ? await PlayersOverWindowAsync(connection, ids, span, now, cancellationToken)
             : [];
 
@@ -130,7 +218,7 @@ public sealed partial class NpgsqlGameQueries
                 Growth: summary.Growth));
         }
 
-        return FacetedSearch.Search(facetRows, filter);
+        return new CatalogueSnapshot(facetRows, now);
     }
 
     /// <summary>A listing with no panel — the same query, projected.</summary>

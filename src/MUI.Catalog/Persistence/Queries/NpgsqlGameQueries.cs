@@ -4,6 +4,8 @@ using Dapper;
 
 using Npgsql;
 
+using ZiggyCreatures.Caching.Fusion;
+
 namespace MUI.Catalog.Persistence;
 
 /// <summary>
@@ -18,7 +20,10 @@ namespace MUI.Catalog.Persistence;
 /// enum order, for the same reason.
 /// </remarks>
 public sealed partial class NpgsqlGameQueries(
-    NpgsqlDataSource source, IFieldRegistry? registry = null, TimeProvider? time = null)
+    NpgsqlDataSource source,
+    IFieldRegistry? registry = null,
+    TimeProvider? time = null,
+    IFusionCache? cache = null)
     : IGameQueries
 {
     /// <summary>
@@ -130,6 +135,19 @@ public sealed partial class NpgsqlGameQueries(
     /// </summary>
     private readonly TimeProvider _time = time ?? TimeProvider.System;
 
+    /// <summary>
+    /// Where the assembled catalogue is kept — see <see cref="CatalogueAsync"/>.
+    /// </summary>
+    /// <remarks>
+    /// Optional, and privately owned when it is not supplied, because this class is constructed by
+    /// hand in both compositions and by every test that reads a listing; requiring the cache would
+    /// mean threading it through all of them to say nothing. The deployment passes the container's
+    /// registered instance, which is the one <see cref="ListingCache"/> invalidates — an instance of
+    /// its own would be a cache nothing could clear.
+    /// </remarks>
+    private readonly IFusionCache _cache =
+        cache ?? new FusionCache(new FusionCacheOptions { CacheName = "mui:listing" });
+
     private static GameField? Winner(IReadOnlyList<GameField> fields, string name) =>
         FieldPrecedence.Winner(fields.Where(f => string.Equals(f.Field, name, StringComparison.Ordinal)));
 
@@ -226,28 +244,46 @@ public sealed partial class NpgsqlGameQueries(
         // describe the row the number actually came from, not a re-derived guess.
         var rows = await connection.QueryAsync<DigestRow>(new CommandDefinition(
             """
+            -- Two grouped passes over the window, joined to the id list — deliberately NOT a
+            -- correlated LATERAL per game. `presence_sample` is written in probe order, so one
+            -- game's week is scattered across the partition rather than gathered: a per-game
+            -- bitmap heap scan re-read the same pages once per game, 71 pages to collect 77 rows,
+            -- and the listing asks for the whole catalogue at once. Measured on production
+            -- (935 games): 89,499 buffers and 58 ms for the LATERAL form against 3,928 buffers
+            -- and 5.4 ms for this one, same rows out — the scan is shared instead of repeated.
+            WITH recent AS (
+                -- `DISTINCT ON` + `ORDER BY game_id, at DESC` is the set-based spelling of the
+                -- per-game `ORDER BY at DESC LIMIT 1` this replaces: one row per game, the newest.
+                SELECT DISTINCT ON (p.game_id) p.game_id, p.count, p.at, p.source
+                  FROM presence_sample p
+                 WHERE p.game_id = ANY(@ids) AND p.at >= @nowFrom AND p.count IS NOT NULL
+                 ORDER BY p.game_id, p.at DESC
+            ),
+
+            -- Three tallies, one scan: `count(p.count)` includes a measured nought;
+            -- `count(*) FILTER (count IS NULL)` is answered-but-unreadable. A row exists only
+            -- where a probe got far enough to try, so no tally here speaks for an hour we never
+            -- measured (§5.4's third state, which names no cause).
+            week AS (
+                SELECT p.game_id,
+                       count(*) FILTER (WHERE p.count > 0) AS nonzero,
+                       count(p.count) AS counted,
+                       count(*) FILTER (WHERE p.count IS NULL) AS uncountable
+                  FROM presence_sample p
+                 WHERE p.game_id = ANY(@ids) AND p.at >= @weekFrom
+                 GROUP BY p.game_id
+            )
+
+            -- Still driven off `unnest`, so a game with no sample in either window keeps its row
+            -- and reaches the `coalesce`s below — the aggregate-over-nothing the LATERAL used to
+            -- supply is now an absent group, and a LEFT JOIN says the same thing.
             SELECT g.id AS GameId, recent.count AS CountNow, recent.at AS CountedAt,
                    recent.source AS CountSource, coalesce(week.nonzero, 0) AS NonZeroThisWeek,
                    coalesce(week.counted, 0) AS CountedThisWeek,
                    coalesce(week.uncountable, 0) AS UncountableThisWeek
               FROM unnest(@ids::uuid[]) AS g(id)
-              LEFT JOIN LATERAL (
-                   SELECT p.count, p.at, p.source
-                     FROM presence_sample p
-                    WHERE p.game_id = g.id AND p.at >= @nowFrom AND p.count IS NOT NULL
-                    ORDER BY p.at DESC
-                    LIMIT 1) recent ON true
-
-              -- Three tallies, one scan: `count(p.count)` includes a measured nought;
-              -- `count(*) FILTER (count IS NULL)` is answered-but-unreadable. A row exists only
-              -- where a probe got far enough to try, so no tally here speaks for an hour we never
-              -- measured (§5.4's third state, which names no cause).
-              LEFT JOIN LATERAL (
-                   SELECT count(*) FILTER (WHERE p.count > 0) AS nonzero,
-                          count(p.count) AS counted,
-                          count(*) FILTER (WHERE p.count IS NULL) AS uncountable
-                     FROM presence_sample p
-                    WHERE p.game_id = g.id AND p.at >= @weekFrom) week ON true
+              LEFT JOIN recent ON recent.game_id = g.id
+              LEFT JOIN week   ON week.game_id   = g.id
             """,
             new
             {
