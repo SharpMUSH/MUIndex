@@ -178,14 +178,26 @@ public sealed class GameAdminTools(
 
         await WriteStaffFieldAsync(game.Id, "NAME", trimmedName, now, cancellationToken);
 
-        var rename = await minter.ApplyAsync(game.Id, trimmedName, cancellationToken)
-            ?? throw new McpException(
-                $"'{trimmedName}' could not be minted a unique slug for '{game.Slug}' right now (a "
-                + "database-level collision SlugMinter could not resolve on this attempt). NAME was "
-                + "still written as staff and will win the ordinary crawl cycle's own re-mint once "
-                + "one next runs.");
+        // `finally`, because the staff NAME above is committed by this point on every path out of
+        // here — including the one the refusal below describes, where the mint failed but the name
+        // was still written. Invalidating only on success would leave the listing showing the old
+        // name for the rest of the duration precisely when the caller has been handed an error
+        // saying the new one was written, which is the worst of both.
+        Rename rename;
 
-        await listing.InvalidateAsync();
+        try
+        {
+            rename = await minter.ApplyAsync(game.Id, trimmedName, cancellationToken)
+                ?? throw new McpException(
+                    $"'{trimmedName}' could not be minted a unique slug for '{game.Slug}' right now (a "
+                    + "database-level collision SlugMinter could not resolve on this attempt). NAME was "
+                    + "still written as staff and will win the ordinary crawl cycle's own re-mint once "
+                    + "one next runs.");
+        }
+        finally
+        {
+            await listing.InvalidateAsync();
+        }
 
         logger?.LogInformation(
             "game_rename: {Old} -> {Slug} ({Name}) -- {Because}",
