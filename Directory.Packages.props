@@ -79,6 +79,18 @@
 
   <ItemGroup>
     <!--
+      The listing's assembled catalogue is cached, and the property that matters is cache stampede
+      protection: the facets are combinable, so the URL space is their product, and every distinct
+      URL costs the same catalogue-wide assembly. A cache that let every reader miss together on a
+      cold key would leave the worst case exactly where it was. FusionCache's request coalescing
+      (its default StandardMemoryLocker) is that guarantee, and its tagging is what lets a staff
+      rename drop every catalogue entry at once rather than waiting the duration out.
+    -->
+    <PackageVersion Include="ZiggyCreatures.FusionCache" Version="2.7.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
       Markdown, for the hand-written reference pages (spec §9) and nothing else. Pure managed, no
       transitive dependencies, and no runtime asset of its own — which matters because a rendered
       page here may fetch from no external host, and a renderer that emitted a CDN link or a remote

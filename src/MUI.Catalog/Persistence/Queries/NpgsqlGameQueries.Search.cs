@@ -1,8 +1,8 @@
-using System.Collections.Concurrent;
-
 using Dapper;
 
 using Npgsql;
+
+using ZiggyCreatures.Caching.Fusion;
 
 namespace MUI.Catalog.Persistence;
 
@@ -47,25 +47,19 @@ public sealed partial class NpgsqlGameQueries
     /// </remarks>
     private readonly record struct CatalogueKey(bool IncludeArchived, TimeSpan? Window);
 
-    private sealed record CatalogueSnapshot(IReadOnlyList<GameFacetRow> Rows, DateTimeOffset TakenAt);
-
     /// <summary>
     /// How long an assembled catalogue is served before it is built again.
     /// </summary>
     /// <remarks>
     /// The crawler writes presence roughly hourly, so a minute of staleness is far inside the
     /// resolution of the data being shown; what it buys is the difference between assembling the
-    /// catalogue once a minute and assembling it once per request. The figures embedded in a row —
-    /// bands, the freshness chips, "last seen" — are computed against the instant the snapshot was
-    /// taken rather than the instant it is served, which is the honest reading of a cached row and
-    /// is bounded by this constant.
+    /// catalogue once a minute and assembling it once per request. Deliberate edits do not wait this
+    /// out — see <see cref="IListingCache"/>, which drops every entry the moment one is made.
     /// </remarks>
-    private static readonly TimeSpan CatalogueFreshness = TimeSpan.FromMinutes(1);
-
-    private readonly ConcurrentDictionary<CatalogueKey, Lazy<Task<CatalogueSnapshot>>> _catalogue = new();
+    internal static readonly TimeSpan CatalogueFreshness = TimeSpan.FromMinutes(1);
 
     /// <summary>
-    /// The whole catalogue as facet rows — from cache when one is fresh, otherwise built once and
+    /// The whole catalogue as facet rows — from cache when one is live, otherwise built once and
     /// shared by everyone waiting.
     /// </summary>
     /// <remarks>
@@ -78,71 +72,41 @@ public sealed partial class NpgsqlGameQueries
     /// the rows behind it always does.
     /// </para>
     /// <para>
-    /// The <see cref="Lazy{T}"/> holds the <see cref="Task"/> rather than the result, which is what
-    /// makes this single-flight: concurrent callers arriving on a cold key await one build instead
-    /// of starting one each. Under the load this exists to survive, a cache that admitted a
-    /// thundering herd on every expiry would be close to no cache at all.
+    /// The property being bought from FusionCache is cache stampede protection: its request
+    /// coalescing runs one factory per key however many callers arrive on a cold one. Under the load
+    /// this exists to survive, a cache that admitted a thundering herd on every expiry would be close
+    /// to no cache at all — so that guarantee, rather than the lookup, is the reason there is a
+    /// library here instead of a dictionary.
     /// </para>
     /// <para>
-    /// The build deliberately does not take the caller's <see cref="CancellationToken"/>. The work is
-    /// shared, so honouring one caller's cancellation would abandon every other caller waiting on
-    /// it — and the callers most likely to disconnect mid-request are precisely the automated ones
-    /// arriving in bulk. A failed build is evicted rather than cached, so the next request retries
-    /// instead of inheriting the exception for the rest of the freshness window.
+    /// The factory deliberately ignores the token FusionCache hands it and passes
+    /// <see cref="CancellationToken.None"/> to the build. The work is shared between everyone
+    /// coalesced onto it, so honouring one caller's cancellation would abandon the rest — and the
+    /// callers most likely to disconnect mid-request are precisely the automated ones arriving in
+    /// bulk.
+    /// </para>
+    /// <para>
+    /// Fail-safe is on. If assembling the catalogue throws — the database is refusing connections,
+    /// say — FusionCache serves the last good rows rather than propagating the failure, which is the
+    /// difference between a listing that is an hour stale and a listing that is a stack trace.
     /// </para>
     /// </remarks>
     private async Task<IReadOnlyList<GameFacetRow>> CatalogueAsync(
         CatalogueKey key,
-        CancellationToken cancellationToken)
-    {
-        var entry = Entry(key);
-        var snapshot = await SnapshotAsync(key, entry, cancellationToken);
+        CancellationToken cancellationToken) =>
+        await _cache.GetOrSetAsync<IReadOnlyList<GameFacetRow>>(
+            $"mui:catalogue:archived={key.IncludeArchived}:window={key.Window?.Ticks ?? -1}",
+            async (_, _) => (await BuildCatalogueAsync(key, CancellationToken.None)).Rows,
+            new FusionCacheEntryOptions
+            {
+                Duration = CatalogueFreshness,
+                IsFailSafeEnabled = true,
+                FailSafeMaxDuration = TimeSpan.FromHours(2),
+            },
+            tags: [ListingCache.Tag],
+            token: cancellationToken);
 
-        if (_time.GetUtcNow() - snapshot.TakenAt < CatalogueFreshness)
-        {
-            return snapshot.Rows;
-        }
-
-        // Stale: drop this entry and take whatever the replacement builds. Whoever wins the race to
-        // re-add does the work and everybody else awaits it. Removing by key *and value* matters —
-        // a plain remove would discard a replacement another caller had already installed.
-        //
-        // Deliberately one rebuild rather than a loop that re-tests freshness: a snapshot is stamped
-        // with the clock that a re-test would read, so a freshness of zero — or a clock that does not
-        // advance, which is every test with a fixed one — would spin for ever rather than answer.
-        // Serving rows one build old is the correct answer to that race anyway; nobody is waiting for
-        // a *newer* catalogue than the one just assembled.
-        Evict(key, entry);
-
-        return (await SnapshotAsync(key, Entry(key), cancellationToken)).Rows;
-    }
-
-    private Lazy<Task<CatalogueSnapshot>> Entry(CatalogueKey key) =>
-        _catalogue.GetOrAdd(
-            key,
-            k => new Lazy<Task<CatalogueSnapshot>>(
-                () => BuildCatalogueAsync(k, CancellationToken.None),
-                LazyThreadSafetyMode.ExecutionAndPublication));
-
-    private async Task<CatalogueSnapshot> SnapshotAsync(
-        CatalogueKey key,
-        Lazy<Task<CatalogueSnapshot>> entry,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            return await entry.Value.WaitAsync(cancellationToken);
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            Evict(key, entry);
-            throw;
-        }
-    }
-
-    private void Evict(CatalogueKey key, Lazy<Task<CatalogueSnapshot>> entry) =>
-        ((ICollection<KeyValuePair<CatalogueKey, Lazy<Task<CatalogueSnapshot>>>>)_catalogue)
-            .Remove(new KeyValuePair<CatalogueKey, Lazy<Task<CatalogueSnapshot>>>(key, entry));
+    private sealed record CatalogueSnapshot(IReadOnlyList<GameFacetRow> Rows, DateTimeOffset TakenAt);
 
     private async Task<CatalogueSnapshot> BuildCatalogueAsync(
         CatalogueKey key,

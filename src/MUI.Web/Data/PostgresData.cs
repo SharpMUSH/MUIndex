@@ -5,6 +5,8 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 using Npgsql;
 
+using ZiggyCreatures.Caching.Fusion;
+
 namespace MUI.Web.Data;
 
 /// <summary>
@@ -83,10 +85,19 @@ public static class PostgresData
         services.TryAddSingleton<IMergeRedirects>(s =>
             new NpgsqlMergeRedirects(s.GetRequiredService<NpgsqlDataSource>()));
 
+        // The listing's assembled catalogue lives here. One registered cache, shared by the queries
+        // that fill it and the IListingCache that clears it — a private instance on either side
+        // would be a cache the other one could not reach.
+        services.AddFusionCache();
+
+        services.TryAddSingleton<IListingCache>(s =>
+            new ListingCache(s.GetRequiredService<IFusionCache>()));
+
         services.TryAddSingleton<IGameQueries>(s => new NpgsqlGameQueries(
             s.GetRequiredService<NpgsqlDataSource>(),
             s.GetRequiredService<IFieldRegistry>(),
-            s.GetRequiredService<TimeProvider>()));
+            s.GetRequiredService<TimeProvider>(),
+            s.GetRequiredService<IFusionCache>()));
 
         // Migration 0017's cycle log, registered on the web side too: a replica that does no crawling
         // still renders the strip, since the answer comes from the database rather than this process.

@@ -1,10 +1,13 @@
 using MUI.Catalog.Persistence;
 using MUI.Catalog.Tests.Persistence.Support;
 
+using ZiggyCreatures.Caching.Fusion;
+
 namespace MUI.Catalog.Tests.Persistence;
 
 /// <summary>
-/// The listing serves an assembled catalogue, not a query per request — and what that costs.
+/// The listing serves an assembled catalogue, not a query per request — and how a deliberate edit
+/// gets onto it without waiting.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -15,10 +18,15 @@ namespace MUI.Catalog.Tests.Persistence;
 /// per distinct query string.
 /// </para>
 /// <para>
-/// The cost is staleness, and these tests are where it is written down rather than discovered: a
-/// row written now is not on the listing until the snapshot ages out. Everything here uses one
-/// <see cref="NpgsqlGameQueries"/> instance on purpose — the cache is per instance, and the instance
-/// is a singleton in both compositions, so the test and the deployment agree.
+/// What is pinned here is ours: that the rows are cached at all, that the key separates the two
+/// things which change them, that a staff edit clears it, and that concurrent readers on a cold key
+/// share one assembly. That entries expire on their duration is FusionCache's behaviour and is not
+/// re-tested here — a test that slept a minute to watch a library's own clock would buy nothing.
+/// </para>
+/// <para>
+/// Everything uses one <see cref="NpgsqlGameQueries"/> instance on purpose — the cache is per
+/// instance unless one is supplied, and the deployment supplies the container's, which is the same
+/// instance <see cref="ListingCache"/> clears.
 /// </para>
 /// </remarks>
 public class CatalogueCachePostgresTests
@@ -31,32 +39,75 @@ public class CatalogueCachePostgresTests
         await using var db = await PostgresFixture.MigratedAsync();
         await Seed.GameAsync(db, "corvid", "Corvid", lastReachableAt: Now);
 
-        var queries = new NpgsqlGameQueries(db.DataSource, time: new SettableClock(Now));
+        var queries = new NpgsqlGameQueries(db.DataSource, time: new FixedClock(Now));
 
         await Assert.That((await queries.SearchAsync(new GameFilter())).Games).Count().IsEqualTo(1);
 
-        // Written after the snapshot was taken, and therefore not on it. Reading the *absence* of
-        // this game is the only way to prove the second listing did not go back to the database.
+        // Written after the catalogue was assembled, and therefore not on it. Reading the *absence*
+        // of this game is the only way to prove the second listing did not go back to the database.
         await Seed.GameAsync(db, "magpie", "Magpie", lastReachableAt: Now);
 
         await Assert.That((await queries.SearchAsync(new GameFilter())).Games).Count().IsEqualTo(1);
     }
 
+    /// <summary>
+    /// A staff edit does not wait the duration out.
+    /// </summary>
+    /// <remarks>
+    /// The duration is the right answer for measurement, which arrives continuously and is never
+    /// urgent. It is the wrong answer for a rename somebody just performed and is looking at the page
+    /// to confirm. <c>game_field_set</c>, <c>game_rename</c> and <c>game_merge</c> each call this
+    /// after they write; the cache and the queries have to be the *same* instance for it to reach
+    /// anything, which is what this asserts by construction.
+    /// </remarks>
     [Test]
-    public async Task TheCatalogueIsAssembledAgainOnceTheSnapshotIsNoLongerFresh()
+    public async Task InvalidatingTheListingPutsAWriteOnTheVeryNextRead()
     {
         await using var db = await PostgresFixture.MigratedAsync();
         await Seed.GameAsync(db, "corvid", "Corvid", lastReachableAt: Now);
 
-        var clock = new SettableClock(Now);
-        var queries = new NpgsqlGameQueries(db.DataSource, time: clock);
+        var cache = new FusionCache(new FusionCacheOptions());
+        var queries = new NpgsqlGameQueries(db.DataSource, time: new FixedClock(Now), cache: cache);
+        var listing = new ListingCache(cache);
 
         await Assert.That((await queries.SearchAsync(new GameFilter())).Games).Count().IsEqualTo(1);
 
         await Seed.GameAsync(db, "magpie", "Magpie", lastReachableAt: Now);
-        clock.Now = Now.AddMinutes(5);
+        await listing.InvalidateAsync();
 
         await Assert.That((await queries.SearchAsync(new GameFilter())).Games).Count().IsEqualTo(2);
+    }
+
+    /// <summary>
+    /// The tag reaches every catalogue entry, not just the one the last reader happened to fill.
+    /// </summary>
+    /// <remarks>
+    /// There is an entry per (archive toggle, sort window) pair, and a rename can change what any of
+    /// them contains. Invalidating by tag rather than by key is what makes the caller not have to
+    /// know how many are live.
+    /// </remarks>
+    [Test]
+    public async Task InvalidatingClearsEveryCatalogueTheListingKeeps()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        await Seed.GameAsync(db, "corvid", "Corvid", lastReachableAt: Now);
+        await Seed.GameAsync(db, "gone", "Gone", state: LifecycleState.Archived);
+
+        var cache = new FusionCache(new FusionCacheOptions());
+        var queries = new NpgsqlGameQueries(db.DataSource, time: new FixedClock(Now), cache: cache);
+        var listing = new ListingCache(cache);
+
+        // Two different keys, both now filled.
+        await queries.SearchAsync(new GameFilter());
+        await queries.SearchAsync(new GameFilter { IncludeArchived = true });
+
+        await Seed.GameAsync(db, "magpie", "Magpie", lastReachableAt: Now);
+        await listing.InvalidateAsync();
+
+        await Assert.That((await queries.SearchAsync(new GameFilter())).Games).Count().IsEqualTo(2);
+
+        await Assert.That((await queries.SearchAsync(new GameFilter { IncludeArchived = true })).Games)
+            .Count().IsEqualTo(3);
     }
 
     /// <summary>
@@ -82,7 +133,7 @@ public class CatalogueCachePostgresTests
                 corvid, Now.AddHours(-hour), 7, FieldSource.Who));
         }
 
-        var queries = new NpgsqlGameQueries(db.DataSource, time: new SettableClock(Now));
+        var queries = new NpgsqlGameQueries(db.DataSource, time: new FixedClock(Now));
 
         // Assembled first and cached, with no window figures on its rows.
         await queries.SearchAsync(new GameFilter { Sort = GameSort.Name });
@@ -102,7 +153,7 @@ public class CatalogueCachePostgresTests
         await Seed.GameAsync(db, "corvid", "Corvid", lastReachableAt: Now);
         await Seed.GameAsync(db, "gone", "Gone", state: LifecycleState.Archived);
 
-        var queries = new NpgsqlGameQueries(db.DataSource, time: new SettableClock(Now));
+        var queries = new NpgsqlGameQueries(db.DataSource, time: new FixedClock(Now));
 
         await Assert.That((await queries.SearchAsync(new GameFilter())).Games).Count().IsEqualTo(1);
 
@@ -116,10 +167,12 @@ public class CatalogueCachePostgresTests
     /// Everyone arriving on a cold key waits for one assembly rather than starting one each.
     /// </summary>
     /// <remarks>
-    /// The point of the cache is to survive many simultaneous readers of distinct URLs; a cache that
-    /// let every one of them miss together on a cold key would leave the worst case exactly where it
-    /// was. Proven by result identity: the rows are assembled once and shared, so every caller gets
-    /// the same <see cref="GameSummary"/> instances, which cannot happen if each built its own.
+    /// This is the property the cache exists for and the reason the implementation is FusionCache
+    /// rather than a dictionary: its request coalescing runs one factory per key however many callers
+    /// arrive together. A cache that let every reader miss at once on a cold key would leave the worst
+    /// case exactly where it was. Proven by result identity — the rows are assembled once and shared,
+    /// so every caller gets the same <see cref="GameSummary"/> instances, which cannot happen if each
+    /// built its own.
     /// </remarks>
     [Test]
     public async Task ConcurrentReadersOfAColdCatalogueShareOneAssembly()
@@ -127,7 +180,7 @@ public class CatalogueCachePostgresTests
         await using var db = await PostgresFixture.MigratedAsync();
         await Seed.GameAsync(db, "corvid", "Corvid", lastReachableAt: Now);
 
-        var queries = new NpgsqlGameQueries(db.DataSource, time: new SettableClock(Now));
+        var queries = new NpgsqlGameQueries(db.DataSource, time: new FixedClock(Now));
 
         var listings = await Task.WhenAll(
             Enumerable.Range(0, 16).Select(_ => queries.SearchAsync(new GameFilter())));
@@ -137,10 +190,8 @@ public class CatalogueCachePostgresTests
         await Assert.That(listings.All(l => ReferenceEquals(l.Games.Single(), first))).IsTrue();
     }
 
-    private sealed class SettableClock(DateTimeOffset at) : TimeProvider
+    private sealed class FixedClock(DateTimeOffset at) : TimeProvider
     {
-        public DateTimeOffset Now { get; set; } = at;
-
-        public override DateTimeOffset GetUtcNow() => Now;
+        public override DateTimeOffset GetUtcNow() => at;
     }
 }

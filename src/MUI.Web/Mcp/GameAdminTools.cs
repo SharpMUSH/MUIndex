@@ -38,6 +38,7 @@ public sealed class GameAdminTools(
     SlugMinter minter,
     ReviewMergeService merge,
     TimeProvider time,
+    IListingCache listing,
     ILogger<GameAdminTools>? logger = null)
 {
     [McpServerTool(Name = "game_field_set")]
@@ -112,6 +113,12 @@ public sealed class GameAdminTools(
         var now = time.GetUtcNow();
         var previousValue = await WriteStaffFieldAsync(game.Id, fieldName, value, now, cancellationToken);
 
+        // The listing serves an assembled catalogue with a duration on it, and this is a change
+        // somebody just made on purpose: it belongs on the page when the page is next loaded, not
+        // whenever the duration happens to lapse. Only the deliberate edits do this -- see
+        // IListingCache for why the crawler's own field writes must not.
+        await listing.InvalidateAsync(cancellationToken);
+
         logger?.LogInformation(
             "game_field_set: {Slug}.{Field} := {Value} (staff)", game.Slug, fieldName, value);
 
@@ -178,6 +185,8 @@ public sealed class GameAdminTools(
                 + "still written as staff and will win the ordinary crawl cycle's own re-mint once "
                 + "one next runs.");
 
+        await listing.InvalidateAsync(cancellationToken);
+
         logger?.LogInformation(
             "game_rename: {Old} -> {Slug} ({Name}) -- {Because}",
             game.Slug, rename.Slug, rename.Name, because);
@@ -240,6 +249,9 @@ public sealed class GameAdminTools(
                 throw new McpException($"refused by the database: {databaseMessage}"),
             _ => throw new UnreachableException($"Unhandled {nameof(MergeVerdict)}: {verdict}"),
         };
+
+        // A merge withdraws the loser from the listing outright, so this one is not cosmetic.
+        await listing.InvalidateAsync(cancellationToken);
 
         logger?.LogInformation(
             "game_merge: {Loser} -> {Winner} (merge {MergeId}) -- {Because}",

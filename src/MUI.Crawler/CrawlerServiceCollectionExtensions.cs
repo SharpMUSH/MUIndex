@@ -12,6 +12,8 @@ using Microsoft.Extensions.Logging;
 
 using Npgsql;
 
+using ZiggyCreatures.Caching.Fusion;
+
 namespace MUI.Crawler;
 
 /// <summary>
@@ -123,10 +125,21 @@ public static class CrawlerServiceCollectionExtensions
         services.TryAddSingleton<ArchiveSweeper>();
 
         // The read side. TryAdd, so a host that already chose the fixture keeps it.
+        //
+        // The listing cache is resolved rather than left to the default, so that in the one deployable
+        // that calls both this and AddPostgresCatalogue (§4.11) the crawler and the site share the
+        // instance a staff edit clears. AddFusionCache is itself a TryAdd, so whichever runs first
+        // registers it and the other takes that one.
+        services.AddFusionCache();
+
+        services.TryAddSingleton<IListingCache>(s =>
+            new ListingCache(s.GetRequiredService<IFusionCache>()));
+
         services.TryAddSingleton<IGameQueries>(s => new NpgsqlGameQueries(
             s.GetRequiredService<NpgsqlDataSource>(),
             s.GetRequiredService<IFieldRegistry>(),
-            s.GetRequiredService<TimeProvider>()));
+            s.GetRequiredService<TimeProvider>(),
+            s.GetRequiredService<IFusionCache>()));
 
         // Discovery: the registry, the graph, the review queue, and the identity matcher's three
         // narrow reads.

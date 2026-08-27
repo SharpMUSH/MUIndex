@@ -4,6 +4,8 @@ using Dapper;
 
 using Npgsql;
 
+using ZiggyCreatures.Caching.Fusion;
+
 namespace MUI.Catalog.Persistence;
 
 /// <summary>
@@ -18,7 +20,10 @@ namespace MUI.Catalog.Persistence;
 /// enum order, for the same reason.
 /// </remarks>
 public sealed partial class NpgsqlGameQueries(
-    NpgsqlDataSource source, IFieldRegistry? registry = null, TimeProvider? time = null)
+    NpgsqlDataSource source,
+    IFieldRegistry? registry = null,
+    TimeProvider? time = null,
+    IFusionCache? cache = null)
     : IGameQueries
 {
     /// <summary>
@@ -129,6 +134,19 @@ public sealed partial class NpgsqlGameQueries(
     /// nothing calls <see cref="DateTimeOffset.UtcNow"/> directly.
     /// </summary>
     private readonly TimeProvider _time = time ?? TimeProvider.System;
+
+    /// <summary>
+    /// Where the assembled catalogue is kept — see <see cref="CatalogueAsync"/>.
+    /// </summary>
+    /// <remarks>
+    /// Optional, and privately owned when it is not supplied, because this class is constructed by
+    /// hand in both compositions and by every test that reads a listing; requiring the cache would
+    /// mean threading it through all of them to say nothing. The deployment passes the container's
+    /// registered instance, which is the one <see cref="ListingCache"/> invalidates — an instance of
+    /// its own would be a cache nothing could clear.
+    /// </remarks>
+    private readonly IFusionCache _cache =
+        cache ?? new FusionCache(new FusionCacheOptions { CacheName = "mui:listing" });
 
     private static GameField? Winner(IReadOnlyList<GameField> fields, string name) =>
         FieldPrecedence.Winner(fields.Where(f => string.Equals(f.Field, name, StringComparison.Ordinal)));
