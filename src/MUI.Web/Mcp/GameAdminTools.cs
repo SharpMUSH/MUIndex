@@ -117,7 +117,7 @@ public sealed class GameAdminTools(
         // somebody just made on purpose: it belongs on the page when the page is next loaded, not
         // whenever the duration happens to lapse. Only the deliberate edits do this -- see
         // IListingCache for why the crawler's own field writes must not.
-        await listing.InvalidateAsync(cancellationToken);
+        await listing.InvalidateAsync();
 
         logger?.LogInformation(
             "game_field_set: {Slug}.{Field} := {Value} (staff)", game.Slug, fieldName, value);
@@ -185,7 +185,7 @@ public sealed class GameAdminTools(
                 + "still written as staff and will win the ordinary crawl cycle's own re-mint once "
                 + "one next runs.");
 
-        await listing.InvalidateAsync(cancellationToken);
+        await listing.InvalidateAsync();
 
         logger?.LogInformation(
             "game_rename: {Old} -> {Slug} ({Name}) -- {Because}",
@@ -251,7 +251,7 @@ public sealed class GameAdminTools(
         };
 
         // A merge withdraws the loser from the listing outright, so this one is not cosmetic.
-        await listing.InvalidateAsync(cancellationToken);
+        await listing.InvalidateAsync();
 
         logger?.LogInformation(
             "game_merge: {Loser} -> {Winner} (merge {MergeId}) -- {Because}",

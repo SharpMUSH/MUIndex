@@ -29,7 +29,17 @@ namespace MUI.Catalog.Persistence;
 /// </remarks>
 public interface IListingCache
 {
-    Task InvalidateAsync(CancellationToken cancellationToken = default);
+    /// <summary>Drop every assembled catalogue, so the next listing read reflects what was written.</summary>
+    /// <remarks>
+    /// <b>Takes no <see cref="CancellationToken"/>, deliberately.</b> Every caller invokes this
+    /// <i>after</i> its write has committed, so there is nothing left to abandon — and a cancellation
+    /// observed here would abort the tag update while the row it exists to publish is already in the
+    /// database, leaving the listing stale for the rest of the duration and telling the caller only
+    /// that it was cancelled. That is the precise failure invalidating is for. Not accepting the token
+    /// is what stops the next call site from passing the request's one by reflex; the same reasoning
+    /// makes the catalogue build in <c>NpgsqlGameQueries</c> ignore its caller's token.
+    /// </remarks>
+    Task InvalidateAsync();
 }
 
 /// <summary>
@@ -47,6 +57,6 @@ public sealed class ListingCache(IFusionCache cache) : IListingCache
     /// <summary>The tag every assembled catalogue is filed under.</summary>
     internal const string Tag = "mui:catalogue";
 
-    public async Task InvalidateAsync(CancellationToken cancellationToken = default) =>
-        await cache.RemoveByTagAsync(Tag, token: cancellationToken);
+    public async Task InvalidateAsync() =>
+        await cache.RemoveByTagAsync(Tag, token: CancellationToken.None);
 }
