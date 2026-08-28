@@ -111,8 +111,7 @@ public sealed record ProbeResult
     /// a scalar. Anything that cares about the others (e.g. reading <c>REFERRAL</c>) must read
     /// <see cref="Mssp"/> instead.
     /// </remarks>
-    public string? MsspField(string variable) =>
-        Mssp.TryGetValue(variable, out var values) && values.Count > 0 ? values[^1] : null;
+    public string? MsspField(string variable) => MsspReport.Last(Mssp, variable);
 
     /// <summary>Every value of an MSSP variable, in wire order, or empty when it was not reported.</summary>
     public IReadOnlyList<string> MsspValues(string variable) =>

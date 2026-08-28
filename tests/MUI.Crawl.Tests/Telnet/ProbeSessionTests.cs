@@ -634,6 +634,78 @@ public class ProbeSessionTests
         await Assert.That(game.Received.Select(line => line.Trim())).Contains(TelnetProbe.InfoCommand);
         await Assert.That(game.Received.Select(line => line.Trim())).Contains(TelnetProbe.VersionCommand);
     }
+    /// A game whose report names it, names its engine and states a count is asked nothing at all.
+    /// </summary>
+    /// <remarks>
+    /// The shape <c>playdecay.com:3003</c> sends. Its operator raised this, and the old probe typed
+    /// <c>WHO</c> at "By what name do you wish to be known?", had it taken as a character name, was
+    /// asked for a password, and sent <c>INFO</c> as the password — reproducibly, on every crawl.
+    /// </remarks>
+    [Test]
+    public async Task AGameWhoseReportDescribesItIsAskedNothingAtAll()
+    {
+        await using var game = new FakeGame
+        {
+            AnnouncesMssp = true,
+            MsspPlayers = 4,
+            MsspExtras = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["CODEBASE"] = "FluffOS v2025",
+            },
+            Banner = "Welcome to Mortal Realms\r\nMrMud 1.4\r\n",
+            BannerTail = "By what name do you wish to be known? ",
+            WhoReply = "Player Name        On For Idle\r\n7 Players logged in, 22 record, no maximum.\r\n",
+            InfoReply = "### Begin INFO 1\r\nName: Mortal Realms\r\nConnected: 7\r\n### End INFO\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.MsspOutcome).IsEqualTo(MsspOutcome.Received);
+
+        foreach (var command in TelnetProbe.PermittedCommands)
+        {
+            await Assert.That(game.Received.Select(line => line.Trim())).DoesNotContain(command);
+        }
+
+        // Nothing was asked, so nothing was answered — and the count still comes from the report.
+        await Assert.That(result.Who.Attempted).IsFalse();
+        await Assert.That(result.Info).IsNull();
+        await Assert.That(result.Version).IsNull();
+        await Assert.That(MsspPresence.Read(result.Mssp).Count).IsEqualTo(4);
+    }
+
+    /// <summary>
+    /// A report that states a count but names no engine still gets <c>INFO</c> and <c>VERSION</c>.
+    /// </summary>
+    /// <remarks>
+    /// The two questions are gated separately because they ask different things. Silencing all three
+    /// on a count alone would cost the codebase reading that <c>game.convergencemush.org:10000</c> —
+    /// RhostMUSH, no MSSP at all — depends on, and every game whose report is half-filled.
+    /// </remarks>
+    [Test]
+    public async Task ACountAloneDoesNotSilenceTheOtherTwoQuestions()
+    {
+        await using var game = new FakeGame
+        {
+            AnnouncesMssp = true,
+            MsspPlayers = 4,
+            Banner = "Welcome to Mortal Realms\r\nMrMud 1.4\r\n",
+            BannerTail = "By what name do you wish to be known? ",
+            InfoReply = "### Begin INFO 1\r\nName: Mortal Realms\r\nVersion: RhostMUSH 4.27.3\r\n### End INFO\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        // WHO is silenced — the count answered it — and the other two are not.
+        await Assert.That(game.Received.Select(line => line.Trim())).DoesNotContain(TelnetProbe.WhoCommand);
+        await Assert.That(game.Received.Select(line => line.Trim())).Contains(TelnetProbe.InfoCommand);
+        await Assert.That(game.Received.Select(line => line.Trim())).Contains(TelnetProbe.VersionCommand);
+
+        await Assert.That(LoginCommandReading.MeaningfulCodebase(result.Info, result.Version))
+            .IsEqualTo("RhostMUSH 4.27.3");
+    }
+
+    /// <summary>
     /// A roster published in the report answers the question too, even with no <c>PLAYERS</c> beside
     /// it.
     /// </summary>

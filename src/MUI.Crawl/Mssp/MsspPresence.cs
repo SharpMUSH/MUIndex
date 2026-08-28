@@ -141,7 +141,7 @@ public static class MsspPresence
     /// </para>
     /// </remarks>
     public static MsspCount Stated(IReadOnlyDictionary<string, IReadOnlyList<string>>? report) =>
-        Last(report, PlayersVariable) is { } declared
+        MsspReport.Last(report, PlayersVariable) is { } declared
         && int.TryParse(declared.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var count)
             ? new MsspCount(count, MsspCountKind.Stated, PlayersVariable)
             : MsspCount.None;
@@ -211,12 +211,4 @@ public static class MsspPresence
         return names;
     }
 
-    /// <summary>
-    /// The last value of a variable, matching <c>ProbeResult.MsspField</c> — a report that states a
-    /// variable twice is taken at its latest word.
-    /// </summary>
-    private static string? Last(IReadOnlyDictionary<string, IReadOnlyList<string>>? report, string variable) =>
-        report is not null && report.TryGetValue(variable, out var values) && values.Count > 0
-            ? values[^1]
-            : null;
 }

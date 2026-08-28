@@ -16,6 +16,21 @@ namespace MUI.Crawl;
 /// </remarks>
 public static class MsspReport
 {
+    /// <summary>
+    /// A variable's value, taking a report that states one twice at its latest word.
+    /// </summary>
+    /// <remarks>
+    /// MSSP allows a variable to repeat, and the three readers that want a single value out of one
+    /// — <c>ProbeResult.MsspField</c>, <see cref="MsspPresence"/> and
+    /// <see cref="MsspSelfDescription"/> — must not disagree about which repeat wins. One of them
+    /// deciding differently would mean the probe staying quiet on the strength of a value the
+    /// publisher then refused.
+    /// </remarks>
+    public static string? Last(IReadOnlyDictionary<string, IReadOnlyList<string>>? report, string variable) =>
+        report is not null && report.TryGetValue(variable, out var values) && values.Count > 0
+            ? values[^1]
+            : null;
+
     /// <summary>A report with nothing in it — the shared "no variables" instance.</summary>
     public static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> Empty =
         new OrderedDictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);

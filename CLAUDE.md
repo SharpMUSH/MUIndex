@@ -71,6 +71,15 @@ our host is unreachable and perfectly alive.
   5). The screen rung additionally needs a protocol signal in the session — for a server that
   negotiates nothing, a parseable `WHO` is its only §7.8 evidence of being a game at all, and
   talking ourselves out of asking would cost it its listing.
+- **Type `INFO` or `VERSION` at a game whose report already names it and its engine.** Same
+  principle as `WHO`, and the same complaint: at `playdecay.com:3003` the old probe had `WHO` taken
+  as a character name, was asked for a password, and sent `INFO` as the password — *Wrong password*
+  — on every crawl, reproducibly, for a game whose report carried the answers. `MsspSelfDescription`
+  is the gate: a meaningful `NAME`, a `CODEBASE` **that names an engine `LoginCommandReading` knows**,
+  and a count. The engine clause is load-bearing and was measured — without it, two games lose the
+  only reading that says what they run (`northern-crossroads-ncmud` declares `NC-7.0.357.7940b961`,
+  `primal-darkness-ii` declares `PD/NM III`). `FAMILY` may **not** stand in for it: both of those
+  games declare one.
 - **Read a roster as a total, or fold it into `mssp`.** `MsspCountKind.Roster` is a **floor**:
   `tdome.nukefire.org:4000` states `PLAYERS = 70` and names sixty-nine, stably, because every
   codebase has someone it does not show. It gets its own `mssp_roster` source so a reader can tell

@@ -355,6 +355,18 @@ public static partial class LoginCommandReading
         return MsspDefaults.IsPlaceholder(trimmed) ? null : trimmed;
     }
 
+    /// <summary>
+    /// Whether text names an engine this reader recognises.
+    /// </summary>
+    /// <remarks>
+    /// Public because <see cref="MsspSelfDescription"/> asks it of a report's own <c>CODEBASE</c>,
+    /// and the question there is exactly this one: would <c>INFO</c> have told us anything about the
+    /// engine that the game has not already said? Asked against this reader's vocabulary rather than
+    /// a second list, so a family added here cannot silently stop matching there.
+    /// </remarks>
+    public static bool NamesAKnownFamily(string? value) =>
+        !string.IsNullOrWhiteSpace(value) && MentionsKnownFamily(value);
+
     private static bool MentionsKnownFamily(string value) =>
         FamilyNames.Keys.Any(marker => NamesFamily(value, marker));
 

@@ -20,8 +20,10 @@ namespace MUI.Crawl;
 /// <c>create</c> are not on; and a classified answer to a pre-login prompt, which is not a command and
 /// is held to <see cref="IsPermittedPromptAnswer"/> — at most two alphanumeric characters, checked at
 /// the send rather than trusted from the classifier.
-/// <c>WHO</c> is further conditional: a game that has already published its count, over MSSP or on
-/// the connect screen itself, is not asked for it again (see <see cref="PublishedCountAsync"/>).
+/// All three are further conditional on what the game has already published: <c>WHO</c> where a count
+/// is already in hand (see <see cref="PublishedCountAsync"/>), <c>INFO</c> and <c>VERSION</c> where the
+/// MSSP report already names the game and its engine (see <see cref="MsspSelfDescription"/>). A probe
+/// that has been told the answer does not ask the question.
 /// Protocol support is recorded from the library's own negotiation callbacks rather than by
 /// re-parsing bytes it already decoded.
 /// </remarks>
@@ -498,12 +500,22 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                     await AskAsync(WhoCommand, cursors.Flush, _options.WhoGrace, markAsked);
             }
 
-            if (Live(client))
+            // And the same for the other two. A game that has published its name, its engine and a
+            // count has answered all three of these questions, so asking them is text at a stranger's
+            // login prompt for nothing — which is not a figure of speech: playdecay.com:3003, whose
+            // operator raised this, took WHO as a character name, asked for a password, and read
+            // INFO as the password. Every crawl, reproducibly. See MsspSelfDescription for the three
+            // conditions and the consumer each one stands in for.
+            var described = seen.MsspOutcome is MsspOutcome.Received
+                && MsspSelfDescription.AnswersTheLoginCommands(
+                    MsspReport.From(seen.Mssp, WireEncoding.Fallback));
+
+            if (Live(client) && !described)
             {
                 cursors.Info = cursors.Version = await AskAsync(InfoCommand, cursors.Who, _options.SilenceGrace);
             }
 
-            if (Live(client))
+            if (Live(client) && !described)
             {
                 cursors.Version = await AskAsync(VersionCommand, cursors.Info, _options.SilenceGrace);
             }
