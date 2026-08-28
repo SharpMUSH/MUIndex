@@ -124,12 +124,12 @@ public class MigrationConcurrencyTests
         await holder.ExecuteAsync(
             "SELECT pg_advisory_lock(@key)", new { key = MigrationRunner.MigrationKey });
 
+        // Five minutes is the shipped ceiling, so this asserts the shape rather than sitting through
+        // it: the run must still be waiting well after an unblocked acquire would have returned.
+        var run = new MigrationRunner(db.DataSource).ApplyAsync();
+
         try
         {
-            // Five minutes is the shipped ceiling, so this asserts the shape rather than sitting
-            // through it: the run must still be waiting well after a bare acquire would have returned,
-            // and must not have thrown anything other than the timeout when it does give up.
-            var run = new MigrationRunner(db.DataSource).ApplyAsync();
             var finished = await Task.WhenAny(run, Task.Delay(TimeSpan.FromSeconds(8)));
 
             await Assert.That(finished).IsNotEqualTo((Task)run);
@@ -137,8 +137,13 @@ public class MigrationConcurrencyTests
         }
         finally
         {
-            await holder.ExecuteAsync(
-                "SELECT pg_advisory_unlock_all()");
+            await holder.ExecuteAsync("SELECT pg_advisory_unlock_all()");
         }
+
+        // Awaited rather than abandoned. Left running it would apply the schema while the fixture is
+        // being torn down underneath it, and anything it threw would be an unobserved exception on a
+        // test that had already reported success -- which is the shape of a flake nobody can
+        // reproduce.
+        await Assert.That(await run).IsNotEmpty();
     }
 }

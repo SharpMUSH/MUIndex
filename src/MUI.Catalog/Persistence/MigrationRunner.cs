@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 
 using Dapper;
@@ -120,47 +121,63 @@ public sealed class MigrationRunner(NpgsqlDataSource source, ILogger? logger = n
     /// </remarks>
     private async Task AcquireAsync(NpgsqlConnection connection, CancellationToken cancellationToken)
     {
-        var waited = TimeSpan.Zero;
+        // The deadline is a wall clock, not a tally of the sleeps. Counting only Task.Delay would
+        // leave the probe itself outside the accounting -- and a deployment connection string is free
+        // to say `Command Timeout=0`, which makes that probe unbounded and the ceiling below
+        // unreachable. A "bounded" wait whose bound depends on every query returning promptly is not
+        // one.
+        using var deadline = new CancellationTokenSource(LockWait);
+        using var giveUp = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken, deadline.Token);
+
+        var waited = Stopwatch.StartNew();
         var announced = false;
 
-        while (true)
+        try
         {
-            var taken = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
-                "SELECT pg_try_advisory_lock(@key)",
-                new { key = MigrationKey },
-                cancellationToken: cancellationToken));
-
-            if (taken)
+            while (true)
             {
-                if (announced)
+                var taken = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+                    "SELECT pg_try_advisory_lock(@key)",
+                    new { key = MigrationKey },
+                    cancellationToken: giveUp.Token));
+
+                if (taken)
                 {
-                    logger?.LogInformation(
-                        "Took the migration lock after waiting {Seconds:0}s", waited.TotalSeconds);
+                    if (announced)
+                    {
+                        logger?.LogInformation(
+                            "Took the migration lock after waiting {Seconds:0}s",
+                            waited.Elapsed.TotalSeconds);
+                    }
+
+                    return;
                 }
 
-                return;
-            }
+                if (!announced)
+                {
+                    logger?.LogInformation(
+                        "Another replica is applying migrations; waiting for the schema lock");
+                    announced = true;
+                }
 
-            if (!announced)
-            {
-                logger?.LogInformation(
-                    "Another replica is applying migrations; waiting for the schema lock");
-                announced = true;
+                await Task.Delay(LockPoll, giveUp.Token);
             }
+        }
 
-            if (waited >= LockWait)
-            {
-                throw new TimeoutException(
-                    $"Waited {LockWait.TotalMinutes:0} minutes for the migration lock and did not get "
-                    + "it. Another replica is applying migrations and has not finished, or a backend "
-                    + "holding the lock is wedged rather than dead — `SELECT pid, query FROM pg_locks "
-                    + "JOIN pg_stat_activity USING (pid) WHERE locktype = 'advisory'` says which. This "
-                    + "process is exiting rather than serving a database whose schema is mid-change; "
-                    + "it will try again when it restarts.");
-            }
-
-            await Task.Delay(LockPoll, cancellationToken);
-            waited += LockPoll;
+        // Only the deadline becomes a TimeoutException. A caller who cancelled gets the
+        // OperationCanceledException they asked for, because a host shutting down mid-wait has not
+        // failed at anything and must not be reported as though it had.
+        catch (OperationCanceledException) when (
+            deadline.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException(
+                $"Waited {LockWait.TotalMinutes:0} minutes for the migration lock and did not get "
+                + "it. Another replica is applying migrations and has not finished, or a backend "
+                + "holding the lock is wedged rather than dead -- `SELECT pid, query FROM pg_locks "
+                + "JOIN pg_stat_activity USING (pid) WHERE locktype = 'advisory'` says which. This "
+                + "process is exiting rather than serving a database whose schema is mid-change; "
+                + "it will try again when it restarts.");
         }
     }
 
