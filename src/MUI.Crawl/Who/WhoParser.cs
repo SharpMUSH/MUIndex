@@ -130,6 +130,18 @@ public sealed partial class WhoParser : IWhoParser
     {
         count = 0;
 
+        // A figure about the past is not a population. down.moo.midgard.org:8888 prints three
+        // count sentences on its connect screen — "1 players are connected.", then "1 players have
+        // connected over the past twenty-four hours." and "0 players have connected over the past
+        // twelve hours." — and the last of those read as a measured zero for a game with somebody
+        // in it. Judged before any pattern runs, because every one of them would match: the
+        // perfect tense sits in the gap the patterns already allow between the number and the
+        // connectivity word, so no pattern can see it.
+        if (StatesAPastFigure(line))
+        {
+            return false;
+        }
+
         // "N of M" is checked first, because every pattern below it would otherwise match M: "There
         // are currently 11 out of 200 users playing." would record the 200-user licence ceiling as
         // the population — read backwards, and worse than unreadable because it looks like a real
@@ -202,6 +214,26 @@ public sealed partial class WhoParser : IWhoParser
         var labelled = LabelledPattern().Match(line);
         return labelled.Success && int.TryParse(labelled.Groups["n"].Value, out count);
     }
+
+    /// <summary>
+    /// Whether this line states how many <em>have</em> connected rather than how many are.
+    /// </summary>
+    /// <remarks>
+    /// The perfect tense is the whole test, and it is enough: across all 918 connect screens the
+    /// catalogue holds, ten lines are in it and only <c>downmoo</c>'s two carry a number — the rest
+    /// are "You have connected to…" and "after you have logged in", which state no count and so
+    /// lose nothing by being refused here. English has no present reading of "N players have
+    /// connected", so a count in this shape is always a figure about a window of time.
+    /// <para>
+    /// The window phrase itself is deliberately <b>not</b> the test. Forty-two of those screens
+    /// carry one — <c>port-of-dreams</c> prints "There are 2 players currently online, and today's
+    /// total is 6." — and refusing on <c>today</c> would throw away the live count standing next to
+    /// it. A bare past form with no auxiliary ("12 players connected today.") is therefore not
+    /// covered; no server has been seen printing one, and this list grows from captures rather than
+    /// from phrases that sound plausible.
+    /// </para>
+    /// </remarks>
+    private static bool StatesAPastFigure(string line) => PastFigurePattern().IsMatch(line);
 
     /// <summary>
     /// A reply that lists who is on and never says how many, read as the count of the list.
@@ -462,6 +494,15 @@ public sealed partial class WhoParser : IWhoParser
     /// </summary>
     [GeneratedRegex(@"\[\s*(?<n>\d+)\s+users?\s*[;\]]", RegexOptions.IgnoreCase)]
     private static partial Regex MuckFooterPattern();
+
+    // "N players have connected over the past twenty-four hours." — the perfect tense, with room
+    // for the adverbs a server puts between it and the verb ("have recently connected"). Bounded to
+    // two intervening words so the auxiliary has to belong to this verb rather than to a clause
+    // further along the line.
+    [GeneratedRegex(
+        @"\bha(?:ve|s|d)\s+(?:\w+\s+){0,2}?(?:connected|logged|played|visited|been)\b",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex PastFigurePattern();
 
     // "Connected players: A, B, C" / "The following people are logged on: A, B, C" — a header that
     // says what its list is, which is the only thing that makes the commas after it countable.
