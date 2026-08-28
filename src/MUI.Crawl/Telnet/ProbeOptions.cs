@@ -32,6 +32,18 @@ public sealed record ProbeOptions
     public TimeSpan QuietPeriod { get; init; } = TimeSpan.FromMilliseconds(500);
 
     /// <summary>
+    /// How long a server must stay silent on an unterminated line before it is taken as a prompt.
+    /// </summary>
+    /// <remarks>
+    /// Handed to TelnetNegotiationCore's <c>PacketPatchProtocol</c>, which does the holding on its
+    /// own byte-processing loop. 500 ms is the library's default and the convention the hobby's
+    /// clients settled on — TinTin++'s packet patch and Mudlet's posting timer both use it. Shorter
+    /// would split a line at any server that pauses mid-output, so a phase waits this out rather
+    /// than racing it, and only when the library says it is holding a line.
+    /// </remarks>
+    public TimeSpan PromptHold { get; init; } = TimeSpan.FromMilliseconds(500);
+
+    /// <summary>
     /// How long to wait for a phase to produce anything at all before concluding it never will.
     /// </summary>
     /// <remarks>

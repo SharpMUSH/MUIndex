@@ -34,6 +34,7 @@ public class ProbeSessionTests
         PollInterval = TimeSpan.FromMilliseconds(15),
         Timeout = TimeSpan.FromSeconds(20),
         MsspSettleGrace = TimeSpan.FromMilliseconds(400),
+        PromptHold = TimeSpan.FromMilliseconds(80),
     };
 
     [Test]
@@ -585,6 +586,76 @@ public class ProbeSessionTests
         // would stay green while the negotiation branch it guards quietly stopped being exercised.
         await Assert.That(game.Received.Where(line => line.Trim().Length > 0)
             .All(line => TelnetProbe.PermittedCommands.Contains(line.Trim()))).IsTrue();
+    }
+
+    /// <summary>
+    /// A compressed session is not corrupted by the probe settling its own phases.
+    /// </summary>
+    /// <remarks>
+    /// The bug this fixture exists for. Every phase used to end by pushing a newline into
+    /// <c>InterpretAsync</c> to shake loose a line the server never terminated — but that is the
+    /// <em>inbound</em> channel, the one an MCCP inflater sits at the head of, so on a compressed
+    /// session the byte was spliced into the middle of the peer's deflate stream. The inflater never
+    /// recovered: every reply afterwards arrived shredded, with fragments of two of them overlaid.
+    /// <para>
+    /// Found on the five Evennia games in the catalogue, whose <c>CODEBASE</c> had been stored as
+    /// <c>enniaA 5.0.1</c> and <c>enniaF 6.0.0 (rev ea0da3ed8)R ##D HRINFO0m</c> for months. Neither
+    /// Evennia nor TelnetNegotiationCore was at fault: the same captured stream decodes perfectly
+    /// through Python's zlib, through TNC's own inflate transform byte for byte, and through a plain
+    /// TNC client against the live server.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task ACompressedSessionIsNotShreddedByOurOwnSettling()
+    {
+        await using var game = new FakeGame
+        {
+            AnnouncesMccp = true,
+            Banner = "Welcome to Mortal Realms\r\nMrMud 1.4\r\n",
+            BannerTail = "By what name do you wish to be known? ",
+            WhoReply = "Player Name        On For Idle\r\n7 Players logged in, 22 record, no maximum.\r\n",
+            InfoReply = "### Begin INFO 1\r\nName: Mortal Realms\r\nConnected: 7\r\nVersion: Evennia 6.1.0\r\n### End INFO\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+
+        // The precondition, asserted rather than assumed: this session really was compressed.
+        await Assert.That(result.OfferedOptions).Contains("MCCP2");
+
+        // Every reply intact, and read rather than merely present.
+        await Assert.That(result.Who.Count).IsEqualTo(7);
+        await Assert.That(result.Info).Contains("Name: Mortal Realms");
+        await Assert.That(LoginCommandReading.MeaningfulCodebase(result.Info, result.Version))
+            .IsEqualTo("Evennia 6.1.0");
+        await Assert.That(LoginCommandReading.ConnectedPlayers(result.Info)).IsEqualTo(7);
+    }
+
+    /// <summary>
+    /// And the unterminated line survives compression too, which is what the newline was for.
+    /// </summary>
+    /// <remarks>
+    /// The fix is not "stop flushing on a compressed session" — that would trade one loss for
+    /// another, and the guard that keeps a busy DIKU from reading as a measured zero depends on
+    /// seeing exactly this kind of unterminated prompt. TelnetNegotiationCore 2.12.0's
+    /// <c>PacketPatchProtocol</c> infers the boundary from silence on its own byte-processing loop,
+    /// where the line buffer has one writer and nothing is pushed into the peer's stream.
+    /// </remarks>
+    [Test]
+    public async Task AnUnterminatedPromptIsStillDeliveredOnACompressedSession()
+    {
+        await using var game = new FakeGame
+        {
+            AnnouncesMccp = true,
+            Banner = "Welcome to Nowhere\r\nA quiet little place.\r\n",
+            BannerTail = "By what name do you wish to be known? ",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.OfferedOptions).Contains("MCCP2");
+        await Assert.That(result.Banner).Contains("By what name do you wish to be known?");
     }
 
     /// <summary>
@@ -1433,6 +1504,16 @@ public class ProbeSessionTests
         public bool AnnouncesMssp { get; init; }
 
         /// <summary>
+        /// Whether the server compresses everything after its option handshake, as MCCP2 servers do.
+        /// </summary>
+        /// <remarks>
+        /// Load-bearing rather than decoration: with compression on, anything the probe pushes into
+        /// its own inbound channel is spliced into the peer's deflate stream, and every reply after
+        /// it comes out shredded. That is what this fixture exists to catch.
+        /// </remarks>
+        public bool AnnouncesMccp { get; init; }
+
+        /// <summary>
         /// How long <see cref="AnnouncesMssp"/>'s report is withheld after our <c>DO MSSP</c> arrives
         /// — <c>WILL MSSP</c> still negotiates on connect, same as always, so this models a server
         /// that has agreed to MSSP but whose report is still in flight, not one that never offered it.
@@ -1600,6 +1681,11 @@ public class ProbeSessionTests
                     return new MSSPConfig { Name = "NukeFire", Players = 99 };
                 });
                 builder = builder.AddPlugin(mssp);
+            }
+
+            if (AnnouncesMccp)
+            {
+                builder = builder.AddPlugin(new MCCPProtocol());
             }
 
             var built = await builder.BuildAndStartAsync(client, _stopping.Token);
