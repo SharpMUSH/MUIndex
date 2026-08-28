@@ -100,7 +100,11 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 ? client.ConnectAsync([.. target.Addresses], target.Port, budget.Token)
                 : client.ConnectAsync(target.Host, target.Port, budget.Token));
 
-            var built = await Build(seen, lines).BuildAndStartAsync(client, budget.Token);
+            var prompts = new PromptSink(lines);
+            var built = await Build(seen, lines, prompts).BuildAndStartAsync(client, budget.Token);
+
+            // Before anything can be read from the socket in practice — see PromptSink.Reads.
+            prompts.Reads(built.Interpreter);
 
             // Must be disposed *before* the socket it reads. The interpreter owns a byte channel, the
             // draining task, and every plugin — MCCP's holds zlib streams that nothing else reclaims,
@@ -117,10 +121,6 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // here, so it's logged if it's not one of the expected HungUp shapes.
             _ = ObserveReadLoopAsync(built.ReadTask, target);
 
-            // One per probe, because it is per-session state: which inferred prompt has already
-            // been appended to `lines`.
-            var taken = new Prompts();
-
             int Arrived()
             {
                 lock (lines)
@@ -132,9 +132,9 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // Phase 1 — the connect screen. Banner and WHO answer are kept apart because they are
             // different evidence: one is a display asset and codebase fingerprint, the other is a
             // measurement.
-            await SettleInitialBannerAsync(telnet, Arrived, lines, taken, budget.Token);
+            await SettleInitialBannerAsync(telnet, Arrived, lines, budget.Token);
 
-            var answeredAPrompt = await AnswerPromptsAsync(telnet, Arrived, lines, taken, client, budget.Token);
+            var answeredAPrompt = await AnswerPromptsAsync(telnet, Arrived, lines, client, budget.Token);
 
             // Every cursor below is a line count into the same `lines` list, marking where one
             // phase's slice ends and the next begins. Named fields rather than a bag of same-typed
@@ -151,7 +151,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // — parsed through the identical WhoParser a literal WHO answer would be, so
             // PresenceChoice.From (spec §5.2) cannot tell which route produced the reading.
             var (whoFromMenu, whoFromMenuShape) =
-                await TryAnswerWhoMenuAsync(telnet, Arrived, lines, taken, client, cursors.Banner, budget.Token);
+                await TryAnswerWhoMenuAsync(telnet, Arrived, lines, client, cursors.Banner, budget.Token);
 
             // Phase 2 — an empty line, and everything it produces is thrown away.
             //
@@ -178,7 +178,6 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 Arrived,
                 client,
                 lines,
-                taken,
                 seen,
                 cursors,
                 // Either kind of answer above was a line through the server's buffer, so either one
@@ -257,14 +256,13 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         TelnetInterpreter telnet,
         Func<int> arrived,
         List<byte[]> lines,
-        Prompts taken,
         CancellationToken cancellationToken)
     {
-        await SettleAsync(telnet, arrived, lines, taken, 0, _options.SilenceGrace, cancellationToken);
+        await SettleAsync(telnet, arrived, 0, _options.SilenceGrace, cancellationToken);
 
         if (LooksUnfinished(BannerSoFar(lines, 0, arrived())))
         {
-            await SettleAsync(telnet, arrived, lines, taken, arrived(), _options.BannerPatience, cancellationToken);
+            await SettleAsync(telnet, arrived, arrived(), _options.BannerPatience, cancellationToken);
         }
     }
 
@@ -288,7 +286,6 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         TelnetInterpreter telnet,
         Func<int> arrived,
         List<byte[]> lines,
-        Prompts taken,
         TcpClient client,
         CancellationToken cancellationToken)
     {
@@ -308,7 +305,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             roundStart = arrived();
             answeredAPrompt = true;
             await telnet.SendAsync(Encoding.ASCII.GetBytes(prompt.Answer));
-            await SettleAsync(telnet, arrived, lines, taken, roundStart, _options.QuietPeriod, cancellationToken);
+            await SettleAsync(telnet, arrived, roundStart, _options.QuietPeriod, cancellationToken);
         }
 
         return answeredAPrompt;
@@ -325,7 +322,6 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         TelnetInterpreter telnet,
         Func<int> arrived,
         List<byte[]> lines,
-        Prompts taken,
         TcpClient client,
         int bannerLines,
         CancellationToken cancellationToken)
@@ -348,7 +344,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         // introduced for. Costs nothing in the ordinary case: grace applies only while the reply has
         // produced no line at all, and nothing here stacks — a menu that answers means the literal
         // WHO below is skipped, so the worst-case run of graces is unchanged.
-        await SettleAsync(telnet, arrived, lines, taken, menuBaseline, _options.WhoGrace, cancellationToken);
+        await SettleAsync(telnet, arrived, menuBaseline, _options.WhoGrace, cancellationToken);
 
         var menuReply = BannerSoFar(lines, menuBaseline, arrived());
         return (new WhoParser().Parse(menuReply), PayloadRedaction.Replayable(menuReply));
@@ -368,7 +364,6 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         Func<int> arrived,
         TcpClient client,
         List<byte[]> lines,
-        Prompts taken,
         Observations seen,
         PhaseCursors cursors,
         bool alreadyFlushed,
@@ -384,7 +379,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         {
             await telnet.SendAsync(Encoding.ASCII.GetBytes(command));
             sent?.Invoke();
-            await SettleAsync(telnet, arrived, lines, taken, baseline, grace, cancellationToken);
+            await SettleAsync(telnet, arrived, baseline, grace, cancellationToken);
             return arrived();
         }
 
@@ -463,7 +458,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             if (!alreadyFlushed && !parsedOurNegotiation)
             {
                 await telnet.SendAsync([]);
-                await SettleAsync(telnet, arrived, lines, taken, cursors.Banner, _options.QuietPeriod, cancellationToken);
+                await SettleAsync(telnet, arrived, cursors.Banner, _options.QuietPeriod, cancellationToken);
             }
 
             cursors.Flush = cursors.Who = cursors.Info = cursors.Version = arrived();
@@ -733,8 +728,6 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     private async Task SettleAsync(
         TelnetInterpreter telnet,
         Func<int> arrived,
-        List<byte[]> lines,
-        Prompts taken,
         int baseline,
         TimeSpan grace,
         CancellationToken cancellationToken)
@@ -771,7 +764,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             }
         }
 
-        await FlushPendingLineAsync(telnet, lines, taken);
+        await FlushPendingLineAsync(telnet);
     }
 
     /// <summary>
@@ -788,53 +781,52 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// nothing goes on the wire and line assembly/IAC/encoding stay the library's; when the buffer is
     /// empty the library discards it and no line is produced.
     /// </remarks>
-    private async Task FlushPendingLineAsync(TelnetInterpreter telnet, List<byte[]> lines, Prompts taken)
-    {
-        await telnet.WaitForProcessingAsync(maxWaitMs: 500, additionalDelayMs: 25);
-
-        // PacketPatchProtocol has already taken the line, on the loop, if the server went quiet
-        // holding one. It lands in LastPromptBytes rather than through OnSubmit — a prompt is not a
-        // line and the library will not pretend otherwise — so it is appended here, in the order it
-        // was taken, which is what puts it at the end of the phase it belongs to.
-        var prompt = telnet.LastPromptBytes;
-
-        if (prompt.IsEmpty || taken.AlreadyHave(prompt))
-        {
-            return;
-        }
-
-        lock (lines)
-        {
-            lines.Add(prompt.ToArray());
-        }
-    }
+    private static Task FlushPendingLineAsync(TelnetInterpreter telnet) =>
+        telnet.WaitForProcessingAsync(maxWaitMs: 500, additionalDelayMs: 25).AsTask();
 
     /// <summary>
-    /// Which inferred prompts this probe has already put into its line list.
+    /// Where a prompt the library took goes: onto the end of this probe's line list.
     /// </summary>
     /// <remarks>
-    /// <c>LastPromptBytes</c> is a standing value rather than an event: it keeps whatever was taken
-    /// last until the next prompt replaces it, and every phase ends by looking at it. Without this
-    /// the same unterminated name prompt would be appended once per phase — four copies of
-    /// <c>By what name do you wish to be known?</c> in a banner that contains one.
+    /// All three of the library's prompt boundaries — <c>IAC EOR</c>, <c>IAC GA</c>, and
+    /// <c>PacketPatchProtocol</c> inferring one from silence — take the standing partial line into
+    /// <c>LastPromptBytes</c> and then call back. They do not submit it: a prompt is not a line and
+    /// the library will not pretend otherwise, so nothing reaches <c>OnSubmit</c> and the probe would
+    /// never see an unterminated login prompt at all.
+    /// <para>
+    /// Every callback runs on the interpreter's own byte-processing loop, which is what makes this
+    /// the right place to do it: the prompt lands in <c>lines</c> in the order it was taken, between
+    /// the lines either side of it, rather than being swept up afterwards at a phase boundary.
+    /// </para>
     /// </remarks>
-    private sealed class Prompts
+    private sealed class PromptSink(List<byte[]> lines)
     {
-        private ReadOnlyMemory<byte> _last;
+        private TelnetInterpreter? _telnet;
 
-        public bool AlreadyHave(ReadOnlyMemory<byte> prompt)
+        /// <summary>
+        /// Names the interpreter to read prompts from, once the builder has produced it.
+        /// </summary>
+        /// <remarks>
+        /// Assigned immediately after the build rather than during it, because the callbacks are
+        /// registered before the interpreter they read from exists. Nothing is lost in between: the
+        /// earliest prompt a peer can produce needs either a marker it has not sent yet or
+        /// <c>PromptHold</c> of silence, and this runs in the same continuation as the build.
+        /// </remarks>
+        public void Reads(TelnetInterpreter telnet) => _telnet = telnet;
+
+        public ValueTask TakeAsync()
         {
-            // Identity, not content. TakePartialLineAsPrompt allocates a fresh array for every take,
-            // so two takes of the same text are two different memories — which is the distinction
-            // that matters: a server repeating its gate is showing it again, and a round that could
-            // not see the repeat could not stop at it (ARepeatingGateStopsAtTheRoundBound).
-            if (_last.Equals(prompt))
+            if (_telnet?.LastPromptBytes is not { IsEmpty: false } prompt)
             {
-                return true;
+                return ValueTask.CompletedTask;
             }
 
-            _last = prompt;
-            return false;
+            lock (lines)
+            {
+                lines.Add(prompt.ToArray());
+            }
+
+            return ValueTask.CompletedTask;
         }
     }
 
@@ -852,7 +844,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// separate statement apiece; the TelnetNegotiationCore plugin builders are already self-typed
     /// fluent, so this is the shape the library wants, not a new abstraction layered over it.
     /// </remarks>
-    private TelnetInterpreterBuilder Build(Observations seen, List<byte[]> lines)
+    private TelnetInterpreterBuilder Build(Observations seen, List<byte[]> lines, PromptSink prompts)
     {
         void Note(string protocol) => seen.Note(protocol);
 
@@ -914,7 +906,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             {
                 seen.Prompts = true;
                 Note("EOR");
-                return ValueTask.CompletedTask;
+                return prompts.TakeAsync();
             });
 
         // The other prompt marker, and the one most of this hobby actually uses. RFC 854 makes a bare
@@ -931,7 +923,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             .OnPrompt(() =>
             {
                 seen.Prompts = true;
-                return ValueTask.CompletedTask;
+                return prompts.TakeAsync();
             });
 
         // CharsetProtocol takes its order as a property rather than a builder call, and exposes
@@ -986,7 +978,9 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // byte-processing loop where the line buffer has exactly one writer — and, crucially,
             // without pretending the peer sent anything. It retires itself the moment a server
             // marks a real prompt with IAC GA or IAC EOR.
-            .AddPlugin(new PacketPatchProtocol().WithHoldTime(_options.PromptHold));
+            .AddPlugin(new PacketPatchProtocol()
+                .WithHoldTime(_options.PromptHold)
+                .OnPrompt(prompts.TakeAsync));
     }
 
     /// <summary>
