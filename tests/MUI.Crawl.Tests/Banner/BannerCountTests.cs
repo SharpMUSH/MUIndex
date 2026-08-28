@@ -250,8 +250,15 @@ public class BannerCountTests
     /// <remarks>
     /// down.moo.midgard.org:8888 prints all three of these lines together. The current figure is 1;
     /// the trailing 0 is a twelve-hour total. Reading the screen bottom-up, or taking the last number
-    /// on it, publishes a false zero for a game with somebody in it. The refusal is what protects
-    /// this: two different figures on one screen are never picked between.
+    /// on it, publishes a false zero for a game with somebody in it.
+    /// <para>
+    /// This used to be protected by the conflicting-figures refusal — two different counts on one
+    /// screen are never picked between — and so the screen yielded nothing at all. That was luck
+    /// rather than design: a screen carrying <em>only</em> the historical line had nothing to
+    /// conflict with and published it. The reader now declines the perfect tense outright (see
+    /// <c>WhoParserPastFigureTests</c>), so these three lines were never in conflict in the first
+    /// place — two of them are answering a different question — and the live count survives.
+    /// </para>
     /// </remarks>
     [Test]
     public async Task AWindowedTotalIsNeverReadAsThePresentCount()
@@ -262,7 +269,12 @@ public class BannerCountTests
             0 players have connected over the past twelve hours.
             """;
 
-        await Assert.That(BannerCount.Find(downmoo)).IsNull();
+        await Assert.That(BannerCount.Find(downmoo)).IsEqualTo(1);
+
+        // The half that mattered: alone, with nothing to conflict with, the windowed figure is still
+        // refused rather than published as a population.
+        await Assert.That(BannerCount.Find("0 players have connected over the past twelve hours."))
+            .IsNull();
     }
 
     /// <summary>

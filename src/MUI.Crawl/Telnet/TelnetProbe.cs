@@ -20,6 +20,10 @@ namespace MUI.Crawl;
 /// <c>create</c> are not on; and a classified answer to a pre-login prompt, which is not a command and
 /// is held to <see cref="IsPermittedPromptAnswer"/> — at most two alphanumeric characters, checked at
 /// the send rather than trusted from the classifier.
+/// All three are further conditional on what the game has already published: <c>WHO</c> where a count
+/// is already in hand (see <see cref="PublishedCountAsync"/>), <c>INFO</c> and <c>VERSION</c> where the
+/// MSSP report already names the game and its engine (see <see cref="MsspSelfDescription"/>). A probe
+/// that has been told the answer does not ask the question.
 /// Protocol support is recorded from the library's own negotiation callbacks rather than by
 /// re-parsing bytes it already decoded.
 /// </remarks>
@@ -173,7 +177,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // to happen first for WHO to land cleanly (the MSDP ask, the residue flush). A hang-up
             // partway through is not a failure (rule 5): whatever cursors already advanced stay where
             // they are, and phases never reached keep the banner's cursor.
-            await AskFollowUpsAsync(
+            var published = await AskFollowUpsAsync(
                 telnet,
                 Arrived,
                 client,
@@ -202,7 +206,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
             return BuildAnsweredResult(
                 target, observedAt, started, seen, reading, cursors,
-                whoFromMenu, whoFromMenuShape, asked, telnet.CurrentEncoding);
+                whoFromMenu, whoFromMenuShape, asked, published, telnet.CurrentEncoding);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -358,8 +362,12 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// A hang-up that has already yielded a measurement is a fact about the session, not the host
     /// (rule 5): everything already measured (connect screen, handshake, MSSP) stays, and phases never
     /// reached keep their pre-loop cursor rather than recording an empty answer.
+    /// <para>
+    /// Returns the count the game had already published by the time <c>WHO</c> came up, when that is
+    /// why <c>WHO</c> was not asked — see <see cref="PublishedCountAsync"/> for why the caller needs it.
+    /// </para>
     /// </remarks>
-    private async Task AskFollowUpsAsync(
+    private async Task<int?> AskFollowUpsAsync(
         TelnetInterpreter telnet,
         Func<int> arrived,
         TcpClient client,
@@ -382,6 +390,8 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             await SettleAsync(telnet, arrived, baseline, grace, cancellationToken);
             return arrived();
         }
+
+        int? published = null;
 
         try
         {
@@ -471,7 +481,16 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // A who's-online menu already answered this probe's WHO question — asking the literal
             // word WHO at whatever this game's screen looks like now would either repeat the menu
             // or be read as a character name, corrupting a good reading with a worse one.
-            if (Live(client) && !whoAlreadyAnswered)
+            //
+            // And a game that already published a count did not need to be typed at either. Asked
+            // for by an operator whose logs showed our WHO arriving at a login screen that states
+            // the number three lines up and whose MSSP report states it again: a question whose
+            // answer we have been given is not a measurement, it is noise on somebody's console.
+            // Decided here rather than earlier because here is the latest moment before the send,
+            // so an MSSP report still in flight through the flush above is counted.
+            published = await PublishedCountAsync(lines, seen, cursors, target, cancellationToken);
+
+            if (Live(client) && !whoAlreadyAnswered && published is null)
             {
                 // WhoGrace, not SilenceGrace: some codebases sit on a login-screen WHO for
                 // seconds on purpose, and giving up early does not merely lose the count — it
@@ -481,12 +500,22 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                     await AskAsync(WhoCommand, cursors.Flush, _options.WhoGrace, markAsked);
             }
 
-            if (Live(client))
+            // And the same for the other two. A game that has published its name, its engine and a
+            // count has answered all three of these questions, so asking them is text at a stranger's
+            // login prompt for nothing — which is not a figure of speech: playdecay.com:3003, whose
+            // operator raised this, took WHO as a character name, asked for a password, and read
+            // INFO as the password. Every crawl, reproducibly. See MsspSelfDescription for the three
+            // conditions and the consumer each one stands in for.
+            var described = seen.MsspOutcome is MsspOutcome.Received
+                && MsspSelfDescription.AnswersTheLoginCommands(
+                    MsspReport.From(seen.Mssp, WireEncoding.Fallback));
+
+            if (Live(client) && !described)
             {
                 cursors.Info = cursors.Version = await AskAsync(InfoCommand, cursors.Who, _options.SilenceGrace);
             }
 
-            if (Live(client))
+            if (Live(client) && !described)
             {
                 cursors.Version = await AskAsync(VersionCommand, cursors.Info, _options.SilenceGrace);
             }
@@ -497,6 +526,94 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 "{Host}:{Port} closed the session after its connect screen ({Error}); keeping what it said",
                 target.Host, target.Port, error.Message);
         }
+
+        return published;
+    }
+
+    /// <summary>
+    /// The count this game has already published — over MSSP, or on the connect screen itself — by
+    /// the moment <c>WHO</c> would be typed, or null when it has published none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Non-null means <c>WHO</c> is not asked and the returned count is what
+    /// <see cref="ProbeResult.BannerPlayerCount"/> falls back to. Both halves of that matter. A probe
+    /// that declines to ask and then publishes nothing would reach
+    /// <c>PresenceChoice.ReasonFor</c> and write <c>who_not_offered</c> — <em>the game answers no
+    /// pre-login WHO</em> — about a game we never asked. That is a decision of ours recorded as a
+    /// measurement of theirs, and the reason vocabulary deliberately has no member for it (see
+    /// <c>UnmeasurableReason.I3NoReply</c>, which says so). So the count that bought the silence is
+    /// carried forward rather than left behind, and the invariant holds by construction: not asking
+    /// implies publishing.
+    /// </para>
+    /// <para>
+    /// The MSSP half needs no encoding decision — a stated <c>PLAYERS</c> is digits, and a roster is
+    /// counted by its delimiters, so every encoding this crawler reads agrees about both. It is read
+    /// here through the same <see cref="MsspPresence"/> the publisher uses and cannot disagree with
+    /// it, roster rung included: a game that published who is online has answered this probe's
+    /// question as surely as one that published the number. The banner half is
+    /// read from the connect screen alone, which is complete by now (<c>cursors.Banner</c> stopped
+    /// moving before this method was called); the session-wide charset decision at the end of the
+    /// probe may still land elsewhere, so this is deliberately the <em>fallback</em> for the count
+    /// rather than its replacement, and a screen the final decode reads better is still read better.
+    /// </para>
+    /// <para>
+    /// The banner half additionally requires the session to have shown a protocol signal. A game whose
+    /// only evidence of being a game is a parseable <c>WHO</c> (<c>MuLikeness</c>, <c>§7.8</c>) would
+    /// otherwise be talked out of the one answer that gets it listed, on the strength of a number
+    /// pattern-matched out of somebody's ASCII art. MSSP carries no such risk: a report *is* the
+    /// signal.
+    /// </para>
+    /// </remarks>
+    private async Task<int?> PublishedCountAsync(
+        List<byte[]> lines,
+        Observations seen,
+        PhaseCursors cursors,
+        ProbeTarget target,
+        CancellationToken cancellationToken)
+    {
+        // A report we have already been promised is worth the wait. `WILL MSSP` lands during the
+        // option handshake while the report itself is a second round trip, so a server can have
+        // agreed to MSSP and still have its answer in flight when this line runs — and the flush
+        // above only waits for that when it also has to decide whether to send a blank line, which
+        // for a server that negotiated is exactly the case it skips.
+        //
+        // Without this the decision is a coin toss on timing, and it lost: CI on windows-latest sent
+        // WHO to a fixture whose report arrived a moment later, against a server on the same
+        // machine. Across a real network the gap is wider, not narrower. Bounded by MsspSettleGrace
+        // and paid only by a game that said it would answer — a server that never offered MSSP has
+        // an empty Supported and never enters the loop.
+        if (seen.Supported.Contains("MSSP") && seen.MsspOutcome is MsspOutcome.NotOffered)
+        {
+            var deadline = DateTime.UtcNow + _options.MsspSettleGrace;
+
+            while (seen.MsspOutcome is MsspOutcome.NotOffered && DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(_options.PollInterval, cancellationToken);
+            }
+        }
+
+        if (seen.MsspOutcome is MsspOutcome.Received
+            && MsspPresence.Read(MsspReport.From(seen.Mssp, WireEncoding.Fallback)) is { Found: true } declared)
+        {
+            return declared.Count;
+        }
+
+        if (seen.Supported.Count == 0)
+        {
+            return null;
+        }
+
+        List<byte[]> screen;
+        lock (lines)
+        {
+            screen = [.. lines.Take(cursors.Banner)];
+        }
+
+        var text = WireEncoding.Read(screen, target.Charset, MsspReport.RawValues(seen.Mssp)).Lines;
+        var banner = string.Join("\n", text);
+
+        return BannerCount.Find(PuebloSignal.IsPresent(banner) ? PuebloSignal.StripKnown(banner) : banner);
     }
 
     /// <summary>Builds the <see cref="ProbeOutcome.Answered"/> result from a completed session.</summary>
@@ -510,6 +627,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         WhoReading? whoFromMenu,
         string? whoFromMenuShape,
         bool asked,
+        int? published,
         Encoding? negotiatedEncoding)
     {
         var read = reading.Lines;
@@ -569,7 +687,10 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 : (asked ? PayloadRedaction.Replayable(whoText) : null),
             Info = infoText.Length == 0 ? null : infoText,
             Version = versionText.Length == 0 ? null : versionText,
-            BannerPlayerCount = BannerCount.Find(banner),
+            // `published` is the count that bought this game its silence — see PublishedCountAsync for
+            // why not asking must imply publishing. Second, not first: the session-wide charset
+            // decision is made above and a screen this decode reads better is read better.
+            BannerPlayerCount = BannerCount.Find(banner) ?? published,
             Mssp = viaOption ? MsspReport.From(seen.Mssp, reading.Encoding) : MsspReport.Empty,
             MsspOutcome = seen.MsspOutcome,
             MsspBytesRejected = seen.MsspRejectedBytes,

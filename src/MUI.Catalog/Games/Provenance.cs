@@ -42,6 +42,28 @@ public enum FieldSource
     Info,
 
     /// <summary>
+    /// A roster the game published in its own MSSP report — <c>PLAYERNAMES</c>, a repeated
+    /// <c>WHO</c>, or <c>PLAYER INFO</c> — which we counted (spec §5.2).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Presence only, and kept apart from <see cref="Mssp"/> deliberately: both arrive in the same
+    /// report, but one is the game answering the question and the other is us counting a list it
+    /// published for another purpose. Folding the two together would relabel a floor as a total —
+    /// <c>tdome.nukefire.org:4000</c> states <c>PLAYERS = 70</c> and names sixty-nine, stably — and
+    /// a reader could no longer tell which kind of number they were looking at.
+    /// </para>
+    /// <para>
+    /// Declared, not measured, which is where this parts company with <see cref="I3"/>. The
+    /// arithmetic is ours in both cases, but an I3 <c>who-reply</c> is a list a mud built <em>because
+    /// we asked</em>, over a socket, now; an MSSP roster came inside the game's own self-description,
+    /// unsolicited, and is as old as whatever generated the report. Same channel as
+    /// <see cref="Mssp"/>, so the same class.
+    /// </para>
+    /// </remarks>
+    MsspRoster,
+
+    /// <summary>
     /// A value AresCentral holds: the game told the AresMUSH community hub, and the hub told us
     /// through an API whose maintainer issued us credentials.
     /// </summary>

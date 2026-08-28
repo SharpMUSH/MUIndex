@@ -134,6 +134,7 @@ public class PresenceStorePostgresTests
     [Arguments(FieldSource.I3)]
     [Arguments(FieldSource.Mssp)]
     [Arguments(FieldSource.Info)]
+    [Arguments(FieldSource.MsspRoster)]
     [Arguments(FieldSource.Banner)]
     public async Task EverySourceTheLadderCanChooseIsOneTheTableAccepts(FieldSource source)
     {

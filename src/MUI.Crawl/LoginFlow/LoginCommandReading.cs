@@ -33,6 +33,15 @@ public static partial class LoginCommandReading
         ["fuzzball"] = "Fuzzball",
         ["mudos"] = "MudOS",
         ["fluffos"] = "FluffOS",
+
+        // A mudlib rather than a driver, and named here for the same reason the drivers are: it is
+        // what a Dead Souls game answers when asked what it runs, and nine of them in the catalogue
+        // say exactly "Dead Souls 3.9" / "3.8.2" / "3.7a7". FamilyWord.Names matches a two-word
+        // marker on word boundaries, so this does not also fire on a game that merely mentions the
+        // dead. Deliberately NOT added to MsspDefaults.CodebaseNames, which erases a NAME that only
+        // restates a codebase: that list is for names nobody would call a game, and "Dead Souls" is
+        // a perfectly plausible title.
+        ["dead souls"] = "Dead Souls",
         ["lpmud"] = "LPMud",
         ["ldmud"] = "LDMud",
         ["moo"] = "MOO",
@@ -354,6 +363,18 @@ public static partial class LoginCommandReading
         var trimmed = value.Trim();
         return MsspDefaults.IsPlaceholder(trimmed) ? null : trimmed;
     }
+
+    /// <summary>
+    /// Whether text names an engine this reader recognises.
+    /// </summary>
+    /// <remarks>
+    /// Public because <see cref="MsspSelfDescription"/> asks it of a report's own <c>CODEBASE</c>,
+    /// and the question there is exactly this one: would <c>INFO</c> have told us anything about the
+    /// engine that the game has not already said? Asked against this reader's vocabulary rather than
+    /// a second list, so a family added here cannot silently stop matching there.
+    /// </remarks>
+    public static bool NamesAKnownFamily(string? value) =>
+        !string.IsNullOrWhiteSpace(value) && MentionsKnownFamily(value);
 
     private static bool MentionsKnownFamily(string value) =>
         FamilyNames.Keys.Any(marker => NamesFamily(value, marker));

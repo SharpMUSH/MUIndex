@@ -5,7 +5,7 @@ using MUI.Crawler.Tests.Support;
 namespace MUI.Crawler.Tests;
 
 /// <summary>
-/// Which of a probe's three possible counts becomes the one presence row (spec §5.2's ladder).
+/// Which of a probe's possible counts becomes the one presence row (spec §5.2's ladder).
 /// </summary>
 public class PresenceChoiceTests
 {
@@ -234,6 +234,87 @@ public class PresenceChoiceTests
 
         await Assert.That(reading.Count).IsNull();
         await Assert.That(reading.Reason).IsEqualTo(UnmeasurableReason.PlayersNotNumeric);
+    }
+
+    /// <summary>
+    /// A roster the report published is counted where nothing better exists, under its own source.
+    /// </summary>
+    /// <remarks>
+    /// The shape <c>dead-souls.net:8000</c> sends — one <c>WHO</c> occurrence per player — with the
+    /// stated count taken away. Its own source and not <c>mssp</c>, because it is a floor rather than
+    /// a total: <c>tdome.nukefire.org:4000</c> states seventy and names sixty-nine.
+    /// </remarks>
+    [Test]
+    public async Task ARosterIsCountedUnderItsOwnSourceWhereNothingBetterExists()
+    {
+        var reading = PresenceChoice.From(Probes.Answered(
+            mssp: Probes.Mssp(("WHO", "Ninja"), ("WHO", "Cratylus"), ("WHO", "Joshua")),
+            who: WhoReading.NotAsked));
+
+        await Assert.That(reading.Count).IsEqualTo(3);
+        await Assert.That(reading.Source).IsEqualTo(FieldSource.MsspRoster);
+    }
+
+    [Test]
+    public async Task AnEmptyRosterIsAMeasuredZeroAndNotAHatchedCell()
+    {
+        // Vithasnir and Xanth Mud both send WHO with no value beside PLAYERS = 0. Reading the empty
+        // occurrence as a name would report one player on every quiet Dead Souls game there is.
+        var reading = PresenceChoice.From(Probes.Answered(
+            mssp: Probes.Mssp(("WHO", string.Empty)), who: WhoReading.NotAsked));
+
+        await Assert.That(reading.Count).IsEqualTo(0);
+        await Assert.That(reading.Source).IsEqualTo(FieldSource.MsspRoster);
+    }
+
+    [Test]
+    public async Task ARosterNeverRelabelsACountAlreadyPublishedUnderMssp()
+    {
+        // Migration 0019's rule, which every new rung is held to: it may fill a row that would
+        // otherwise be NULL and may never move an existing one. A game publishing both is counted
+        // under `mssp`, at the number it stated, not at the length of its list.
+        var reading = PresenceChoice.From(Probes.Answered(
+            mssp: Probes.Mssp(("PLAYERS", "70"), ("PLAYERNAMES", "Ninja, Cratylus, Joshua")),
+            who: WhoReading.NotAsked));
+
+        await Assert.That(reading.Count).IsEqualTo(70);
+        await Assert.That(reading.Source).IsEqualTo(FieldSource.Mssp);
+    }
+
+    [Test]
+    public async Task TheInfoBlockStillOutranksARoster()
+    {
+        // A count the game stated about itself beats one we arrived at by counting its list, whichever
+        // door the statement came through.
+        var reading = PresenceChoice.From(Probes.Answered(
+            mssp: Probes.Mssp(("PLAYERNAMES", "Ninja, Cratylus, Joshua")),
+            info: "### Begin INFO 1.1\nName: Elendor\nConnected: 11\n### End INFO",
+            who: WhoReading.NotAsked));
+
+        await Assert.That(reading.Count).IsEqualTo(11);
+        await Assert.That(reading.Source).IsEqualTo(FieldSource.Info);
+    }
+
+    [Test]
+    public async Task ARosterOutranksANumberFoundInAsciiArt()
+    {
+        var reading = PresenceChoice.From(Probes.Answered(
+            mssp: Probes.Mssp(("PLAYERNAMES", "Ninja, Cratylus, Joshua")),
+            banner: "Welcome!\nPlayers Currently Online: 12\n",
+            who: WhoReading.NotAsked));
+
+        await Assert.That(reading.Count).IsEqualTo(3);
+        await Assert.That(reading.Source).IsEqualTo(FieldSource.MsspRoster);
+    }
+
+    [Test]
+    public async Task ARosterIsDeclaredRatherThanMeasured()
+    {
+        // Where this parts company with i3, whose arithmetic is also ours: an I3 who-reply is a list
+        // built because we asked, over a socket, now. A roster arrived unsolicited inside the game's
+        // own self-description.
+        await Assert.That(FieldSources.IsMeasured(FieldSource.MsspRoster)).IsFalse();
+        await Assert.That(FieldSources.IsMeasured(FieldSource.I3)).IsTrue();
     }
 
     [Test]
