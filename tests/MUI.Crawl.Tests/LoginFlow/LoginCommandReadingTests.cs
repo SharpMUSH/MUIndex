@@ -4,6 +4,29 @@ namespace MUI.Crawl.Tests;
 
 public class LoginCommandReadingTests
 {
+    /// <summary>
+    /// The Dead Souls mudlib reads as the engine it is.
+    /// </summary>
+    /// <remarks>
+    /// Nine games in the catalogue answer this, and every one of them was previously read as naming
+    /// no engine at all. A two-word marker is matched on word boundaries, so a game that merely
+    /// mentions the dead is not swept in.
+    /// </remarks>
+    [Test]
+    [Arguments("Version: Dead Souls 3.9", "Dead Souls 3.9")]
+    [Arguments("Codebase: Dead Souls 3.8.2", "Dead Souls 3.8.2")]
+    public async Task DeadSoulsIsReadAsACodebase(string line, string expected)
+    {
+        await Assert.That(LoginCommandReading.MeaningfulCodebase(line, null)).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task NamesAKnownFamilyKnowsDeadSouls()
+    {
+        await Assert.That(LoginCommandReading.NamesAKnownFamily("Dead Souls 3.9")).IsTrue();
+        await Assert.That(LoginCommandReading.NamesAKnownFamily("Galaxy Engine 2.2")).IsFalse();
+    }
+
     [Test]
     public async Task ALabelledInfoVersionValueIsRead()
     {

@@ -33,6 +33,15 @@ public static partial class LoginCommandReading
         ["fuzzball"] = "Fuzzball",
         ["mudos"] = "MudOS",
         ["fluffos"] = "FluffOS",
+
+        // A mudlib rather than a driver, and named here for the same reason the drivers are: it is
+        // what a Dead Souls game answers when asked what it runs, and nine of them in the catalogue
+        // say exactly "Dead Souls 3.9" / "3.8.2" / "3.7a7". FamilyWord.Names matches a two-word
+        // marker on word boundaries, so this does not also fire on a game that merely mentions the
+        // dead. Deliberately NOT added to MsspDefaults.CodebaseNames, which erases a NAME that only
+        // restates a codebase: that list is for names nobody would call a game, and "Dead Souls" is
+        // a perfectly plausible title.
+        ["dead souls"] = "Dead Souls",
         ["lpmud"] = "LPMud",
         ["ldmud"] = "LDMud",
         ["moo"] = "MOO",

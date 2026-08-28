@@ -135,21 +135,34 @@ public class MsspSelfDescriptionTests
     }
 
     /// <summary>
-    /// A mudlib the codebase reader has never been taught is not an engine it recognises.
+    /// A mudlib counts as an engine once the reader has been taught it.
     /// </summary>
     /// <remarks>
-    /// The nine Dead Souls games in the catalogue keep their <c>INFO</c> and <c>VERSION</c> for this
-    /// reason, and that is the condition behaving as intended rather than a gap to paper over here:
-    /// <c>LoginCommandReading</c>'s family list is one vocabulary, grown from captures, and widening
-    /// it changes how every codebase is read. If <c>Dead Souls</c> belongs in it, it belongs there.
+    /// <c>Dead Souls</c> is the widest of the roster conventions — nine games in the catalogue, all
+    /// answering <c>Dead Souls 3.9</c> / <c>3.8.2</c> / <c>3.7a7</c> — and it was added to
+    /// <c>LoginCommandReading</c>'s family list rather than special-cased here, because that list is
+    /// the one vocabulary this project has for "an engine we recognise". The gate reads it; it does
+    /// not keep its own.
     /// </remarks>
     [Test]
-    public async Task AMudlibOutsideTheFamilyListLeavesTheQuestionsWorthAsking()
+    public async Task AMudlibTheReaderKnowsCountsAsTheEngine()
     {
         var report = Report(
             ("NAME", ["Dead Souls Dev"]),
             ("CODEBASE", ["Dead Souls 3.9"]),
             ("WHO", ["Ninja", "Cratylus", "Joshua"]));
+
+        await Assert.That(MsspSelfDescription.AnswersTheLoginCommands(report)).IsTrue();
+    }
+
+    [Test]
+    public async Task AMudlibOutsideTheFamilyListLeavesTheQuestionsWorthAsking()
+    {
+        // The condition still bites for an engine nobody has taught the reader.
+        var report = Report(
+            ("NAME", ["Some Game"]),
+            ("CODEBASE", ["Galaxy Engine 2.2"]),
+            ("PLAYERS", ["3"]));
 
         await Assert.That(MsspSelfDescription.AnswersTheLoginCommands(report)).IsFalse();
     }
