@@ -654,6 +654,12 @@ public class ProbeSessionTests
             {
                 ["PLAYERNAMES"] = "Ninja, Cratylus, Joshua",
             },
+
+            // Deliberately late, and this is the second thing the test proves. WILL MSSP lands during
+            // the option handshake while the report is a second round trip, so the decision below can
+            // run with the answer still in flight — which is not hypothetical: it sent WHO on
+            // windows-latest against a server on the same machine before the probe learned to wait.
+            MsspReportDelay = TimeSpan.FromMilliseconds(250),
             Banner = "Welcome to Mortal Realms\r\nMrMud 1.4\r\n",
             BannerTail = "Who art thou: ",
             WhoReply = "Player Name        On For Idle\r\n7 Players logged in, 22 record, no maximum.\r\n",

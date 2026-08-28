@@ -21,7 +21,7 @@ namespace MUI.Crawl;
 /// is held to <see cref="IsPermittedPromptAnswer"/> — at most two alphanumeric characters, checked at
 /// the send rather than trusted from the classifier.
 /// <c>WHO</c> is further conditional: a game that has already published its count, over MSSP or on
-/// the connect screen itself, is not asked for it again (see <see cref="PublishedCount"/>).
+/// the connect screen itself, is not asked for it again (see <see cref="PublishedCountAsync"/>).
 /// Protocol support is recorded from the library's own negotiation callbacks rather than by
 /// re-parsing bytes it already decoded.
 /// </remarks>
@@ -362,7 +362,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// reached keep their pre-loop cursor rather than recording an empty answer.
     /// <para>
     /// Returns the count the game had already published by the time <c>WHO</c> came up, when that is
-    /// why <c>WHO</c> was not asked — see <see cref="PublishedCount"/> for why the caller needs it.
+    /// why <c>WHO</c> was not asked — see <see cref="PublishedCountAsync"/> for why the caller needs it.
     /// </para>
     /// </remarks>
     private async Task<int?> AskFollowUpsAsync(
@@ -486,7 +486,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // answer we have been given is not a measurement, it is noise on somebody's console.
             // Decided here rather than earlier because here is the latest moment before the send,
             // so an MSSP report still in flight through the flush above is counted.
-            published = PublishedCount(lines, seen, cursors, target);
+            published = await PublishedCountAsync(lines, seen, cursors, target, cancellationToken);
 
             if (Live(client) && !whoAlreadyAnswered && published is null)
             {
@@ -553,9 +553,34 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// signal.
     /// </para>
     /// </remarks>
-    private static int? PublishedCount(
-        List<byte[]> lines, Observations seen, PhaseCursors cursors, ProbeTarget target)
+    private async Task<int?> PublishedCountAsync(
+        List<byte[]> lines,
+        Observations seen,
+        PhaseCursors cursors,
+        ProbeTarget target,
+        CancellationToken cancellationToken)
     {
+        // A report we have already been promised is worth the wait. `WILL MSSP` lands during the
+        // option handshake while the report itself is a second round trip, so a server can have
+        // agreed to MSSP and still have its answer in flight when this line runs — and the flush
+        // above only waits for that when it also has to decide whether to send a blank line, which
+        // for a server that negotiated is exactly the case it skips.
+        //
+        // Without this the decision is a coin toss on timing, and it lost: CI on windows-latest sent
+        // WHO to a fixture whose report arrived a moment later, against a server on the same
+        // machine. Across a real network the gap is wider, not narrower. Bounded by MsspSettleGrace
+        // and paid only by a game that said it would answer — a server that never offered MSSP has
+        // an empty Supported and never enters the loop.
+        if (seen.Supported.Contains("MSSP") && seen.MsspOutcome is MsspOutcome.NotOffered)
+        {
+            var deadline = DateTime.UtcNow + _options.MsspSettleGrace;
+
+            while (seen.MsspOutcome is MsspOutcome.NotOffered && DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(_options.PollInterval, cancellationToken);
+            }
+        }
+
         if (seen.MsspOutcome is MsspOutcome.Received
             && MsspPresence.Read(MsspReport.From(seen.Mssp, WireEncoding.Fallback)) is { Found: true } declared)
         {
@@ -650,7 +675,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 : (asked ? PayloadRedaction.Replayable(whoText) : null),
             Info = infoText.Length == 0 ? null : infoText,
             Version = versionText.Length == 0 ? null : versionText,
-            // `published` is the count that bought this game its silence — see PublishedCount for
+            // `published` is the count that bought this game its silence — see PublishedCountAsync for
             // why not asking must imply publishing. Second, not first: the session-wide charset
             // decision is made above and a screen this decode reads better is read better.
             BannerPlayerCount = BannerCount.Find(banner) ?? published,
