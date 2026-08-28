@@ -29,24 +29,21 @@ services:
     # always at least one container running while the other is mid-swap — and Traefik's service
     # healthcheck (below) is what keeps it from sending a request to the new one before it can answer.
     #
-    # This is safe against the one thing it could break: two replicas applying the same migration at
-    # once. `PostgresData.ApplyMigrationsAsync` (src/MUI.Web/Data/PostgresData.cs), unlike the
-    # crawler's own migration path, does not run under MUI.Crawler's advisory lock — it is not gated
-    # at all, and MigrationRunner.ApplyAsync (src/MUI.Catalog/Persistence/MigrationRunner.cs) snapshots
-    # which migrations are already applied with one SELECT before looping, rather than taking a lock
-    # per migration. Two replicas starting close enough together that both snapshot the same pending
-    # migration will both attempt it; the loser's INSERT into the mui_migration ledger hits that
-    # table's PRIMARY KEY and throws, which is unhandled in Program.cs, so that replica exits before
-    # app.Run(). Transactional DDL means this cannot double-apply or corrupt anything, and
-    # `restart: unless-stopped` recovers it on the next attempt, when the migration is already
-    # committed and it just serves. The window this can actually happen in is narrow — Watchtower's
-    # rolling mode replaces containers one at a time, so it is closed for an ordinary automated
-    # update — but a host reboot or a manual `docker compose up -d --force-recreate` starts both
-    # replicas together and can hit it. **Known and left open deliberately**: fixing it (moving
-    # MUI.Web's own ApplyMigrationsAsync call behind AdvisoryLease, the way the crawler's is) is a
-    # database-safety change and belongs in its own reviewed PR, not folded into a deploy-packaging
-    # change under time pressure. See the PR description for the full argument that this is
-    # self-limiting rather than a real double-apply or an availability gap.
+    # The one thing this could break -- two replicas applying the same migration at once -- is closed
+    # rather than tolerated. MigrationRunner.ApplyAsync takes a session-level advisory lock
+    # (MigrationRunner.MigrationKey) and reads the ledger *inside* it, so a replica that waited for the
+    # lock sees what the winner committed and finds nothing to do.
+    #
+    # It was left open here deliberately once, with the argument that the loser would fail cleanly on
+    # the ledger's primary key and restart. That argument was describing the wrong failure. Deploying
+    # migration 0037 on 2026-08-27, a `docker compose up -d` recreated both replicas together and the
+    # loser died *inside* the script instead -- having already renamed the winner's freshly-partitioned
+    # table aside and copied 83,038 rows into a parent whose partitions its own IF NOT EXISTS had
+    # quietly declined to create. Transactional DDL rolled it back and the replica came up clean, so
+    # nothing was lost; but the margin was transactional DDL rather than the reasoning, and on a bigger
+    # table the loser would have spent minutes holding ACCESS EXCLUSIVE on a hot one before finding
+    # out. Pinned by MigrationConcurrencyTests, which fails without the lock.
+
     deploy:
       replicas: 2
 
