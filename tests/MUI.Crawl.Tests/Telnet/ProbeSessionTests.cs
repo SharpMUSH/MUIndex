@@ -634,6 +634,45 @@ public class ProbeSessionTests
         await Assert.That(game.Received.Select(line => line.Trim())).Contains(TelnetProbe.InfoCommand);
         await Assert.That(game.Received.Select(line => line.Trim())).Contains(TelnetProbe.VersionCommand);
     }
+    /// A roster published in the report answers the question too, even with no <c>PLAYERS</c> beside
+    /// it.
+    /// </summary>
+    /// <remarks>
+    /// The shape <c>dead-souls.net:8000</c> sends — <c>WHO</c> once per player — with the stated
+    /// count taken away, which is the case the roster rung exists for. A game that has published who
+    /// is online has answered this probe's question as surely as one that published the number, and
+    /// the count it yields is what <c>PresenceChoice</c> then has to publish (§5.2).
+    /// </remarks>
+    [Test]
+    public async Task ARosterInTheReportAnswersTheQuestionWithoutAStatedCount()
+    {
+        await using var game = new FakeGame
+        {
+            AnnouncesMssp = true,
+            MsspPlayers = null,
+            MsspExtras = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["PLAYERNAMES"] = "Ninja, Cratylus, Joshua",
+            },
+            Banner = "Welcome to Mortal Realms\r\nMrMud 1.4\r\n",
+            BannerTail = "Who art thou: ",
+            WhoReply = "Player Name        On For Idle\r\n7 Players logged in, 22 record, no maximum.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.MsspOutcome).IsEqualTo(MsspOutcome.Received);
+        await Assert.That(result.MsspField("PLAYERNAMES")).IsEqualTo("Ninja, Cratylus, Joshua");
+
+        await Assert.That(game.Received.Select(line => line.Trim())).DoesNotContain(TelnetProbe.WhoCommand);
+        await Assert.That(result.Who.Attempted).IsFalse();
+
+        // Not asking implies publishing: the roster the probe stayed quiet for is a count.
+        await Assert.That(MsspPresence.Read(result.Mssp).Count).IsEqualTo(3);
+        await Assert.That(MsspPresence.Read(result.Mssp).Kind).IsEqualTo(MsspCountKind.Roster);
+    }
+
+    /// <summary>
 
     /// <summary>
     /// A connect screen that states the count does the same, when the session has other evidence
@@ -1632,6 +1671,16 @@ public class ProbeSessionTests
         /// is one of MSSP's three required variables and is still routinely absent.
         /// </remarks>
         public int? MsspPlayers { get; init; } = 99;
+        /// Variables MSSP does not define, which the report carries verbatim — a roster among them.
+        /// </summary>
+        /// <remarks>
+        /// Every roster convention a real codebase uses lives outside MSSP's published set, so a
+        /// fixture cannot reach one through <see cref="MSSPConfig"/>'s typed properties.
+        /// </remarks>
+        public IReadOnlyDictionary<string, string> MsspExtras { get; init; } =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
 
         /// <summary>
 
@@ -1815,6 +1864,12 @@ public class ProbeSessionTests
                     if (MsspPlayers is { } players)
                     {
                         config.Players = players;
+                    }
+
+                    if (MsspExtras.Count > 0)
+                    {
+                        config.Extended = MsspExtras.ToDictionary(
+                            entry => entry.Key, entry => (object)entry.Value);
                     }
 
                     return config;

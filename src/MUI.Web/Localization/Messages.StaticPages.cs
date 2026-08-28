@@ -288,6 +288,7 @@ public static partial class Messages
         ["source.i3"] = "I3",
         ["source.mssp"] = "MSSP",
         ["source.info"] = "INFO",
+        ["source.msspRoster"] = "the MSSP roster",
         ["source.aresCentral"] = "AresCentral",
         ["about.reading.heading"] = "What we read",
         ["about.reading.standing.lead"] = "Two places tell us games exist.",

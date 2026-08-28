@@ -535,9 +535,11 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// implies publishing.
     /// </para>
     /// <para>
-    /// The MSSP half needs no encoding decision — <c>PLAYERS</c> is digits, and every encoding this
-    /// crawler reads agrees about those — so it is read here through the same
-    /// <see cref="MsspPlayers"/> the publisher uses and cannot disagree with it. The banner half is
+    /// The MSSP half needs no encoding decision — a stated <c>PLAYERS</c> is digits, and a roster is
+    /// counted by its delimiters, so every encoding this crawler reads agrees about both. It is read
+    /// here through the same <see cref="MsspPresence"/> the publisher uses and cannot disagree with
+    /// it, roster rung included: a game that published who is online has answered this probe's
+    /// question as surely as one that published the number. The banner half is
     /// read from the connect screen alone, which is complete by now (<c>cursors.Banner</c> stopped
     /// moving before this method was called); the session-wide charset decision at the end of the
     /// probe may still land elsewhere, so this is deliberately the <em>fallback</em> for the count
@@ -555,9 +557,9 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         List<byte[]> lines, Observations seen, PhaseCursors cursors, ProbeTarget target)
     {
         if (seen.MsspOutcome is MsspOutcome.Received
-            && MsspPlayers.Read(Declared(MsspReport.From(seen.Mssp, WireEncoding.Fallback))) is { } stated)
+            && MsspPresence.Read(MsspReport.From(seen.Mssp, WireEncoding.Fallback)) is { Found: true } declared)
         {
-            return stated;
+            return declared.Count;
         }
 
         if (seen.Supported.Count == 0)
@@ -575,9 +577,6 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         var banner = string.Join("\n", text);
 
         return BannerCount.Find(PuebloSignal.IsPresent(banner) ? PuebloSignal.StripKnown(banner) : banner);
-
-        static string? Declared(IReadOnlyDictionary<string, IReadOnlyList<string>> report) =>
-            report.TryGetValue(MsspPlayers.Variable, out var values) && values.Count > 0 ? values[^1] : null;
     }
 
     /// <summary>Builds the <see cref="ProbeOutcome.Answered"/> result from a completed session.</summary>
