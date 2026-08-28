@@ -755,6 +755,16 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 continue;
             }
 
+            // Not settled while the library is still holding an unterminated line. The two clocks
+            // start at different moments — ours at the last line, PacketPatchProtocol's at the
+            // fragment that arrived after it — so ours always expires first, and a phase that ended
+            // here would push its own prompt into the next phase's slice. MaxPhase still bounds the
+            // wait, so a server that holds a fragment for ever is not waited on for ever.
+            if (telnet.HasPartialLine)
+            {
+                continue;
+            }
+
             if (DateTime.UtcNow - lastChange >= (seen == 0 ? grace : _options.QuietPeriod))
             {
                 break;
@@ -781,18 +791,6 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     private async Task FlushPendingLineAsync(TelnetInterpreter telnet, List<byte[]> lines, Prompts taken)
     {
         await telnet.WaitForProcessingAsync(maxWaitMs: 500, additionalDelayMs: 25);
-
-        // The hold is a timer on the library's side, and a phase's own settle comes due at about the
-        // same moment — so without this the phase would end a hair before the prompt it is waiting
-        // for was taken, and every unterminated line would be lost by a few milliseconds. Paid only
-        // when something is actually being held: HasPartialLine is false for the overwhelming
-        // majority of settles, which end on a server that terminated its last line properly.
-        var deadline = DateTime.UtcNow + _options.PromptHold + _options.PollInterval;
-
-        while (telnet.HasPartialLine && DateTime.UtcNow < deadline)
-        {
-            await Task.Delay(_options.PollInterval);
-        }
 
         // PacketPatchProtocol has already taken the line, on the loop, if the server went quiet
         // holding one. It lands in LastPromptBytes rather than through OnSubmit — a prompt is not a

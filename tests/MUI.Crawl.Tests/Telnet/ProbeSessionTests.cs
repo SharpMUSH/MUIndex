@@ -34,7 +34,7 @@ public class ProbeSessionTests
         PollInterval = TimeSpan.FromMilliseconds(15),
         Timeout = TimeSpan.FromSeconds(20),
         MsspSettleGrace = TimeSpan.FromMilliseconds(400),
-        PromptHold = TimeSpan.FromMilliseconds(80),
+        PromptHold = TimeSpan.FromMilliseconds(120),
     };
 
     [Test]
