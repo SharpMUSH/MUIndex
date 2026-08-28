@@ -548,6 +548,12 @@ public class ProbeSessionTests
         await using var game = new FakeGame
         {
             AnnouncesMssp = true,
+
+            // A report with no PLAYERS in it, so this stays a test about the flush. A game that
+            // states its count is no longer asked WHO at all (see
+            // AGameThatPublishedItsCountOverMsspIsNotTypedAtAgain), which would leave the assertions
+            // below reading NotAsked for the right reason and proving nothing about the branch here.
+            MsspPlayers = null,
             Banner = "Welcome to:\r\nNukeFire : Beyond THUNDERDOME\r\n",
             BannerTail = "What's your name, freejack?",
             HangsUpOnBlankLine = true,
@@ -587,6 +593,113 @@ public class ProbeSessionTests
         await Assert.That(game.Received.Where(line => line.Trim().Length > 0)
             .All(line => TelnetProbe.PermittedCommands.Contains(line.Trim()))).IsTrue();
     }
+
+    /// <summary>
+    /// A game that has already stated its player count is not typed at.
+    /// </summary>
+    /// <remarks>
+    /// Asked for by an operator who found our <c>WHO</c> in their login-screen logs beside an MSSP
+    /// report already carrying <c>PLAYERS</c>. They are right: a question whose answer the server has
+    /// volunteered is not a measurement, it is noise on somebody else's console. <c>INFO</c> and
+    /// <c>VERSION</c> are unaffected — they ask something MSSP has not answered here, and narrowing
+    /// them is a separate decision from this one.
+    /// </remarks>
+    [Test]
+    public async Task AGameThatPublishedItsCountOverMsspIsNotTypedAtAgain()
+    {
+        await using var game = new FakeGame
+        {
+            AnnouncesMssp = true,
+            MsspPlayers = 42,
+            Banner = "Welcome to Mortal Realms\r\nMrMud 1.4\r\n",
+            BannerTail = "Who art thou: ",
+
+            // Deliberately a different number from the report: were WHO asked anyway, the reading
+            // would be 7 and the assertions below would say so rather than quietly agreeing.
+            WhoReply = "Player Name        On For Idle\r\n7 Players logged in, 22 record, no maximum.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.MsspOutcome).IsEqualTo(MsspOutcome.Received);
+
+        // The measurement that matters to the complaint: the word never went on the wire.
+        await Assert.That(game.Received.Select(line => line.Trim())).DoesNotContain(TelnetProbe.WhoCommand);
+
+        // And it is recorded as not asked, not as an unreadable answer — §5.4's distinction.
+        await Assert.That(result.Who.Attempted).IsFalse();
+        await Assert.That(result.Who.HasCount).IsFalse();
+
+        // Scope: this narrows WHO and nothing else.
+        await Assert.That(game.Received.Select(line => line.Trim())).Contains(TelnetProbe.InfoCommand);
+        await Assert.That(game.Received.Select(line => line.Trim())).Contains(TelnetProbe.VersionCommand);
+    }
+
+    /// <summary>
+    /// A connect screen that states the count does the same, when the session has other evidence
+    /// this is a game at all.
+    /// </summary>
+    /// <remarks>
+    /// The count is carried into <see cref="ProbeResult.BannerPlayerCount"/> rather than left behind:
+    /// declining to ask and then publishing nothing would reach <c>PresenceChoice</c> as
+    /// <c>who_not_offered</c> — <em>the game answers no pre-login WHO</em> — which would be our own
+    /// decision written down as a fact about them.
+    /// </remarks>
+    [Test]
+    public async Task AConnectScreenThatStatesTheCountIsNotAskedForItAgain()
+    {
+        await using var game = new FakeGame
+        {
+            // MSSP with no PLAYERS: the protocol signal is present, the count is not, so the screen
+            // is the only thing that can be answering here.
+            AnnouncesMssp = true,
+            MsspPlayers = null,
+            Banner = "Welcome to Mortal Realms\r\nPlayers Currently Online: 12\r\n",
+            BannerTail = "Who art thou: ",
+            WhoReply = "Player Name        On For Idle\r\n7 Players logged in, 22 record, no maximum.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(game.Received.Select(line => line.Trim())).DoesNotContain(TelnetProbe.WhoCommand);
+        await Assert.That(result.Who.Attempted).IsFalse();
+
+        // Not asking implies publishing, which is the whole of why the count is passed forward.
+        await Assert.That(result.BannerPlayerCount).IsEqualTo(12);
+    }
+
+    /// <summary>
+    /// A screen count on its own is not enough, when a parseable <c>WHO</c> is the only thing that
+    /// could show this is a game.
+    /// </summary>
+    /// <remarks>
+    /// <c>MuLikeness</c> (§7.8) is what lists a submitted game without waiting on a claim, and for a
+    /// server that negotiates nothing and publishes no MSSP, a parseable <c>WHO</c> is its one
+    /// protocol-tier signal. Talking ourselves out of asking on the strength of a number
+    /// pattern-matched from ASCII art would cost such a game its listing — so the banner rung buys
+    /// silence only where the session has already shown a MU* protocol.
+    /// </remarks>
+    [Test]
+    public async Task AScreenCountAloneDoesNotBuySilenceFromAServerThatNegotiatedNothing()
+    {
+        await using var game = new FakeGame
+        {
+            Banner = "Welcome to Mortal Realms\r\nPlayers Currently Online: 12\r\n",
+            BannerTail = "Who art thou: ",
+            WhoReply = "Player Name        On For Idle\r\n7 Players logged in, 22 record, no maximum.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        // Precondition, asserted rather than assumed: FakeGame's default telnet path attaches no
+        // plugins, so it frames telnet correctly and agrees to nothing.
+        await Assert.That(result.OfferedOptions).IsEmpty();
+
+        await Assert.That(game.Received.Select(line => line.Trim())).Contains(TelnetProbe.WhoCommand);
+        await Assert.That(result.Who.Count).IsEqualTo(7);
+    }
+
+    /// <summary>
 
     /// <summary>
     /// A compressed session is not corrupted by the probe settling its own phases.
@@ -680,6 +793,11 @@ public class ProbeSessionTests
         await using var game = new FakeGame
         {
             AnnouncesMssp = true,
+
+            // No PLAYERS, for the same reason as the test above — and here it also removes a race
+            // this fixture would otherwise carry: whether the delayed report beats the WHO decision
+            // is exactly the timing this test refuses to depend on.
+            MsspPlayers = null,
             MsspReportDelay = TimeSpan.FromMilliseconds(200),
             Banner = "Welcome to Mortal Realms\r\nMrMud 1.4\r\n",
             BannerTail = "Who art thou: ",
@@ -1504,6 +1622,20 @@ public class ProbeSessionTests
         public bool AnnouncesMssp { get; init; }
 
         /// <summary>
+        /// The <c>PLAYERS</c> <see cref="AnnouncesMssp"/>'s report carries, or null for a report that
+        /// carries none.
+        /// </summary>
+        /// <remarks>
+        /// Load-bearing, not decoration: a report that states a count is why the probe stops typing
+        /// <c>WHO</c> at a login screen, so a fixture about the flush or about <c>WHO</c> itself has to
+        /// be able to say which kind of MSSP server it is. Real servers exist both ways — <c>PLAYERS</c>
+        /// is one of MSSP's three required variables and is still routinely absent.
+        /// </remarks>
+        public int? MsspPlayers { get; init; } = 99;
+
+        /// <summary>
+
+        /// <summary>
         /// Whether the server compresses everything after its option handshake, as MCCP2 servers do.
         /// </summary>
         /// <remarks>
@@ -1678,7 +1810,14 @@ public class ProbeSessionTests
                         Thread.Sleep(MsspReportDelay);
                     }
 
-                    return new MSSPConfig { Name = "NukeFire", Players = 99 };
+                    var config = new MSSPConfig { Name = "NukeFire" };
+
+                    if (MsspPlayers is { } players)
+                    {
+                        config.Players = players;
+                    }
+
+                    return config;
                 });
                 builder = builder.AddPlugin(mssp);
             }

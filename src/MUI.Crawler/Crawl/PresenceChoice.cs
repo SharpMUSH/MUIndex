@@ -26,7 +26,7 @@ namespace MUI.Crawler;
 public static class PresenceChoice
 {
     /// <summary>The MSSP variable a game states its own player count in.</summary>
-    public const string PlayersVariable = "PLAYERS";
+    public const string PlayersVariable = MsspPlayers.Variable;
 
     /// <summary>
     /// The one reading this probe produces. Only ever called for a probe that <b>answered</b>: a
@@ -53,9 +53,12 @@ public static class PresenceChoice
             return PresenceReading.Counted(counted, FieldSource.Who);
         }
 
-        // 2. MSSP PLAYERS, labelled as the declaration it is.
+        // 2. MSSP PLAYERS, labelled as the declaration it is. Read through MsspPlayers rather than
+        //    parsed here, because the probe consults the same reader to decide whether WHO still
+        //    needs asking — a value accepted there and refused here would mean a probe that stayed
+        //    quiet and then had nothing to show for it.
         var declared = result.MsspField(PlayersVariable);
-        if (declared is not null && int.TryParse(declared.Trim(), out var stated) && stated >= 0)
+        if (MsspPlayers.Read(declared) is { } stated)
         {
             return PresenceReading.Counted(stated, FieldSource.Mssp);
         }

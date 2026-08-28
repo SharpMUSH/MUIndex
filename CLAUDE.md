@@ -61,6 +61,15 @@ our host is unreachable and perfectly alive.
   is not a feature gap; it is the thing that killed Top Mud Sites.
 - Build forums, reviews, wikis, comments or player profiles.
 - Persist player names. `WHO` is parsed in memory; aggregates use salted hashes with a rotating salt.
+- **Type `WHO` at a game that has already published its count.** MSSP `PLAYERS`, or a count the
+  connect screen states about itself, is the answer — asking again is noise on somebody's console,
+  and an operator was right to say so. `TelnetProbe.PublishedCount` is the one place that decides
+  it, and it shares `MsspPlayers` with `PresenceChoice` so the count that buys the silence is the
+  same count that gets published: **not asking must imply publishing**, or the probe reaches
+  `who_not_offered` and writes our own restraint down as *the game answers no pre-login WHO* (rule
+  5). The screen rung additionally needs a protocol signal in the session — for a server that
+  negotiates nothing, a parseable `WHO` is its only §7.8 evidence of being a game at all, and
+  talking ourselves out of asking would cost it its listing.
 - Let `MUI.Catalog` reference `MUI.Crawl`. The writers that consume a probe result must not know a
   socket exists — that one-way arrow is what keeps every downstream behaviour testable against a
   captured `ProbeResult` fixture with no network involved.
