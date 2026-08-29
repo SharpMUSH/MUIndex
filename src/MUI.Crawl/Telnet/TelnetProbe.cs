@@ -1102,10 +1102,13 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             //
             // Deliberately WITHOUT answering. The crawler has no use for an MCP session, and answering
             // would put text on a stranger's login prompt for one it will never open -- the objection
-            // MSSPPlaintextProtocol makes to sending MSSP-REQUEST unbidden. The offer is consumed
-            // either way; only the reply is suppressed. Nothing after the offer is stripped, because
-            // no session opens and the library treats a #$# line outside a session as ordinary output
-            // -- which is the conservative reading, and the one that keeps ASCII art safe.
+            // MSSPPlaintextProtocol makes to sending MSSP-REQUEST unbidden. Only the reply is
+            // suppressed: the framing is not conditional on a session, so every line-initial #$# comes
+            // out, which takes the other three with it -- two "#$# SDWC-*-NOWRAP" and one
+            // "#$#LOGIN_TRIGGER", somebody's client directives on the prefix reserved for exactly that.
+            //
+            // Line-initial is what keeps ASCII art safe, and the catalogue is the evidence: of the 59
+            // screens matching #$# anywhere, the 3 that match only mid-line are all art.
             //
             // Noted on the offer rather than on negotiation, because there is no negotiation: the
             // offer arriving is the whole of the evidence that this server speaks MCP.

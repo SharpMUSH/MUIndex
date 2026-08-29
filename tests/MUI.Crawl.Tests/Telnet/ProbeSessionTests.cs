@@ -1714,6 +1714,33 @@ public class ProbeSessionTests
     }
 
     /// <summary>
+    /// The other line-initial <c>#$#</c> lines in the catalogue go too, not just the MCP offer.
+    /// </summary>
+    /// <remarks>
+    /// <c>#$#</c> is the out-of-band prefix, and MCP says an unrecognised message on it is dropped
+    /// rather than shown. The three remaining line-initial matches in the catalogue -- two
+    /// <c>#$# SDWC-*-NOWRAP</c> and one <c>#$#LOGIN_TRIGGER</c> -- are somebody's client directives,
+    /// which is exactly what that prefix is for and exactly what a reader should not be shown.
+    /// </remarks>
+    [Test]
+    public async Task OtherOutOfBandDirectivesGoToo()
+    {
+        await using var game = new FakeGame
+        {
+            Banner = "#$# SDWC-START-NOWRAP\r\n"
+                + "Welcome to the game.\r\n"
+                + "#$#LOGIN_TRIGGER\r\n"
+                + "#$# SDWC-END-NOWRAP\r\n",
+            WhoReply = "0 Players logged in.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Banner).DoesNotContain("#$#");
+        await Assert.That(result.Banner).Contains("Welcome to the game.");
+    }
+
+    /// <summary>
     /// <c>#$#</c> inside ASCII art is art, not protocol. Three of the 59 screens that match
     /// <c>#$#</c> anywhere match only in the middle of a line -- <c>d########   #$#</c>,
     /// <c>'##$#</c> -- and a strip that took the substring would eat the artwork off them.
