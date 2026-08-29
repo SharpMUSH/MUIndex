@@ -1095,6 +1095,28 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             .AddPlugin(terminalType)
             .AddPlugin(new Watched.Echo(Note))
 
+            // MCP, the out-of-band layer MOOs carry on lines beginning #$#. A MOO's connect screen
+            // opens with the server's offer, and that line is protocol rather than screen -- 56 of the
+            // 918 screens in the catalogue carry a line-initial #$#, and 54 of those are this offer.
+            // Registering the plugin takes them out of the stream.
+            //
+            // Deliberately WITHOUT answering. The crawler has no use for an MCP session, and answering
+            // would put text on a stranger's login prompt for one it will never open -- the objection
+            // MSSPPlaintextProtocol makes to sending MSSP-REQUEST unbidden. The offer is consumed
+            // either way; only the reply is suppressed. Nothing after the offer is stripped, because
+            // no session opens and the library treats a #$# line outside a session as ordinary output
+            // -- which is the conservative reading, and the one that keeps ASCII art safe.
+            //
+            // Noted on the offer rather than on negotiation, because there is no negotiation: the
+            // offer arriving is the whole of the evidence that this server speaks MCP.
+            .AddPlugin<MudClientProtocol>()
+                .WithoutAnsweringMcpOffers()
+                .OnMcpOffered((_, _) =>
+                {
+                    Note("MCP");
+                    return ValueTask.CompletedTask;
+                })
+
             // What FlushPendingLineAsync used to do by hand, done on the interpreter's own
             // byte-processing loop where the line buffer has exactly one writer — and, crucially,
             // without pretending the peer sent anything. It retires itself the moment a server

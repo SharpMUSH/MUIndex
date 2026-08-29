@@ -1647,6 +1647,93 @@ public class ProbeSessionTests
         }
     }
 
+    /// <summary>
+    /// A MOO's connect screen begins with its MCP offer, and that line is protocol rather than
+    /// screen: it comes out, and the rest of the screen does not.
+    /// </summary>
+    /// <remarks>
+    /// Measured, not supposed. 56 of the 918 connect screens in the catalogue carry a line beginning
+    /// <c>#$#</c>, and 54 of those lines are this offer -- 37 written unquoted as below, 17 with the
+    /// versions quoted. Until now every one of them was stored and shown as though it were part of
+    /// the screen.
+    /// </remarks>
+    [Test]
+    public async Task AMoosMcpOfferIsNotPartOfItsConnectScreen()
+    {
+        await using var game = new FakeGame
+        {
+            // The unquoted spelling, which is what most servers that offer MCP actually send.
+            Banner = "#$#mcp version: 2.1 to: 2.1\r\n"
+                + "Welcome to the MOO.\r\n"
+                + "Type 'connect guest' to look around.\r\n",
+            WhoReply = "0 Players logged in.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+        await Assert.That(result.Banner).DoesNotContain("#$#");
+        await Assert.That(result.Banner).Contains("Welcome to the MOO.");
+        await Assert.That(result.Banner).Contains("Type 'connect guest' to look around.");
+    }
+
+    /// <summary>
+    /// The offer is evidence that the game speaks MCP, and is recorded as such.
+    /// </summary>
+    [Test]
+    public async Task AMoosMcpOfferIsRecordedAsACapability()
+    {
+        await using var game = new FakeGame
+        {
+            Banner = "#$#mcp version: \"2.1\" to: \"2.1\"\r\nWelcome.\r\n",
+            WhoReply = "0 Players logged in.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Negotiation.Supported).Contains("MCP");
+    }
+
+    /// <summary>
+    /// The crawler never answers the offer. It has no use for an MCP session, and answering would put
+    /// text on a stranger's login prompt for one it will never open.
+    /// </summary>
+    [Test]
+    public async Task TheCrawlerDoesNotAnswerAnMcpOffer()
+    {
+        await using var game = new FakeGame
+        {
+            Banner = "#$#mcp version: 2.1 to: 2.1\r\nWelcome.\r\n",
+            WhoReply = "0 Players logged in.\r\n",
+        };
+
+        await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(game.Received.Any(line => line.Contains("authentication-key"))).IsFalse();
+        await Assert.That(game.Received.Any(line => line.StartsWith("#$#"))).IsFalse();
+    }
+
+    /// <summary>
+    /// <c>#$#</c> inside ASCII art is art, not protocol. Three of the 59 screens that match
+    /// <c>#$#</c> anywhere match only in the middle of a line -- <c>d########   #$#</c>,
+    /// <c>'##$#</c> -- and a strip that took the substring would eat the artwork off them.
+    /// </summary>
+    [Test]
+    public async Task HashDollarHashInsideAsciiArtIsLeftAlone()
+    {
+        await using var game = new FakeGame
+        {
+            Banner = "  .'.;       :..d########   #$#              .$##$$Y       ####\r\n"
+                + "'##$#      Y###$.                              ,####\"    #\"\r\n",
+            WhoReply = "0 Players logged in.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Banner).Contains("d########   #$#");
+        await Assert.That(result.Banner).Contains("'##$#");
+    }
+
     private sealed class FakeGame : IAsyncDisposable
     {
         private readonly TcpListener _listener;
