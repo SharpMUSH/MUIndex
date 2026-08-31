@@ -1672,13 +1672,23 @@ public class ProbeSessionTests
         var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
 
         await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+
+        // The whole line goes, not just its prefix: asserting only on "#$#" would pass a regression
+        // that stripped the marker and left "mcp version: 2.1 to: 2.1" sitting in the screen.
         await Assert.That(result.Banner).DoesNotContain("#$#");
-        await Assert.That(result.Banner).Contains("Welcome to the MOO.");
-        await Assert.That(result.Banner).Contains("Type 'connect guest' to look around.");
+        await Assert.That(result.Banner).DoesNotContain("mcp version:");
+        await Assert.That(result.Banner!.Trim())
+            .IsEqualTo("Welcome to the MOO.\nType 'connect guest' to look around.");
+
+        // And the unquoted spelling is evidence of the capability just as the quoted one is -- it is
+        // the spelling most servers that offer MCP actually send.
+        await Assert.That(result.Negotiation.Supported).Contains("MCP");
     }
 
     /// <summary>
-    /// The offer is evidence that the game speaks MCP, and is recorded as such.
+    /// The offer is evidence that the game speaks MCP, and is recorded as such -- in the quoted
+    /// spelling here, and in the unquoted one in
+    /// <see cref="AMoosMcpOfferIsNotPartOfItsConnectScreen"/>.
     /// </summary>
     [Test]
     public async Task AMoosMcpOfferIsRecordedAsACapability()
@@ -1736,8 +1746,13 @@ public class ProbeSessionTests
 
         var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
 
+        // Named individually, because "no #$#" alone would pass a regression that stripped the prefix
+        // and left the directive itself in the screen.
         await Assert.That(result.Banner).DoesNotContain("#$#");
-        await Assert.That(result.Banner).Contains("Welcome to the game.");
+        await Assert.That(result.Banner).DoesNotContain("SDWC-START-NOWRAP");
+        await Assert.That(result.Banner).DoesNotContain("SDWC-END-NOWRAP");
+        await Assert.That(result.Banner).DoesNotContain("LOGIN_TRIGGER");
+        await Assert.That(result.Banner!.Trim()).IsEqualTo("Welcome to the game.");
     }
 
     /// <summary>
