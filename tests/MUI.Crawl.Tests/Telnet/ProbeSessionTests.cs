@@ -1647,6 +1647,196 @@ public class ProbeSessionTests
         }
     }
 
+    /// <summary>
+    /// A MOO's connect screen begins with its MCP offer, and that line is protocol rather than
+    /// screen: it comes out, and the rest of the screen does not.
+    /// </summary>
+    /// <remarks>
+    /// Measured, not supposed. 56 of the 918 connect screens in the catalogue carry a line beginning
+    /// <c>#$#</c>, and 54 of those lines are this offer -- 37 written unquoted as below, 17 with the
+    /// versions quoted. Until now every one of them was stored and shown as though it were part of
+    /// the screen.
+    /// </remarks>
+    [Test]
+    public async Task AMoosMcpOfferIsNotPartOfItsConnectScreen()
+    {
+        await using var game = new FakeGame
+        {
+            // The unquoted spelling, which is what most servers that offer MCP actually send.
+            Banner = "#$#mcp version: 2.1 to: 2.1\r\n"
+                + "Welcome to the MOO.\r\n"
+                + "Type 'connect guest' to look around.\r\n",
+            WhoReply = "0 Players logged in.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+
+        // The whole line goes, not just its prefix: asserting only on "#$#" would pass a regression
+        // that stripped the marker and left "mcp version: 2.1 to: 2.1" sitting in the screen.
+        await Assert.That(result.Banner).DoesNotContain("#$#");
+        await Assert.That(result.Banner).DoesNotContain("mcp version:");
+        await Assert.That(result.Banner!.Trim())
+            .IsEqualTo("Welcome to the MOO.\nType 'connect guest' to look around.");
+
+        // And the unquoted spelling is evidence of the capability just as the quoted one is -- it is
+        // the spelling most servers that offer MCP actually send.
+        await Assert.That(result.Negotiation.Supported).Contains("MCP");
+    }
+
+    /// <summary>
+    /// The offer is evidence that the game speaks MCP, and is recorded as such -- in the quoted
+    /// spelling here, and in the unquoted one in
+    /// <see cref="AMoosMcpOfferIsNotPartOfItsConnectScreen"/>.
+    /// </summary>
+    [Test]
+    public async Task AMoosMcpOfferIsRecordedAsACapability()
+    {
+        await using var game = new FakeGame
+        {
+            Banner = "#$#mcp version: \"2.1\" to: \"2.1\"\r\nWelcome.\r\n",
+            WhoReply = "0 Players logged in.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Negotiation.Supported).Contains("MCP");
+    }
+
+    /// <summary>
+    /// The crawler answers the offer with exactly one line, and says nothing else in MCP.
+    /// </summary>
+    /// <remarks>
+    /// The answer is what buys the package list, and it was invited — but it is still text on a
+    /// stranger's login prompt, so the bound matters: one reply, no packages of our own advertised
+    /// beyond what the library says for itself, and nothing further unless the server speaks first.
+    /// </remarks>
+    [Test]
+    public async Task TheCrawlerAnswersAnMcpOfferExactlyOnce()
+    {
+        await using var game = new FakeGame
+        {
+            Banner = "#$#mcp version: 2.1 to: 2.1\r\nWelcome.\r\n",
+            WhoReply = "0 Players logged in.\r\n",
+        };
+
+        await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        var mcp = game.Received.Where(line => line.StartsWith("#$#")).ToList();
+
+        await Assert.That(mcp.Count(line => line.Contains("authentication-key"))).IsEqualTo(1);
+
+        // mcp-negotiate advertises itself, which the specification requires of a 2.0 implementation;
+        // beyond that this crawler declares nothing, because it wants to be told rather than to offer.
+        await Assert.That(mcp.Where(line => line.Contains("mcp-negotiate-can"))
+            .All(line => line.Contains("\"mcp-negotiate\""))).IsTrue();
+    }
+
+    /// <summary>
+    /// The other line-initial <c>#$#</c> lines in the catalogue go too, not just the MCP offer.
+    /// </summary>
+    /// <remarks>
+    /// <c>#$#</c> is the out-of-band prefix, and MCP says an unrecognised message on it is dropped
+    /// rather than shown. The three remaining line-initial matches in the catalogue -- two
+    /// <c>#$# SDWC-*-NOWRAP</c> and one <c>#$#LOGIN_TRIGGER</c> -- are somebody's client directives,
+    /// which is exactly what that prefix is for and exactly what a reader should not be shown.
+    /// </remarks>
+    [Test]
+    public async Task OtherOutOfBandDirectivesGoToo()
+    {
+        await using var game = new FakeGame
+        {
+            Banner = "#$# SDWC-START-NOWRAP\r\n"
+                + "Welcome to the game.\r\n"
+                + "#$#LOGIN_TRIGGER\r\n"
+                + "#$# SDWC-END-NOWRAP\r\n",
+            WhoReply = "0 Players logged in.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        // Named individually, because "no #$#" alone would pass a regression that stripped the prefix
+        // and left the directive itself in the screen.
+        await Assert.That(result.Banner).DoesNotContain("#$#");
+        await Assert.That(result.Banner).DoesNotContain("SDWC-START-NOWRAP");
+        await Assert.That(result.Banner).DoesNotContain("SDWC-END-NOWRAP");
+        await Assert.That(result.Banner).DoesNotContain("LOGIN_TRIGGER");
+        await Assert.That(result.Banner!.Trim()).IsEqualTo("Welcome to the game.");
+    }
+
+    /// <summary>
+    /// Answering the offer buys the server's package list, which is a capability fingerprint no other
+    /// probe yields and identifies the codebase family besides.
+    /// </summary>
+    /// <remarks>
+    /// Measured against the live catalogue before it was built: all 14 games that offer MCP answer a
+    /// reply with their whole <c>mcp-negotiate-can</c> list, before login and without an account.
+    /// Nine of nine advertised <c>org-fuzzball-gui</c>, <c>org-fuzzball-simpleedit</c>,
+    /// <c>org-fuzzball-notify</c> and <c>dns-org-mud-moo-simpleedit</c>; richer ones add
+    /// <c>dns-com-awns-ping</c>, <c>dns-com-awns-status</c> and <c>dns-com-zuggsoft-msp</c>.
+    /// </remarks>
+    [Test]
+    public async Task AnsweringTheOfferYieldsTheServersPackageList()
+    {
+        await using var game = new FakeGame
+        {
+            Banner = "#$#mcp version: \"2.1\" to: \"2.1\"\r\nWelcome to the MUCK.\r\n",
+            McpPackages = ["org-fuzzball-gui", "dns-org-mud-moo-simpleedit", "dns-com-awns-ping"],
+            WhoReply = "0 Players logged in.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Negotiation.Supported).Contains("MCP");
+        await Assert.That(result.Negotiation.McpPackages)
+            .IsEquivalentTo(new[] { "dns-com-awns-ping", "dns-org-mud-moo-simpleedit", "org-fuzzball-gui" });
+
+        // And none of the exchange is in the screen.
+        await Assert.That(result.Banner).DoesNotContain("#$#");
+        await Assert.That(result.Banner!.Trim()).IsEqualTo("Welcome to the MUCK.");
+    }
+
+    /// <summary>
+    /// A server that offers MCP and then says nothing back is recorded as speaking MCP with no
+    /// packages, rather than as not speaking it.
+    /// </summary>
+    [Test]
+    public async Task AServerThatOffersMcpButListsNothingStillCountsAsSpeakingIt()
+    {
+        await using var game = new FakeGame
+        {
+            Banner = "#$#mcp version: 2.1 to: 2.1\r\nWelcome.\r\n",
+            WhoReply = "0 Players logged in.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Negotiation.Supported).Contains("MCP");
+        await Assert.That(result.Negotiation.McpPackages).IsEmpty();
+    }
+
+    /// <summary>
+    /// <c>#$#</c> inside ASCII art is art, not protocol. Three of the 59 screens that match
+    /// <c>#$#</c> anywhere match only in the middle of a line -- <c>d########   #$#</c>,
+    /// <c>'##$#</c> -- and a strip that took the substring would eat the artwork off them.
+    /// </summary>
+    [Test]
+    public async Task HashDollarHashInsideAsciiArtIsLeftAlone()
+    {
+        await using var game = new FakeGame
+        {
+            Banner = "  .'.;       :..d########   #$#              .$##$$Y       ####\r\n"
+                + "'##$#      Y###$.                              ,####\"    #\"\r\n",
+            WhoReply = "0 Players logged in.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Banner).Contains("d########   #$#");
+        await Assert.That(result.Banner).Contains("'##$#");
+    }
+
     private sealed class FakeGame : IAsyncDisposable
     {
         private readonly TcpListener _listener;
@@ -1708,6 +1898,12 @@ public class ProbeSessionTests
         /// which is what makes the probe's own flush line fatal to them.
         /// </summary>
         public bool HangsUpOnBlankLine { get; init; }
+
+        /// <summary>
+        /// The packages this server advertises once the client answers its MCP offer, as a real
+        /// Fuzzball does. Empty means it says nothing back, which is also a real shape.
+        /// </summary>
+        public IReadOnlyList<string> McpPackages { get; init; } = [];
 
         /// <summary>Whether the server accepts the connection and drops it without a word.</summary>
         public bool ClosesImmediately { get; init; }
@@ -2008,6 +2204,25 @@ public class ProbeSessionTests
             // but the check is the same either way rather than a second copy of what "clean" means.
             var command = line.Trim();
             var clean = command.All(c => c is >= ' ' and <= '~');
+
+            // The client answering our MCP offer. The key it chose has to come back on every line, so
+            // it is read out of the answer rather than invented -- a package list under the wrong key
+            // is one the client is right to ignore, and this fixture would then be proving nothing.
+            if (McpPackages.Count > 0
+                && command.StartsWith("#$#mcp ", StringComparison.OrdinalIgnoreCase)
+                && System.Text.RegularExpressions.Regex.Match(
+                    command, "authentication-key:\\s*\"?([^\" ]+)\"?") is { Success: true } key)
+            {
+                foreach (var package in McpPackages)
+                {
+                    await reply(
+                        $"#$#mcp-negotiate-can {key.Groups[1].Value} package: \"{package}\" "
+                        + "min-version: \"1.0\" max-version: \"1.0\"\r\n");
+                }
+
+                await reply($"#$#mcp-negotiate-end {key.Groups[1].Value}\r\n");
+                return true;
+            }
 
             if (command.Length == 0)
             {

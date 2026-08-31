@@ -197,6 +197,32 @@ public class FieldObservationTests
     }
 
     [Test]
+    public async Task TheMcpPackageListIsRecordedAsAMeasurement()
+    {
+        // Reconciled rather than upserted, unlike the connect screen: a package list is stable, so a
+        // game gaining or losing one is a genuine event and deserves its change-feed row.
+        var observed = FieldObservations.From(Probes.Answered(
+            negotiation: new Negotiation
+            {
+                McpPackages = ["dns-com-awns-ping", "org-fuzzball-gui"],
+            }));
+
+        await Assert.That(Value(observed, FieldObservations.McpPackagesField, FieldSource.Handshake))
+            .IsEqualTo("dns-com-awns-ping org-fuzzball-gui");
+    }
+
+    [Test]
+    public async Task AGameThatListsNoMcpPackagesGetsNoRow()
+    {
+        // A capability is written when observed and otherwise not written at all. An empty list is
+        // the absence of evidence, not evidence of absence -- a server may offer MCP and list nothing.
+        var observed = FieldObservations.From(Probes.Answered(negotiation: new Negotiation()));
+
+        await Assert.That(observed.Select(o => o.Field))
+            .DoesNotContain(FieldObservations.McpPackagesField);
+    }
+
+    [Test]
     public async Task TheConnectScreenIsNotReconciledBecauseABannerIsNotAnEvent()
     {
         // A banner that states its own live player count would otherwise write a change-feed row on

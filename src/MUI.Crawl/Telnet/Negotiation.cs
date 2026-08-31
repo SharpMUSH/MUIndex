@@ -27,6 +27,18 @@ public sealed record Negotiation
     /// </remarks>
     public bool CharsetNegotiated { get; init; }
 
+    /// <summary>
+    /// The MCP packages the server advertised, sorted. Empty when it speaks no MCP, and also when it
+    /// offered MCP and then listed nothing.
+    /// </summary>
+    /// <remarks>
+    /// A capability fingerprint no other probe yields, and a codebase tell besides: the
+    /// <c>org-fuzzball-*</c> family names Fuzzball as surely as a version banner does. Measured
+    /// against the catalogue before this was built -- every game that offers MCP answers a reply with
+    /// its whole list, before login and without an account.
+    /// </remarks>
+    public IReadOnlyList<string> McpPackages { get; init; } = [];
+
     /// <summary>MCCP compression, and which version, when the server negotiated it.</summary>
     public int? CompressionVersion { get; init; }
 
