@@ -115,6 +115,11 @@ if (result.Negotiation.EnvironmentRequested.Count > 0)
     Console.WriteLine($"mnes asked    {string.Join(", ", result.Negotiation.EnvironmentRequested)}");
 }
 
+if (result.Negotiation.McpPackages.Count > 0)
+{
+    Console.WriteLine($"mcp           {string.Join(", ", result.Negotiation.McpPackages)}");
+}
+
 if (result.Negotiation.GmcpPackages.Count > 0)
 {
     Console.WriteLine($"gmcp          {string.Join(", ", result.Negotiation.GmcpPackages)}");

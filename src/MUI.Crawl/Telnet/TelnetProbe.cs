@@ -110,6 +110,10 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // Before anything can be read from the socket in practice — see PromptSink.Reads.
             prompts.Reads(built.Interpreter);
 
+            // The MCP package list is a property of the plugin rather than a callback, because a
+            // server that lists nothing is a fact worth having too and no callback fires for it.
+            seen.ReadsMcp(built.Interpreter.PluginManager?.GetPlugin<MudClientProtocol>());
+
             // Must be disposed *before* the socket it reads. The interpreter owns a byte channel, the
             // draining task, and every plugin — MCCP's holds zlib streams that nothing else reclaims,
             // and an undisposed interpreter per probe was measured leaking megabytes an hour.
@@ -1100,20 +1104,25 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // 918 screens in the catalogue carry a line-initial #$#, and 54 of those are this offer.
             // Registering the plugin takes them out of the stream.
             //
-            // Deliberately WITHOUT answering. The crawler has no use for an MCP session, and answering
-            // would put text on a stranger's login prompt for one it will never open -- the objection
-            // MSSPPlaintextProtocol makes to sending MSSP-REQUEST unbidden. Only the reply is
-            // suppressed: the framing is not conditional on a session, so every line-initial #$# comes
-            // out, which takes the other three with it -- two "#$# SDWC-*-NOWRAP" and one
-            // "#$#LOGIN_TRIGGER", somebody's client directives on the prefix reserved for exactly that.
+            // The offer is answered, which is what buys the package list. Measured before this was
+            // built: all 14 catalogue games that offer MCP answer a reply with their whole
+            // mcp-negotiate-can list, before login and without an account -- a capability fingerprint
+            // no other probe yields, and a codebase tell besides, since org-fuzzball-* names Fuzzball
+            // as surely as a version banner does.
             //
-            // Line-initial is what keeps ASCII art safe, and the catalogue is the evidence: of the 59
-            // screens matching #$# anywhere, the 3 that match only mid-line are all art.
+            // Answering is one line and it was invited. It is a smaller imposition than the WHO, INFO
+            // and VERSION this probe already types unbidden at the same prompt; the case for staying
+            // silent was a better one against a crawler that wanted nothing back.
             //
-            // Noted on the offer rather than on negotiation, because there is no negotiation: the
-            // offer arriving is the whole of the evidence that this server speaks MCP.
+            // Every line-initial #$# still leaves the screen, which takes the three non-MCP directives
+            // with it -- two "#$# SDWC-*-NOWRAP" and one "#$#LOGIN_TRIGGER", on the prefix reserved for
+            // exactly that. Line-initial is what keeps ASCII art safe, and the catalogue is the
+            // evidence: of the 59 screens matching #$# anywhere, the 3 that match only mid-line are
+            // all art.
+            //
+            // Noted on the offer rather than on the package list, because a server may offer MCP and
+            // list nothing -- that is still a server that speaks MCP.
             .AddPlugin<MudClientProtocol>()
-                .WithoutAnsweringMcpOffers()
                 .OnMcpOffered((_, _) =>
                 {
                     Note("MCP");
@@ -1180,6 +1189,8 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         private readonly HashSet<string> _supported = new(StringComparer.Ordinal);
         private readonly List<string> _environment = [];
         private readonly List<string> _gmcp = [];
+
+        private MudClientProtocol? _mcp;
         private readonly List<string> _msdp = [];
 
         public MSSPConfig? Mssp;
@@ -1189,6 +1200,12 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         public bool Prompts;
         public int? CompressionVersion;
         public bool CharsetNegotiated;
+
+        /// <summary>
+        /// Names the MCP plugin to read the peer's package list from, once the builder has produced
+        /// it. Assigned after the build for the same reason <see cref="PromptSink.Reads"/> is.
+        /// </summary>
+        public void ReadsMcp(MudClientProtocol? mcp) => _mcp = mcp;
 
         public IReadOnlySet<string> Supported
         {
@@ -1265,9 +1282,17 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 msdp = [.. _msdp];
             }
 
+            // Read straight off the plugin at snapshot time. It is the peer's whole advertised list,
+            // not the intersection with ours: this crawler declares no packages of its own, so an
+            // agreed set would be empty and the interesting half thrown away.
+            var mcp = _mcp is null
+                ? []
+                : _mcp.PeerPackages.Keys.OrderBy(name => name, StringComparer.Ordinal).ToList();
+
             return new Negotiation
             {
                 Supported = supported,
+                McpPackages = mcp,
                 Charset = Charset,
                 CompressionVersion = CompressionVersion,
                 CharsetNegotiated = CharsetNegotiated,
