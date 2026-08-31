@@ -25,6 +25,17 @@ public static class FieldObservations
     /// </remarks>
     public const string CharsetField = "CHARSET";
 
+    /// <summary>
+    /// The MCP packages the server advertised, space-separated and sorted.
+    /// </summary>
+    /// <remarks>
+    /// A capability fingerprint no other probe yields, and a codebase tell besides: the
+    /// <c>org-fuzzball-*</c> family names Fuzzball as surely as a version banner does. Reconciled
+    /// rather than upserted, unlike the connect screen — a package list is stable, so a game gaining
+    /// or losing one is a genuine event rather than noise on every probe.
+    /// </remarks>
+    public const string McpPackagesField = "mcp_packages";
+
     /// <summary>The field the encoding a session's bytes were actually read with is stored under.</summary>
     /// <remarks>
     /// Not <see cref="CharsetField"/> under another source: they are not two accounts of one fact.
@@ -233,6 +244,16 @@ public static class FieldObservations
                 default:
                     break;
             }
+        }
+
+        // Before the charset early-return, or a server that never settled CHARSET would lose its
+        // package list to an unrelated `yield break`.
+        if (result.Negotiation.McpPackages.Count > 0)
+        {
+            yield return new FieldObservation(
+                McpPackagesField,
+                FieldSource.Handshake,
+                string.Join(' ', result.Negotiation.McpPackages));
         }
 
         if (!result.Negotiation.CharsetNegotiated || result.Negotiation.Charset is not { Length: > 0 } charset)
