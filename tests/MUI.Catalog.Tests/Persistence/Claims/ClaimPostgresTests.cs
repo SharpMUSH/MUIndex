@@ -146,7 +146,7 @@ public class ClaimPostgresTests
         var claim = await service.IssueAsync(game, user);
 
         clock.Advance(ClaimToken.PendingLifetime + TimeSpan.FromDays(1));
-        await ExpireAsync(db, claim.Id);
+        await ExpireAsync(db, claim.Id, clock.GetUtcNow());
 
         var verdict = await service.OfferBeaconAsync(game, claim.Token, ClaimChannel.Mssp);
 
@@ -442,13 +442,29 @@ public class ClaimPostgresTests
             "SELECT is_claimed FROM game WHERE id = @game", new { game });
     }
 
-    private static async Task ExpireAsync(TestDatabase db, Guid claim)
+    /// <summary>
+    /// Expires a claim as of the test's own clock rather than the database's.
+    /// </summary>
+    /// <remarks>
+    /// This used to write <c>now() - interval '1 day'</c>, which is the database's wall clock, while
+    /// the query it is setting up compares <c>expires_at</c> against the injected clock. The two
+    /// agreed only for as long as real time stayed behind the seeded clock plus the lifetime under
+    /// test — a window that closed on its own. <see cref="Seed.Now"/> is 2026-07-30 12:00Z, the test
+    /// advances 31 days to 2026-08-30 12:00Z, and once the real calendar reached 2026-08-31 12:00Z
+    /// the row written here stopped being in the past as far as the query was concerned, so an
+    /// expired token started reading as <c>Verified</c>. Nothing changed in the code; the date did.
+    /// <para>
+    /// The clock is passed in for the same reason it exists: so "later" is a fact rather than a
+    /// sleep, and so the test says the same thing on every day it is run.
+    /// </para>
+    /// </remarks>
+    private static async Task ExpireAsync(TestDatabase db, Guid claim, DateTimeOffset asOf)
     {
         await using var connection = await db.DataSource.OpenConnectionAsync();
 
         await connection.ExecuteAsync(
-            "UPDATE game_claim SET expires_at = now() - interval '1 day' WHERE id = @claim",
-            new { claim });
+            "UPDATE game_claim SET expires_at = @expiresAt WHERE id = @claim",
+            new { claim, expiresAt = asOf - TimeSpan.FromDays(1) });
     }
 
     /// <summary>A clock a test can push forward, so "later" is a fact rather than a sleep.</summary>
