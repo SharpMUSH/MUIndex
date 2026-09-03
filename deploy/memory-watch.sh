@@ -13,8 +13,17 @@
 # Installed by deploy/muindex-memory-watch.service.
 set -uo pipefail
 
-CONTAINERS=(muindex-web-1 muindex-postgres-1 muindex-i3-1 muindex-caddy-1)
-WATCH=${WATCH:-muindex-web-1}          # the one with the history
+# **Both web replicas, and Traefik rather than Caddy.** This list was written when there was one
+# web container and a Caddy in front of it, and it went stale in two ways that each cost exactly
+# what this script exists to buy: `muindex-caddy-1` has not existed since Traefik replaced it, so
+# that column has been empty ever since, and `deploy.replicas: 2` means half the site was never
+# sampled at all. A climb on the second replica looked, from here, like a quiet day.
+CONTAINERS=(muindex-web-1 muindex-web-2 muindex-postgres-1 muindex-traefik-1 muindex-i3-1)
+
+# Every replica, not one. `WATCH` named a single container because there used to be a single
+# container; a burst on the other one produced no capture, which is the failure this whole file is
+# an answer to. Space-separated, so an operator can still narrow it.
+WATCH=${WATCH:-"muindex-web-1 muindex-web-2"}
 THRESHOLD_MB=${THRESHOLD_MB:-1000}     # steady is 350-450, the cgroup limit is 2048
 INTERVAL=${INTERVAL:-5}
 LOGDIR=${LOGDIR:-/var/log/muindex}
@@ -42,15 +51,15 @@ meminfo() { awk -v k="$1:" '$1 == k { print int($2 / 1024) }' /proc/meminfo; }
 # Everything that stops existing once the process has been killed. Written once per episode, where
 # an episode ends when memory falls back well under the threshold.
 capture() {
-  local rss=$1 dir pid
-  dir="$LOGDIR/burst-$(date -u +%Y%m%dT%H%M%SZ)"
+  local who=$1 rss=$2 dir pid
+  dir="$LOGDIR/burst-$(date -u +%Y%m%dT%H%M%SZ)-$who"
   mkdir -p "$dir"
   printf 'container=%s rss_mb=%s threshold_mb=%s at=%s\n' \
-    "$WATCH" "$rss" "$THRESHOLD_MB" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$dir/when.txt"
+    "$who" "$rss" "$THRESHOLD_MB" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$dir/when.txt"
 
   # Managed heap or native allocation is the first fork in the road, and smaps_rollup is what tells
   # them apart without attaching a debugger.
-  pid=$(docker inspect -f '{{.State.Pid}}' "$WATCH" 2>/dev/null)
+  pid=$(docker inspect -f '{{.State.Pid}}' "$who" 2>/dev/null)
   if [ -n "${pid:-}" ] && [ "$pid" != "0" ]; then
     cat "/proc/$pid/status"       > "$dir/status.txt"       2>/dev/null
     cat "/proc/$pid/smaps_rollup" > "$dir/smaps_rollup.txt" 2>/dev/null
@@ -60,8 +69,14 @@ capture() {
     top -b -H -n 1 -p "$pid"      > "$dir/threads.txt"      2>/dev/null
   fi
 
-  docker logs --tail 3000 "$WATCH" > "$dir/web.log" 2>&1
-  docker exec muindex-caddy-1 tail -n 5000 /var/log/caddy/access.log > "$dir/access.log" 2>/dev/null
+  # Both replicas' logs, not just the one that climbed: they share a load balancer, so the request
+  # that started this may have been answered by the other one.
+  docker logs --tail 3000 muindex-web-1 > "$dir/web-1.log" 2>&1
+  docker logs --tail 3000 muindex-web-2 > "$dir/web-2.log" 2>&1
+
+  # Traefik's access log, on stdout rather than in a file — the Caddy path this used to read went
+  # away with Caddy and had been capturing nothing since.
+  docker logs --tail 5000 muindex-traefik-1 > "$dir/access.log" 2>&1
   docker ps > "$dir/ps.txt" 2>&1
 
   # What the database was asked for, which is the other end of the same request.
@@ -71,16 +86,36 @@ capture() {
     > "$dir/pg_activity.txt" 2>&1
 
   cp /proc/meminfo "$dir/meminfo.txt" 2>/dev/null
-  logger -t muindex-memory-watch "burst captured in $dir ($WATCH at ${rss}MB)"
+  logger -t muindex-memory-watch "burst captured in $dir ($who at ${rss}MB)"
+}
+
+# A container's anonymous resident memory: heap, stacks and everything else the process actually
+# allocated, with file-backed pages left out.
+#
+# This is here because a cgroup total cannot answer the question a slow climb asks. `memory.current`
+# counts the page cache too, so a container whose figure rises over days may be leaking, may be
+# holding a larger managed heap the GC has not been pressed into returning, or may simply have read
+# a lot of files. Anonymous memory rising while the total's other half stays flat says it is the
+# process; the two rising together says it is not.
+anon_mb() {
+  local pid
+  pid=$(docker inspect -f '{{.State.Pid}}' "$1" 2>/dev/null) || return 1
+  [ -n "$pid" ] && [ "$pid" != "0" ] || return 1
+  awk '/^Anonymous:/ { print int($2 / 1024); found = 1 }
+       END { exit !found }' "/proc/$pid/smaps_rollup" 2>/dev/null
 }
 
 header() {
   local h="at,mem_available_mb,cached_mb,swap_free_mb" c
   for c in "${CONTAINERS[@]}"; do h="$h,${c}_mb"; done
+  for c in "${WATCH[@]}"; do h="$h,${c}_anon_mb"; done
   printf '%s\n' "$h"
 }
 
-captured=0
+# One episode flag per watched container rather than one for the pair: replica 1 sitting above the
+# threshold must not suppress the capture that replica 2 climbing would otherwise produce.
+read -r -a WATCH <<< "$WATCH"
+declare -A CAPTURED
 ticks=0
 
 while true; do
@@ -88,22 +123,30 @@ while true; do
   [ -s "$file" ] || header > "$file"
 
   line="$(date -u +%Y-%m-%dT%H:%M:%SZ),$(meminfo MemAvailable),$(meminfo Cached),$(meminfo SwapFree)"
-  watch_mb=0
+  declare -A CURRENT_MB=()
   for c in "${CONTAINERS[@]}"; do
     value=""
     if path=$(cgroup_of "$c"); then
       current=$(cat "$path/memory.current" 2>/dev/null) && value=$(( current / 1048576 ))
     fi
     line="$line,$value"
-    [ "$c" = "$WATCH" ] && watch_mb=${value:-0}
+    CURRENT_MB[$c]=${value:-0}
+  done
+
+  for c in "${WATCH[@]}"; do
+    line="$line,$(anon_mb "$c" || true)"
   done
   printf '%s\n' "$line" >> "$file"
 
-  if [ "$watch_mb" -ge "$THRESHOLD_MB" ]; then
-    [ "$captured" -eq 0 ] && { capture "$watch_mb"; captured=1; }
-  elif [ "$watch_mb" -lt $(( THRESHOLD_MB * 3 / 4 )) ]; then
-    captured=0        # back to normal; the next climb is a new episode
-  fi
+  for c in "${WATCH[@]}"; do
+    watch_mb=${CURRENT_MB[$c]:-0}
+
+    if [ "$watch_mb" -ge "$THRESHOLD_MB" ]; then
+      [ "${CAPTURED[$c]:-0}" -eq 0 ] && { capture "$c" "$watch_mb"; CAPTURED[$c]=1; }
+    elif [ "$watch_mb" -lt $(( THRESHOLD_MB * 3 / 4 )) ]; then
+      CAPTURED[$c]=0    # back to normal; the next climb is a new episode
+    fi
+  done
 
   ticks=$(( ticks + 1 ))
   if [ $(( ticks % 720 )) -eq 0 ]; then      # roughly hourly at the default interval
