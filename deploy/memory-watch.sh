@@ -13,16 +13,24 @@
 # Installed by deploy/muindex-memory-watch.service.
 set -uo pipefail
 
-# **Both web replicas, and Traefik rather than Caddy.** This list was written when there was one
-# web container and a Caddy in front of it, and it went stale in two ways that each cost exactly
-# what this script exists to buy: `muindex-caddy-1` has not existed since Traefik replaced it, so
-# that column has been empty ever since, and `deploy.replicas: 2` means half the site was never
-# sampled at all. A climb on the second replica looked, from here, like a quiet day.
+# **Traefik rather than Caddy, and web-2 named even though there should not be one.**
+#
+# This list was written when there was one web container and a Caddy in front of it, and both facts
+# changed underneath it: `muindex-caddy-1` has not existed since Traefik replaced it, so that column
+# was empty for weeks, and for a while `deploy.replicas: 2` meant half the site was never sampled at
+# all — a climb on the second replica looked, from here, like a quiet day.
+#
+# The compose file is back to one replica (see the note above `deploy:` there: two of them are an
+# allowance of 4 GB on a 3.73 GiB host, which is the failure `mem_limit` exists to prevent). web-2 is
+# still named, deliberately. A container that does not exist costs an empty column; a second replica
+# that appears — a rollback, a hand-run `docker compose up --scale`, an experiment — and is not
+# sampled costs the thing this file exists for, and would do it silently. The asymmetry is the whole
+# argument: over-naming is a blank cell, under-naming is a blind spot.
 CONTAINERS=(muindex-web-1 muindex-web-2 muindex-postgres-1 muindex-traefik-1 muindex-i3-1)
 
-# Every replica, not one. `WATCH` named a single container because there used to be a single
-# container; a burst on the other one produced no capture, which is the failure this whole file is
-# an answer to. Space-separated, so an operator can still narrow it.
+# Both, for the same reason. `WATCH` named a single container because there used to be a single
+# container, and a burst on any other one produced no capture at all. Space-separated, so an operator
+# can still narrow it.
 WATCH=${WATCH:-"muindex-web-1 muindex-web-2"}
 THRESHOLD_MB=${THRESHOLD_MB:-1000}     # steady is 350-450, the cgroup limit is 2048
 INTERVAL=${INTERVAL:-5}
