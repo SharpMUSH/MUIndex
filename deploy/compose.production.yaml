@@ -17,35 +17,67 @@ services:
     build: !reset null
     pull_policy: always
 
-    # NOTHING IS PUBLISHED. Traefik reaches this over the compose network, and the base file's
-    # 8080 mapping is dropped rather than narrowed, because Docker writes its port rules ahead of
-    # ufw: a published port is reachable from the internet whatever the host firewall was told, and
-    # the safest number of ports to argue about is none. `docker compose exec web` is the way in.
-    ports: !override []
-
-    # **Two, so a version cutover never drops to zero backends.** Watchtower's ordinary update is
-    # stop-old-then-start-new; on one replica that is a gap where nothing answers. With two, and
-    # WATCHTOWER_ROLLING_RESTART=true below making Watchtower replace them one at a time, there is
-    # always at least one container running while the other is mid-swap — and Traefik's service
-    # healthcheck (below) is what keeps it from sending a request to the new one before it can answer.
+    # The site's 8080 is NOT published. Traefik reaches it over the compose network, and the base
+    # file's mapping is dropped rather than narrowed, because Docker writes its port rules ahead of
+    # ufw: a published port is reachable from the internet whatever the host firewall was told.
+    # `docker compose exec web` is the way in.
     #
-    # The one thing this could break -- two replicas applying the same migration at once -- is closed
-    # rather than tolerated. MigrationRunner.ApplyAsync takes a session-level advisory lock
-    # (MigrationRunner.MigrationKey) and reads the ledger *inside* it, so a replica that waited for the
-    # lock sees what the winner committed and finds nothing to do.
+    # The one exception is metrics, and it is published the way node-exporter and cadvisor are: bound
+    # to the host's loopback, reached only through the workstation's SSH tunnel, never routed by
+    # Traefik and never given a hostname. The address is explicit rather than "9102:9102" precisely
+    # because of the ufw note above — an unqualified mapping would put this on the internet, and this
+    # body says how much memory the process holds and how many games are queued.
     #
-    # It was left open here deliberately once, with the argument that the loser would fail cleanly on
-    # the ledger's primary key and restart. That argument was describing the wrong failure. Deploying
-    # migration 0037 on 2026-08-27, a `docker compose up -d` recreated both replicas together and the
-    # loser died *inside* the script instead -- having already renamed the winner's freshly-partitioned
-    # table aside and copied 83,038 rows into a parent whose partitions its own IF NOT EXISTS had
-    # quietly declined to create. Transactional DDL rolled it back and the replica came up clean, so
-    # nothing was lost; but the margin was transactional DDL rather than the reasoning, and on a bigger
-    # table the loser would have spent minutes holding ACCESS EXCLUSIVE on a hot one before finding
-    # out. Pinned by MigrationConcurrencyTests, which fails without the lock.
+    # A fixed host port is possible only because there is one replica (see `deploy` below); with two
+    # they would have collided on it, and that collision is what would have made this endpoint
+    # something Traefik had to route and a token had to defend.
+    ports: !override
+      - "127.0.0.1:9102:9102"
 
+    # **One, because two cannot both be given a safe ceiling on this host.**
+    #
+    # This was two, so that a version cutover never dropped to zero backends: Watchtower's ordinary
+    # update is stop-old-then-start-new, and on one replica that is a gap where nothing answers.
+    # WATCHTOWER_ROLLING_RESTART=true below replaces them one at a time, so one always stayed up.
+    #
+    # The arithmetic never worked. This host has 3.73 GiB. `mem_limit: 2g` below says it is what
+    # makes a runaway a killed container instead of a killed host — and that reasoning was written
+    # when there was one container. Two of them are an allowance of 4 GB on a box with 3.73, before
+    # Postgres, Traefik, Watchtower, cadvisor and node-exporter, so both replicas could sit inside
+    # their limits and still take the host: exactly the failure the limit was added to prevent, and
+    # the limit could not see it coming because it is per container.
+    #
+    # Nor is it theoretical. On 2026-09-03 the two replicas' anonymous memory summed to 1517 MB and
+    # the host's MemAvailable had been down to 777 MB. Making the ceiling honest with two replicas
+    # would mean about 1.2 GB each — and web-2 had already peaked at 1356 MB, so that limit would
+    # have killed it that afternoon. There is no pair of numbers that works here.
+    #
+    # What one replica costs is the cutover gap, and it is the cheaper thing to lose: it is seconds,
+    # on a deploy, behind Cloudflare, against a host outage that needed a console reboot twice. If
+    # the gap becomes worth closing, close it with Traefik's retry middleware over the swap rather
+    # than by keeping a second process resident for ever to cover a few seconds a week.
+    #
+    # Nothing else has to change for this. The advisory leases (AdvisoryLease) exist so that N
+    # replicas are not N crawlers, and they are equally correct at N=1; Traefik aggregates whatever
+    # matches its labels, so one backend is one backend.
+    #
+    # The concurrent-migration hazard that two replicas carried is closed rather than merely made
+    # unreachable by this line, and must stay closed: `docker compose up -d` after a rollback to two,
+    # or any second process against this database, brings it straight back. MigrationRunner.ApplyAsync
+    # takes a session-level advisory lock (MigrationRunner.MigrationKey) and reads the ledger *inside*
+    # it, so a replica that waited for the lock sees what the winner committed and finds nothing to do.
+    #
+    # It was left open once, with the argument that the loser would fail cleanly on the ledger's
+    # primary key and restart. That argument was describing the wrong failure. Deploying migration
+    # 0037 on 2026-08-27, a `docker compose up -d` recreated both replicas together and the loser died
+    # *inside* the script instead -- having already renamed the winner's freshly-partitioned table
+    # aside and copied 83,038 rows into a parent whose partitions its own IF NOT EXISTS had quietly
+    # declined to create. Transactional DDL rolled it back and the replica came up clean, so nothing
+    # was lost; but the margin was transactional DDL rather than the reasoning, and on a bigger table
+    # the loser would have spent minutes holding ACCESS EXCLUSIVE on a hot one before finding out.
+    # Pinned by MigrationConcurrencyTests, which fails without the lock.
     deploy:
-      replicas: 2
+      replicas: 1
 
     environment:
       # Cloudflare, then Traefik. Both append to X-Forwarded-For, so the middleware walks exactly two
@@ -61,6 +93,16 @@ services:
       # out — which is the only artefact that would name the allocation. %p is the PID, and in a
       # container that is always 1, so each crash overwrites the last dump rather than filling the
       # disk with a series of them.
+      # The port /metrics answers on, and the switch that maps it at all: unset, there is no such
+      # route. MetricsEndpoint refuses the request on any other listener, so this number is the
+      # security boundary rather than a convenience — see that file. Matches the loopback publication
+      # above and the third -L forward in the monitoring tunnel.
+      MUI_METRICS_PORT: "9102"
+
+      # Kestrel has to be listening on it as well as the app being willing to answer there. Two
+      # settings for one fact, unavoidably: the first is a route guard and this is a socket.
+      ASPNETCORE_HTTP_PORTS: "8080;9102"
+
       DOTNET_DbgEnableMiniDump: "1"
       DOTNET_DbgMiniDumpType: "2"
       DOTNET_DbgMiniDumpName: "/dumps/muindex-%p.dmp"
