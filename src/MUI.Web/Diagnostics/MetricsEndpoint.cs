@@ -1,4 +1,5 @@
 using System.Globalization;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace MUI.Web.Diagnostics;
 
@@ -20,9 +21,14 @@ namespace MUI.Web.Diagnostics;
 /// carries how much memory this process holds, how many games are queued and how often the site is
 /// asked for things — operational detail with no business being served to the internet. The
 /// deployment reaches it the same way it reaches node-exporter and cadvisor: a loopback publication
-/// on the host and an SSH tunnel to the monitoring box, so the bytes never cross a network. The host
-/// guard below is what keeps it off the listener Traefik forwards to; there is no token, because
-/// there is no route from outside for a token to defend.
+/// on the host and an SSH tunnel to the monitoring box, so the bytes never cross a network. The
+/// socket guard below is what keeps it off the listener Traefik forwards to; there is no token,
+/// because there is no route from outside for a token to defend.
+/// </para>
+/// <para>
+/// <b>"Which listener" must be read from the connection, never from the request.</b> The obvious
+/// spelling is <c>RequireHost($"*:{port}")</c> and it is a disclosure bug — see
+/// <see cref="MapMuiMetrics"/>. That version shipped in a pull request and was caught in review.
 /// </para>
 /// </remarks>
 public static class MetricsEndpoint
@@ -65,6 +71,12 @@ public static class MetricsEndpoint
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        // TryAdd, the way AddMuiCrawler does it: CrawlMetrics needs a clock, and an extension method
+        // that only works when something else happened to have registered one first is a trap for
+        // whoever calls it next. AddMuiSite registers the same instance earlier, so this is a no-op
+        // in the deployed graph and the difference is only visible to a caller composing this alone.
+        services.TryAddSingleton(TimeProvider.System);
+
         services.AddSingleton<RequestMetrics>();
         services.AddSingleton<CrawlMetrics>();
 
@@ -81,7 +93,7 @@ public static class MetricsEndpoint
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        if (ResolvePort(configuration) is null)
+        if (ResolvePort(configuration) is not { } port)
         {
             return app;
         }
@@ -90,7 +102,14 @@ public static class MetricsEndpoint
         {
             // The scrape is not traffic. It runs every fifteen seconds for ever, and a request rate
             // that is mostly the monitoring asking about the request rate answers nobody's question.
-            if (context.Request.Path.StartsWithSegments(Path, StringComparison.Ordinal))
+            //
+            // On the metrics listener only, for the same reason the endpoint itself checks the
+            // socket: `/metrics` asked for on the public port is not a scrape, it is somebody
+            // probing, and that is exactly the request worth having on a graph. Gating on the path
+            // alone would have made the one request nobody should be making the one request nothing
+            // counted.
+            if (context.Connection.LocalPort == port
+                && context.Request.Path.StartsWithSegments(Path, StringComparison.Ordinal))
             {
                 await next(context);
                 return;
@@ -141,12 +160,25 @@ public static class MetricsEndpoint
                 System.Text.Encoding.UTF8);
         })
 
-        // The whole security model in one line: a request that arrived on any other listener does
-        // not match this route and falls through to the 404 every unknown path gets. Traefik
-        // forwards to the site's port, so this is never reachable from the internet — and it is a
-        // route that does not exist there, rather than one that exists and refuses, so there is
-        // nothing to probe for.
-        .RequireHost($"*:{port.ToString(CultureInfo.InvariantCulture)}")
+        // The whole security model, and it reads the accepting socket rather than anything the
+        // caller sent.
+        //
+        // **This was `RequireHost($"*:{port}")` and that was a disclosure bug.** `RequireHost`
+        // matches `HttpRequest.Host` — the `Host` *header*, which the client writes. Traefik's own
+        // `Host()` matcher ignores the port, so `Host: mu-index.com:9102` satisfied the public
+        // router's rule, reached the site's listener, and then satisfied a guard reading the same
+        // attacker-supplied string. The whole body went out over the internet for one curl flag.
+        // Found by review; `ItRefusesAPublicRequestThatWritesTheMetricsPortIntoTheHostHeader` is the
+        // case that now fails without this.
+        //
+        // `Connection.LocalPort` is which socket accepted the connection. A caller cannot write it,
+        // a proxy cannot forward it, and it is the only thing here that actually means "arrived on
+        // the metrics listener". The answer is a plain 404, the same as any unknown path, so there
+        // is still nothing to probe for.
+        .AddEndpointFilter(async (invocation, next) =>
+            invocation.HttpContext.Connection.LocalPort == port
+                ? await next(invocation)
+                : Results.NotFound())
         .AllowAnonymous();
 
         return app;

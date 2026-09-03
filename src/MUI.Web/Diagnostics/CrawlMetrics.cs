@@ -19,9 +19,12 @@ namespace MUI.Web.Diagnostics;
 /// reasons stay apart for the reason <see cref="CycleReport"/> keeps them apart.
 /// </para>
 /// </remarks>
-public sealed class CrawlMetrics : ICycleObserver
+public sealed class CrawlMetrics(TimeProvider time) : ICycleObserver
 {
     private readonly Lock _gate = new();
+
+    /// <summary>When the last cycle finished, or null before there has been one.</summary>
+    private DateTimeOffset? _lastCycleAt;
 
     private long _cycles;
     private long _targets;
@@ -50,6 +53,7 @@ public sealed class CrawlMetrics : ICycleObserver
 
         lock (_gate)
         {
+            _lastCycleAt = time.GetUtcNow();
             _cycles++;
             _targets += report.Considered;
             _probed += report.Probed;
@@ -118,13 +122,29 @@ public sealed class CrawlMetrics : ICycleObserver
                 "Referral edges added.",
                 _referrals);
 
-            // Whether the crawl is happening in this process at all. With one replica that says the
-            // lease was taken; with more than one it is what makes two replicas' memory graphs
-            // comparable, since only the holder pays the crawl's allocation.
+            // When the crawl last got all the way round, as a moment rather than a flag.
+            //
+            // **This was `mui_crawl_lease_held`, and it was a claim we had not measured.** It was set
+            // by the first cycle and never cleared, while its name and help text were both present
+            // tense — and LeasedBackgroundService can find its lease connection gone, release it, and
+            // go back to asking, at which point the gauge went on reporting a lease this replica had
+            // given up. A fact about the past presented as a fact about the present is the shape of
+            // mistake rule 5 exists to refuse, and it does not stop being one because the subject is
+            // us rather than a game.
+            //
+            // A timestamp is what was actually observed, and it answers the operational question
+            // better than the flag did: `time() - mui_crawl_last_cycle_timestamp_seconds` is "nothing
+            // has crawled for twenty minutes", which is the thing worth alerting on and which a
+            // lease-state boolean cannot express at all.
+            //
+            // -1 rather than 0 before the first cycle, because 0 is a moment — the first second of
+            // 1970 — and a dashboard subtracting it would report an age of fifty-six years rather
+            // than showing a gap.
             text.Gauge(
-                "mui_crawl_lease_held",
-                "1 when this process has run a crawl cycle, and so holds the crawl lease.",
-                _cycles > 0 ? 1 : 0);
+                "mui_crawl_last_cycle_timestamp_seconds",
+                "Unix time when this process last completed a crawl cycle, or -1 if it never has. "
+                + "Subtract from now() for the age; a replica without the crawl lease never moves it.",
+                _lastCycleAt?.ToUnixTimeSeconds() ?? -1);
         }
     }
 }

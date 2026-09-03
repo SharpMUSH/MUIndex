@@ -20,7 +20,7 @@ public class MetricNamingTests
         var text = new PrometheusText();
 
         RuntimeMetrics.WriteTo(text);
-        new CrawlMetrics().WriteTo(text);
+        new CrawlMetrics(TimeProvider.System).WriteTo(text);
         new RequestMetrics().WriteTo(text);
 
         return
@@ -58,7 +58,7 @@ public class MetricNamingTests
         var text = new PrometheusText();
 
         RuntimeMetrics.WriteTo(text);
-        new CrawlMetrics().WriteTo(text);
+        new CrawlMetrics(TimeProvider.System).WriteTo(text);
         new RequestMetrics().WriteTo(text);
 
         var wrong = text.ToString()

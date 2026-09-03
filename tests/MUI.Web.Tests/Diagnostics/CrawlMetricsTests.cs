@@ -42,7 +42,7 @@ public class CrawlMetricsTests
     [Test]
     public async Task TheCountersExistBeforeTheFirstCycle()
     {
-        var scrape = Scrape(new CrawlMetrics());
+        var scrape = Scrape(new CrawlMetrics(TimeProvider.System));
 
         await Assert.That(RuntimeMetricsTests.Read(scrape, "mui_crawl_cycles_total")).IsEqualTo(0);
         await Assert.That(RuntimeMetricsTests.Read(scrape, "mui_crawl_targets_total")).IsEqualTo(0);
@@ -51,7 +51,7 @@ public class CrawlMetricsTests
     [Test]
     public async Task ACycleIsCountedWithTheTargetsItConsidered()
     {
-        var metrics = new CrawlMetrics();
+        var metrics = new CrawlMetrics(TimeProvider.System);
 
         metrics.Record(Cycle(considered: 12, probed: 12, answered: 9, failed: 2, errored: 1));
         metrics.Record(Cycle(considered: 8, probed: 8, answered: 8));
@@ -69,7 +69,7 @@ public class CrawlMetricsTests
     [Test]
     public async Task OutcomesAreCountedUnderTheirOwnLabel()
     {
-        var metrics = new CrawlMetrics();
+        var metrics = new CrawlMetrics(TimeProvider.System);
 
         metrics.Record(Cycle(considered: 12, probed: 12, answered: 9, failed: 2, errored: 1));
 
@@ -92,7 +92,7 @@ public class CrawlMetricsTests
     [Test]
     public async Task ARefusalIsCountedApartFromAMeasuredFailure()
     {
-        var metrics = new CrawlMetrics();
+        var metrics = new CrawlMetrics(TimeProvider.System);
 
         metrics.Record(Cycle(considered: 5, probed: 3, answered: 3, refused: 1, optedOut: 1));
 
@@ -114,7 +114,7 @@ public class CrawlMetricsTests
     [Test]
     public async Task AnUncountableReadingIsCountedApartFromACount()
     {
-        var metrics = new CrawlMetrics();
+        var metrics = new CrawlMetrics(TimeProvider.System);
 
         metrics.Record(Cycle(considered: 10, probed: 10, answered: 10, counted: 6, unmeasurable: 4));
 
@@ -127,18 +127,55 @@ public class CrawlMetricsTests
     }
 
     /// <summary>
-    /// Whether this process has ever run a cycle, which is what says the crawl lease is here rather
-    /// than on another replica — or, with one replica, that the crawl is running at all.
+    /// When this replica last finished a cycle, as a timestamp rather than a flag.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This was <c>mui_crawl_lease_held</c>, set to 1 by the first cycle and never cleared. The name
+    /// and the help text were present tense and the value was not: <c>LeasedBackgroundService</c> can
+    /// find its lease connection gone, release it, and go back to asking, and the gauge would have
+    /// gone on reporting that this replica held a lease it had given up — a claim about the present
+    /// read off a fact about the past, which is the shape of mistake this codebase exists to refuse.
+    /// </para>
+    /// <para>
+    /// A timestamp instead of tracking the lease through the service, because it is honest about
+    /// exactly what was observed — a cycle finished, at this moment — and because it answers the
+    /// operational question better: <c>time() - mui_crawl_last_cycle_timestamp_seconds</c> is
+    /// "nothing has crawled for twenty minutes", which is what an alert should fire on, and a
+    /// lease-state flag cannot say that at all.
+    /// </para>
+    /// </remarks>
     [Test]
-    public async Task WhetherThisReplicaHasCrawledIsReported()
+    public async Task WhenThisReplicaLastCompletedACycleIsReported()
     {
-        var metrics = new CrawlMetrics();
+        var clock = new FixedClock(DateTimeOffset.Parse("2026-09-03T18:00:00Z"));
+        var metrics = new CrawlMetrics(clock);
 
-        await Assert.That(RuntimeMetricsTests.Read(Scrape(metrics), "mui_crawl_lease_held")).IsEqualTo(0);
+        // Nothing has crawled, so there is no moment to report — and 0 would be a moment, in 1970.
+        await Assert.That(RuntimeMetricsTests.Read(Scrape(metrics), "mui_crawl_last_cycle_timestamp_seconds"))
+            .IsEqualTo(-1);
 
         metrics.Record(Cycle(considered: 1, probed: 1, answered: 1));
 
-        await Assert.That(RuntimeMetricsTests.Read(Scrape(metrics), "mui_crawl_lease_held")).IsEqualTo(1);
+        await Assert.That(RuntimeMetricsTests.Read(Scrape(metrics), "mui_crawl_last_cycle_timestamp_seconds"))
+            .IsEqualTo(DateTimeOffset.Parse("2026-09-03T18:00:00Z").ToUnixTimeSeconds());
+    }
+
+    /// <summary>
+    /// And it moves with each cycle, so "when did this last crawl" cannot silently freeze at the
+    /// first one.
+    /// </summary>
+    [Test]
+    public async Task TheTimestampFollowsTheLatestCycle()
+    {
+        var clock = new FixedClock(DateTimeOffset.Parse("2026-09-03T18:00:00Z"));
+        var metrics = new CrawlMetrics(clock);
+
+        metrics.Record(Cycle(considered: 1, probed: 1, answered: 1));
+        clock.Advance(TimeSpan.FromMinutes(30));
+        metrics.Record(Cycle(considered: 2, probed: 2, answered: 2));
+
+        await Assert.That(RuntimeMetricsTests.Read(Scrape(metrics), "mui_crawl_last_cycle_timestamp_seconds"))
+            .IsEqualTo(DateTimeOffset.Parse("2026-09-03T18:30:00Z").ToUnixTimeSeconds());
     }
 }

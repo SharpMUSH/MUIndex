@@ -41,7 +41,7 @@ public class MetricsEndpointTests
     [Test]
     public async Task ItRefusesTheRequestThatArrivedOnThePublicPort()
     {
-        // A port this host is definitely not listening on, so any answer would prove the host guard
+        // A port this host is definitely not listening on, so any answer would prove the guard
         // is not being applied rather than that the request reached the right listener.
         await using var site = await SiteHost.StartAsync(
             settings: new Dictionary<string, string?>
@@ -52,6 +52,44 @@ public class MetricsEndpointTests
         var response = await site.Client.GetAsync(MetricsEndpoint.Path);
 
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.NotFound);
+    }
+
+    /// <summary>
+    /// The same request, with the metrics port written into the <c>Host</c> header.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This shipped broken, and the case above passed anyway — which is the whole lesson. The guard
+    /// was <c>RequireHost($"*:{port}")</c>, and <c>RequireHost</c> matches
+    /// <see cref="HttpRequest.Host"/>: the <c>Host</c> <em>header</em>, which the client writes. The
+    /// case above only passed because its client happened to send the site's own port in that header,
+    /// so it was asserting on a value the caller controls and proving nothing about which socket
+    /// accepted the connection.
+    /// </para>
+    /// <para>
+    /// It was reachable from the internet. Traefik's <c>Host()</c> matcher ignores the port, so
+    /// <c>Host: mu-index.com:9102</c> satisfies the public router's rule, reaches the site's listener,
+    /// and then satisfied a guard that read the same attacker-supplied string. One curl flag away.
+    /// <see cref="ConnectionInfo.LocalPort"/> is the accepting socket and cannot be written by a
+    /// caller, so that is what the guard reads now.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task ItRefusesAPublicRequestThatWritesTheMetricsPortIntoTheHostHeader()
+    {
+        await using var site = await SiteHost.StartAsync(
+            settings: new Dictionary<string, string?>
+            {
+                [MetricsEndpoint.PortConfigurationKey] = "59999",
+            });
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, MetricsEndpoint.Path);
+        request.Headers.Host = "127.0.0.1:59999";
+
+        var response = await site.Client.SendAsync(request);
+
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.NotFound);
+        await Assert.That(await response.Content.ReadAsStringAsync()).DoesNotContain("mui_gc_");
     }
 
     /// <summary>
