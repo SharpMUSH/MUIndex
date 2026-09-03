@@ -32,7 +32,11 @@ public sealed class CrawlerService(
     ICrawlCycles? cycles = null,
     // Optional for the same reason, and because a crawl with no gap guard is a crawl that keeps its
     // old behaviour rather than one that fails to start.
-    CrawlGapGuard? gaps = null)
+    CrawlGapGuard? gaps = null,
+    // Whoever wants to be told what each cycle did — MUI.Web's metrics counters, in the deployed
+    // graph. Optional, and null in every composition that has no web tier: mui-crawl's CLI runs the
+    // same cycle and has nobody to tell.
+    ICycleObserver? observer = null)
     : LeasedBackgroundService(source, options.AdvisoryLockKey, options.Discovery.LeaseRetryInterval, time, logger)
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -62,6 +66,19 @@ public sealed class CrawlerService(
         }
 
         await RecordAsync(startedAt, report, stoppingToken);
+
+        // Its own try for the reason RecordAsync has one: this is telemetry about a crawl already
+        // stored, and an observer that threw would take down the loop keeping every game's data
+        // fresh. Empty cycles are offered too — "nothing was due" is how a reader tells a quiet
+        // registry from a stopped loop, and a counter that stops moving must mean the latter.
+        try
+        {
+            observer?.Observe(report);
+        }
+        catch (Exception error)
+        {
+            logger.LogError(error, "A cycle observer threw; the crawl continues");
+        }
 
         return options.Discovery.PollInterval;
     }

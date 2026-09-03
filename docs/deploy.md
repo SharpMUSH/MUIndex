@@ -63,7 +63,8 @@ which is why the check exists.
 | `Passkeys__ServerDomain` | *(unset)* | The WebAuthn relying-party ID — the **registrable** domain, `mu-index.com`. Only affects sign-in and claiming. |
 | `MUI_MCP_TOKEN` | *(unset)* | The bearer secret that gates `/mcp` (see [Administering the site over MCP](#administering-the-site-over-mcp)). **Unset means every request fails authentication** — fail closed, not fail open. Also `Mcp:Token`. |
 | `Dataset__LicenceId`, `Dataset__LicenceName`, `Dataset__LicenceUrl`, `Dataset__Attribution`, `Dataset__Notice` | `CC-BY-4.0`, … | The terms the published data goes out under. Configuration rather than a literal because §15.2 is open and the code's licence is not the dataset's. |
-| `ASPNETCORE_HTTP_PORTS` | `8080` | Set in the image. |
+| `MUI_METRICS_PORT` | *(unset)* | The port `/metrics` answers on, and the switch that maps the route at all (see [What this process says about its own memory](#what-this-process-says-about-its-own-memory)). **Unset means the route does not exist.** The endpoint answers on this port and refuses the request on any other, so this is the security boundary, not a convenience — it must not be the port the site is served on. The port also has to be added to `ASPNETCORE_HTTP_PORTS`, or nothing is listening on it. |
+| `ASPNETCORE_HTTP_PORTS` | `8080` | Set in the image. Semicolon-separated; production adds the metrics port. |
 | `ASPNETCORE_ENVIRONMENT` | `Production` | |
 | `ASPNETCORE_FORWARDEDHEADERS_ENABLED` | *(unset)* | ASP.NET Core's own switch, for when a reverse proxy terminates TLS. |
 
@@ -107,7 +108,66 @@ The files are plain SQL at the repository root on purpose — legible to anyone 
 the property that matters when something has gone wrong at four in the morning. Applying them by
 hand is a supported thing to do; the ledger is a two-column table.
 
+## What this process says about its own memory
+
+`MUI_METRICS_PORT` maps `GET /metrics`, in Prometheus text format. It exists because of a specific
+dead end: for three days at the start of September 2026 the site's memory climbed, and every
+measurement available from outside the process — `container_memory_rss`, the working set,
+`smaps_rollup` — agreed that it was climbing and none of them could say why. From outside, a growing
+live set, a collector that has not been pressed into returning what it holds, and a fragmented heap
+are one number. From inside they are three, and those three are the first thing this body carries.
+
+| Series | The question it answers |
+| --- | --- |
+| `mui_gc_heap_size_bytes`, `mui_gc_committed_bytes`, `mui_gc_fragmented_bytes` | Live set, what the process took from the OS, and what it holds but cannot return. A leak moves the first. Budget growth moves the second while the first stays flat. |
+| `mui_gc_heap_bytes{generation}` | Per generation, plus `loh` and `poh` by name. Generation 2 rising while 0 and 1 are flat is retention; the reverse is churn. |
+| `mui_gc_allocated_bytes_total` | Allocation pressure as a rate, which is a different question from how much is retained — and, in this codebase, usually the more interesting one. |
+| `mui_gc_server_mode`, `mui_process_cpus` | How to read all of the above: Server GC sizes budgets per core and against the container limit. |
+| `mui_crawl_outcomes_total`, `mui_crawl_refusals_total` | What the crawl did. **A refusal is never folded into a failure** — rule 5 reaches a dashboard exactly as it reaches the database. |
+| `mui_crawl_presence_total{reading}` | `counted` and `unmeasurable` apart, for the reason the heatmap has three states. |
+| `mui_crawl_last_cycle_timestamp_seconds` | When this replica last finished a cycle, or `-1` if it never has. `time() - <this>` is the age; a replica without the crawl lease never moves it. Deliberately a moment rather than a "lease held" flag — a flag set once and never cleared would go on claiming a lease this process had given up. |
+| `mui_http_requests_total{status}` | Status class only. Deliberately no path label: the listing's URL space is unbounded, and a series per URL would be an unbounded allocation inside the process this endpoint exists to explain. |
+
+**It is not routed and has no token.** The deployment reaches it the way it reaches node-exporter and
+cadvisor: published to the host's loopback (`127.0.0.1:9102`) and read through an SSH tunnel, so the
+bytes never cross a network. `MetricsEndpoint` refuses the request on any listener but the one it was
+given, so a request arriving on the port Traefik forwards to falls through to an ordinary 404 —
+there is no route there to authenticate, and nothing to probe for.
+
+**The guard reads `HttpContext.Connection.LocalPort`, and it must keep doing so.** The obvious
+spelling is `RequireHost($"*:{port}")`, and it is wrong: `RequireHost` matches the `Host` *header*,
+which the client writes. Traefik's `Host()` matcher ignores the port, so `Host: mu-index.com:9102`
+satisfies the public router's rule, reaches the site's listener, and would then satisfy a guard
+reading that same attacker-supplied string — the whole body, over the internet, for one curl flag.
+That version shipped in a pull request and was caught in review;
+`ItRefusesAPublicRequestThatWritesTheMetricsPortIntoTheHostHeader` is the test that now fails without
+the real check. The accepting socket is the only thing here a caller cannot forge.
+
+To scrape it from a monitoring host, forward the port beside the ones already tunnelled and add a
+job:
+
+```bash
+ssh -N -L 127.0.0.1:19102:127.0.0.1:9102 muindex
+```
+
+```yaml
+  - job_name: muindex-app
+    static_configs:
+      - targets: ['127.0.0.1:19102']
+        labels:
+          host: muindex
+```
+
 ## More than one replica
+
+**This deployment runs one, and the reason is arithmetic rather than preference.** `mem_limit` is per
+container, so two replicas on the 3.73 GiB production host are an allowance of 4 GB — both can sit
+inside their limits and still take the host, which is the failure the limit was added to prevent
+after 2026-08-18. Making the ceiling honest with two would mean about 1.2 GB each, and a replica had
+already peaked at 1356 MB. There is no pair of numbers that works on that box. See the comment above
+`deploy:` in `deploy/compose.production.yaml`. What it costs is the seconds of a Watchtower cutover.
+
+The rest of this section is still true, and is what to read if you run it somewhere larger.
 
 Run as many as you like. **They will not multiply the crawler.** The crawl loop is gated on a
 PostgreSQL session-level advisory lock (spec §12): every replica asks, one gets it, and the rest sit

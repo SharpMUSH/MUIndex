@@ -99,6 +99,17 @@ services:
 
       Passkeys__ServerDomain: ${MUI_PASSKEY_DOMAIN:-}
 
+      # The port /metrics answers on, and the switch that maps the route at all. Empty here, because
+      # a local `compose up` has nothing scraping it and the endpoint should not exist unless it was
+      # asked for. Forwarded rather than left out for the reason tools/check-compose-settings.py
+      # exists: a variable an operator sets in .env that nothing passes through is a knob that
+      # silently does nothing, and this one is documented in docs/deploy.md.
+      #
+      # Setting it locally also needs the port added to ASPNETCORE_HTTP_PORTS and published, both of
+      # which deploy/compose.production.yaml does. On a laptop, prefer `dotnet run` with
+      # MUI_METRICS_PORT set — there is no second address to get wrong there.
+      MUI_METRICS_PORT: ${MUI_METRICS_PORT:-}
+
       # The shared bearer secret for /mcp — the authenticated MCP endpoint that replaces the
       # ssh/scp/mui-crawl administration dance. Unset means the endpoint refuses every request rather
       # than accepting any (fail closed); MUI.Web logs a warning at startup while it is unset. Generate

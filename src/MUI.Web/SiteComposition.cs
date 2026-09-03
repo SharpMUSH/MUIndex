@@ -6,6 +6,7 @@ using MUI.Web.Accounts;
 using MUI.Web.Api;
 using MUI.Web.Components;
 using MUI.Web.Data;
+using MUI.Web.Diagnostics;
 using MUI.Web.Fixtures;
 using MUI.Web.Icons;
 using MUI.Web.Localization;
@@ -104,6 +105,12 @@ public static class SiteComposition
         // database and not the crawler).
         services.AddMuiHealth(connectionString);
 
+        // The counters /metrics reads. Registered unconditionally, because the crawl loop records
+        // into them whether or not anybody is scraping — a deployment that turns metrics on during
+        // an incident should find the totals already running rather than starting from zero at the
+        // moment it most wants history. The endpoint itself is off unless a port is named.
+        services.AddMuiMetrics();
+
         return services;
     }
 
@@ -150,9 +157,18 @@ public static class SiteComposition
         // which 404'd every localized URL.
         app.UseRouting();
 
+        // After routing, so a counted request is one that reached the route table, and inside
+        // everything above, so a response the middleware above shaped is counted as it was sent.
+        // Off entirely unless a metrics port is named.
+        app.UseMuiMetrics(app.Configuration);
+
         // /health, before anything that reads HttpContext.User: the reverse proxy dials this
         // unauthenticated on every routing decision.
         app.MapMuiHealth();
+
+        // /metrics — mapped only when a port is named, and answering only on that port. See
+        // MetricsEndpoint for why the listener rather than a token is the security model.
+        app.MapMuiMetrics();
 
         // <NotFound> inside <Router> is never rendered under static server rendering, so this answers
         // page 404s directly. Scoped to pages only — a rule about how a page says "nothing here" must

@@ -57,12 +57,20 @@ public sealed class SiteHost : IAsyncDisposable
     /// (a real one is mapped once there's a database) and the <paramref name="measured"/> override
     /// (the real composition already registers <see cref="MUI.Web.Data.CatalogueSource"/> itself).
     /// </param>
+    /// <param name="configureMetricsPortToOwn">
+    /// Serve <c>/metrics</c> on this host's own listener, by pinning the port rather than taking an
+    /// ephemeral one and naming it as the metrics port too. <see cref="Diagnostics.MetricsEndpoint"/>
+    /// answers only on the port it was given, so this is the only way one test host can be on both
+    /// sides of that guard — and a test of the negative case just leaves this alone and names a port
+    /// nothing is listening on.
+    /// </param>
     public static async Task<SiteHost> StartAsync(
         Dictionary<string, string?>? settings = null,
         Action<IServiceCollection>? services = null,
         bool measured = false,
         TimeProvider? clock = null,
-        string? connectionString = null)
+        string? connectionString = null,
+        bool configureMetricsPortToOwn = false)
     {
         // Named for the web project, so UseStaticWebAssets below finds that project's manifest.
         var builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions
@@ -78,6 +86,26 @@ public sealed class SiteHost : IAsyncDisposable
         if (settings is { Count: > 0 })
         {
             builder.Configuration.AddInMemoryCollection(settings);
+        }
+
+        // Chosen before the host binds, because the route's host guard is built at map time and an
+        // ephemeral port is not known until after Start. Asking the OS for a port and releasing it
+        // races with anything else on the machine that wants one; nothing else here is listening on
+        // loopback in this range, and a clash surfaces as a bind failure rather than as a wrong pass.
+        var ownPort = 0;
+
+        if (configureMetricsPortToOwn)
+        {
+            using var probe = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+            probe.Start();
+            ownPort = ((System.Net.IPEndPoint)probe.LocalEndpoint).Port;
+            probe.Stop();
+
+            builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [MUI.Web.Diagnostics.MetricsEndpoint.PortConfigurationKey] =
+                    ownPort.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            });
         }
 
         // Before AddMuiSite, because that is the order a real host composes in: whatever a database
@@ -98,7 +126,9 @@ public sealed class SiteHost : IAsyncDisposable
             builder.Services.AddSingleton(clock);
         }
 
-        builder.WebHost.UseUrls("http://127.0.0.1:0");
+        builder.WebHost.UseUrls(configureMetricsPortToOwn
+            ? $"http://127.0.0.1:{ownPort.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
+            : "http://127.0.0.1:0");
 
         var app = builder.Build();
 
