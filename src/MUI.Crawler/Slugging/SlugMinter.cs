@@ -227,10 +227,13 @@ public sealed class SlugMinter(
     /// <see cref="ConsiderAsync"/> is the MSSP-driven path; an owner row would win the ladder and then
     /// be wrong twice over — the method already returns early while an override stands, and a
     /// withdrawn override survives as an empty value that would otherwise freeze the URL for ever.
+    /// That hazard is not the owner's alone, so the empty rows go too: a withdrawn staff <c>NAME</c>
+    /// keeps its row (§5.1) and would otherwise outrank <see cref="FieldSource.Mssp"/> for ever.
     /// </remarks>
     private static GameField? Winner(IReadOnlyList<GameField> stored, string field) =>
         FieldPrecedence.Winner(stored
             .Where(row => row.Source is not FieldSource.Owner)
+            .Where(row => row.Value.Length > 0)
             .Where(row => string.Equals(row.Field, field, StringComparison.OrdinalIgnoreCase)));
 }
 
