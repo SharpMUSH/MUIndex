@@ -109,25 +109,13 @@ public sealed partial class NpgsqlGameQueries(
     public static readonly TimeSpan ThisWeek = TimeSpan.FromDays(7);
 
     /// <summary>
-    /// How long a healthy game may go between probes — the window "have we heard anything from this
-    /// game lately" is asked over.
+    /// How long a healthy game may go between probes — when silence starts meaning something, which
+    /// is a fact about our crawl and not about the count's freshness.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Deliberately not <c>PLAYERS</c>'s expected refresh.</b> That window says when a count stops
-    /// being current, which is a fact about the number; this one says when silence starts meaning
-    /// something, which is a fact about our own crawl. Asking the second question with the first
-    /// window is what made the front page's "unknown population" tile drift minute to minute: a quiet
-    /// game is probed every six hours against a two-hour freshness window, so it fell out of the
-    /// fresh set for four hours of every six with nothing whatever wrong with it.
-    /// </para>
-    /// <para>
-    /// <b>It must equal <c>ProbeSchedule.BaseInterval</c>, and it restates it rather than reading
-    /// it</b> — <c>MUI.Catalog</c> cannot reference <c>MUI.Discovery</c>, since the arrow runs the
-    /// other way. The restatement is held to the original by
-    /// <c>ProbeScheduleTests.TheCatalogueAsksForNewsOverThisSchedulesOwnBaseInterval</c>, in the one
-    /// suite that sees both.
-    /// </para>
+    /// Must equal <c>ProbeSchedule.BaseInterval</c>, and restates it because <c>MUI.Catalog</c>
+    /// cannot reference <c>MUI.Discovery</c> — held to it by
+    /// <c>ProbeScheduleTests.TheCatalogueAsksForNewsOverThisSchedulesOwnBaseInterval</c>.
     /// </remarks>
     public static readonly TimeSpan ProbeCadence = TimeSpan.FromHours(6);
 
@@ -250,17 +238,10 @@ public sealed partial class NpgsqlGameQueries(
     /// readable count at all.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The counted/uncountable pairs distinguish a measured zero from an unreadable one — a game at
+    /// The counted/uncountable pair distinguishes a measured zero from an unreadable one — a game at
     /// nought all week and a game whose every <c>WHO</c> failed to parse must not collapse into one
-    /// activity band.
-    /// </para>
-    /// <para>
-    /// That pair is taken over two windows because two surfaces ask it at two scales: the week is
-    /// the <c>uncounted</c> facet's, and <see cref="ProbeCadence"/> is the front page's "unknown
-    /// population". Neither is <c>PLAYERS</c>'s expected refresh, which the count itself ages
-    /// against — see <see cref="ProbeCadence"/> for why conflating the two made that tile drift.
-    /// </para>
+    /// activity band. It is taken over two windows because two surfaces ask it at two scales: the
+    /// week for the <c>uncounted</c> facet, <see cref="ProbeCadence"/> for the front page's tile.
     /// </remarks>
     private async Task<Dictionary<Guid, PresenceDigest>> PresenceDigestAsync(
         NpgsqlConnection connection,
@@ -295,11 +276,9 @@ public sealed partial class NpgsqlGameQueries(
             -- Five tallies, one scan: `count(p.count)` includes a measured nought;
             -- `count(*) FILTER (count IS NULL)` is answered-but-unreadable. A row exists only
             -- where a probe got far enough to try, so no tally here speaks for an hour we never
-            -- measured (§5.4's third state, which names no cause).
-            --
-            -- The last two ask the same counted/uncountable question over the probe cadence
-            -- instead of the week. `@cadenceFrom` is inside `@weekFrom`, so they ride the scan
-            -- this CTE is already doing rather than buying a third pass over the partition.
+            -- measured (§5.4's third state, which names no cause). The last two ask the same
+            -- question over the cadence; `@cadenceFrom` is inside `@weekFrom`, so they ride this
+            -- scan rather than buying a third pass over the partition.
             week AS (
                 SELECT p.game_id,
                        count(*) FILTER (WHERE p.count > 0) AS nonzero,
@@ -607,14 +586,10 @@ public sealed partial class NpgsqlGameQueries(
         public bool Uncounted => UncountableThisWeek && !CountedThisWeek;
 
         /// <summary>
-        /// The same reading over <see cref="ProbeCadence"/>: we got in since the last probe was due
-        /// and no visit produced a number.
+        /// <see cref="Uncounted"/> over <see cref="ProbeCadence"/>. Both halves load-bearing for the
+        /// same reasons, and the window is a third: over <c>PLAYERS</c>'s expected refresh this
+        /// would catch every quiet game between probes.
         /// </summary>
-        /// <remarks>
-        /// Both halves are load-bearing for the same two reasons as <see cref="Uncounted"/>, and the
-        /// window is the third: over <c>PLAYERS</c>'s expected refresh this would catch every quiet
-        /// game between probes, which is most of them most of the time.
-        /// </remarks>
         public bool AnsweredUncounted => UncountableWithinCadence && !CountedWithinCadence;
 
         public static readonly PresenceDigest None = new(null, false);

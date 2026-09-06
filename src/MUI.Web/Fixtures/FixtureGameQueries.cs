@@ -58,8 +58,8 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         // percentages this replaced (-30% against +25%) made the two look comparable.
         LastReachableAt: Now.AddMinutes(-40), Growth: GrowthDirection.Down, GrowthPlayers: -13, FirstSeenAt: Now.AddMonths(-8));
 
-    // Answers, but nothing we can count. Renders "count unknown" — never a zero. The one game here
-    // in §5.4's middle state, and so the only one the front page's "unknown population" tile counts.
+    // Answers, but nothing we can count. Renders "count unknown" — never a zero, and the one game
+    // here in §5.4's middle state.
     private static readonly GameSummary MidnightSun = new(
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000004"), "midnight-sun", "Midnight Sun II",
         null, LifecycleState.Active, IsClaimed: false,

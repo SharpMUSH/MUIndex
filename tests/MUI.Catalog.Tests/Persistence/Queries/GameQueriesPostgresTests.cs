@@ -898,25 +898,11 @@ public class GameQueriesPostgresTests
     }
 
     /// <summary>
-    /// "Answering but uncounted" is asked over the probe cadence, not over the count's own freshness
-    /// window — the two windows answer different questions and one value cannot serve both.
+    /// The three cases the two windows straddle: <c>unreadable</c> answered and could not be
+    /// counted; <c>stale</c> was counted four hours ago, past the count's freshness and inside the
+    /// cadence, so its population is known and merely not current; <c>lapsed</c> could not be
+    /// counted eight hours ago and has not been reached since (§5.4's third state).
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <see cref="GameSummary.PlayersNow"/> is null past <c>PLAYERS</c>'s two-hour expected refresh,
-    /// which is the right window for "is this number still current". It is the wrong window for "do
-    /// we know this game's population", because a quiet game is only probed every six hours
-    /// (<c>ProbeSchedule.BaseInterval</c>): between the two, every quiet game spends four hours of
-    /// every six with no fresh sample and nothing wrong with it.
-    /// </para>
-    /// <para>
-    /// The three cases here are the three that window straddles. <c>unreadable</c> answered and could
-    /// not be counted. <c>stale</c> was counted, four hours ago — later than the freshness window and
-    /// well inside the cadence, so its population is known and merely not current. <c>lapsed</c>
-    /// could not be counted eight hours ago and has not been reached since, which is §5.4's third
-    /// state and names no cause.
-    /// </para>
-    /// </remarks>
     [Test]
     public async Task AnsweringButUncountedIsMeasuredOverTheProbeCadenceAndNotTheCountsFreshness()
     {

@@ -132,16 +132,9 @@ public class ProbeScheduleTests
     }
 
     /// <summary>
-    /// The catalogue's "have we heard from this game lately" window is this schedule's own base
-    /// interval, and this test is the only thing holding the two together.
+    /// <c>MUI.Catalog</c> cannot reference <c>MUI.Discovery</c>, so <c>ProbeCadence</c> restates
+    /// this interval rather than reading it. This suite sees both, so it is where that is checked.
     /// </summary>
-    /// <remarks>
-    /// <c>MUI.Catalog</c> cannot reference <c>MUI.Discovery</c> — the arrow runs the other way — so
-    /// <c>NpgsqlGameQueries.ProbeCadence</c> restates the number rather than reading it, which is the
-    /// kind of second opinion that goes wrong the day the interval moves. This suite sees both, so it
-    /// is where the restatement is checked. Move <see cref="ProbeSchedule.BaseInterval"/> and this
-    /// fails until the query layer is moved with it.
-    /// </remarks>
     [Test]
     public async Task TheCatalogueAsksForNewsOverThisSchedulesOwnBaseInterval()
     {
