@@ -118,6 +118,29 @@ public class SilenceIsNotEvidenceTests
     }
 
     /// <summary>
+    /// An operator's <c>CHARSET-MSSP</c> is registered so it can be set, and internal so it is not
+    /// then shown as something the game declared.
+    /// </summary>
+    /// <remarks>
+    /// The one field that is deliberately both, and it is the only combination that works: the
+    /// registry entry is what <c>game_field_set</c> validates against, and without the internal
+    /// entry a sentence we wrote about how to read the game's report would render under "Declared by
+    /// the game" — attributing our decision to them, which is rule 5. No game publishes this
+    /// variable.
+    /// </remarks>
+    [Test]
+    public async Task TheReportCharsetOverrideIsSettableButNotSomethingTheGameSaid()
+    {
+        await Assert.That(InternalFields.IsInternal(InternalFields.CharsetMssp)).IsTrue();
+
+        // Still a real definition, or an operator could not set it at all.
+        await Assert.That(FieldRegistry.Instance.Find(InternalFields.CharsetMssp)).IsNotNull();
+
+        // The channel it qualifies stays visible: a game really does declare CHARSET.
+        await Assert.That(InternalFields.IsInternal("CHARSET")).IsFalse();
+    }
+
+    /// <summary>
     /// A missing count is not a count somebody failed to read.
     /// </summary>
     /// <remarks>The hero previously said <c>state.notCounted</c> whenever <c>PlayersNow</c> was null, but that string is reserved for rule 2's middle state — an hour we reached but couldn't read a count from.</remarks>
