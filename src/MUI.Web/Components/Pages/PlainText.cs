@@ -1350,11 +1350,17 @@ public static class PlainText
 /// What the front page can honestly count: every figure is a count of games we measured, so an
 /// unmeasured number (like "reachable this week") is left out rather than estimated.
 /// </summary>
+/// <remarks>
+/// <see cref="CountUnknown"/> reads <see cref="GameSummary.AnsweredUncounted"/> and not "no count":
+/// a game we have not reached lately has no count either, and putting it here would collapse §5.4's
+/// third state into its middle one and name a cause for it. It also made the figure drift on its
+/// own — see that property's remarks for the two windows involved.
+/// </remarks>
 public sealed record SiteCounts(int Known, int WithPlayersOn, int CountUnknown, int Archived)
 {
     public static SiteCounts From(IReadOnlyList<GameSummary> all) => new(
         all.Count,
         all.Count(g => g.PlayersNow > 0),
-        all.Count(g => g.PlayersNow is null),
+        all.Count(g => g.AnsweredUncounted),
         all.Count(g => g.State is LifecycleState.Archived));
 }

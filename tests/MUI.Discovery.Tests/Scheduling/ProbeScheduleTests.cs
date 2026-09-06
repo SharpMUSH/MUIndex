@@ -1,3 +1,5 @@
+using MUI.Catalog.Persistence;
+
 namespace MUI.Discovery.Tests;
 
 /// <summary>
@@ -127,5 +129,22 @@ public class ProbeScheduleTests
     public async Task ANegativeFailureCountIsAProgrammingError()
     {
         await Assert.That(() => ProbeSchedule.Next(-1, null)).Throws<ArgumentOutOfRangeException>();
+    }
+
+    /// <summary>
+    /// The catalogue's "have we heard from this game lately" window is this schedule's own base
+    /// interval, and this test is the only thing holding the two together.
+    /// </summary>
+    /// <remarks>
+    /// <c>MUI.Catalog</c> cannot reference <c>MUI.Discovery</c> — the arrow runs the other way — so
+    /// <c>NpgsqlGameQueries.ProbeCadence</c> restates the number rather than reading it, which is the
+    /// kind of second opinion that goes wrong the day the interval moves. This suite sees both, so it
+    /// is where the restatement is checked. Move <see cref="ProbeSchedule.BaseInterval"/> and this
+    /// fails until the query layer is moved with it.
+    /// </remarks>
+    [Test]
+    public async Task TheCatalogueAsksForNewsOverThisSchedulesOwnBaseInterval()
+    {
+        await Assert.That(NpgsqlGameQueries.ProbeCadence).IsEqualTo(ProbeSchedule.BaseInterval);
     }
 }

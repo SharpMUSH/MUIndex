@@ -109,6 +109,29 @@ public sealed partial class NpgsqlGameQueries(
     public static readonly TimeSpan ThisWeek = TimeSpan.FromDays(7);
 
     /// <summary>
+    /// How long a healthy game may go between probes — the window "have we heard anything from this
+    /// game lately" is asked over.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Deliberately not <c>PLAYERS</c>'s expected refresh.</b> That window says when a count stops
+    /// being current, which is a fact about the number; this one says when silence starts meaning
+    /// something, which is a fact about our own crawl. Asking the second question with the first
+    /// window is what made the front page's "unknown population" tile drift minute to minute: a quiet
+    /// game is probed every six hours against a two-hour freshness window, so it fell out of the
+    /// fresh set for four hours of every six with nothing whatever wrong with it.
+    /// </para>
+    /// <para>
+    /// <b>It must equal <c>ProbeSchedule.BaseInterval</c>, and it restates it rather than reading
+    /// it</b> — <c>MUI.Catalog</c> cannot reference <c>MUI.Discovery</c>, since the arrow runs the
+    /// other way. The restatement is held to the original by
+    /// <c>ProbeScheduleTests.TheCatalogueAsksForNewsOverThisSchedulesOwnBaseInterval</c>, in the one
+    /// suite that sees both.
+    /// </para>
+    /// </remarks>
+    public static readonly TimeSpan ProbeCadence = TimeSpan.FromHours(6);
+
+    /// <summary>
     /// The window the busiest ranking is measured over, and named on the page.
     /// </summary>
     /// <remarks>
@@ -223,12 +246,21 @@ public sealed partial class NpgsqlGameQueries(
 
     /// <summary>
     /// The presence facts a listing needs, in one pass: the current count, whether anybody was
-    /// counted this week, and — separately — whether the week holds any readable count at all.
+    /// counted this week, and — separately — whether the week and the probe cadence hold any
+    /// readable count at all.
     /// </summary>
     /// <remarks>
-    /// The last pair distinguishes a measured zero from an unreadable one — a game at nought all
-    /// week and a game whose every <c>WHO</c> failed to parse must not collapse into one activity
-    /// band.
+    /// <para>
+    /// The counted/uncountable pairs distinguish a measured zero from an unreadable one — a game at
+    /// nought all week and a game whose every <c>WHO</c> failed to parse must not collapse into one
+    /// activity band.
+    /// </para>
+    /// <para>
+    /// That pair is taken over two windows because two surfaces ask it at two scales: the week is
+    /// the <c>uncounted</c> facet's, and <see cref="ProbeCadence"/> is the front page's "unknown
+    /// population". Neither is <c>PLAYERS</c>'s expected refresh, which the count itself ages
+    /// against — see <see cref="ProbeCadence"/> for why conflating the two made that tile drift.
+    /// </para>
     /// </remarks>
     private async Task<Dictionary<Guid, PresenceDigest>> PresenceDigestAsync(
         NpgsqlConnection connection,
@@ -260,15 +292,22 @@ public sealed partial class NpgsqlGameQueries(
                  ORDER BY p.game_id, p.at DESC
             ),
 
-            -- Three tallies, one scan: `count(p.count)` includes a measured nought;
+            -- Five tallies, one scan: `count(p.count)` includes a measured nought;
             -- `count(*) FILTER (count IS NULL)` is answered-but-unreadable. A row exists only
             -- where a probe got far enough to try, so no tally here speaks for an hour we never
             -- measured (§5.4's third state, which names no cause).
+            --
+            -- The last two ask the same counted/uncountable question over the probe cadence
+            -- instead of the week. `@cadenceFrom` is inside `@weekFrom`, so they ride the scan
+            -- this CTE is already doing rather than buying a third pass over the partition.
             week AS (
                 SELECT p.game_id,
                        count(*) FILTER (WHERE p.count > 0) AS nonzero,
                        count(p.count) AS counted,
-                       count(*) FILTER (WHERE p.count IS NULL) AS uncountable
+                       count(*) FILTER (WHERE p.count IS NULL) AS uncountable,
+                       count(p.count) FILTER (WHERE p.at >= @cadenceFrom) AS counted_recently,
+                       count(*) FILTER (
+                           WHERE p.at >= @cadenceFrom AND p.count IS NULL) AS uncountable_recently
                   FROM presence_sample p
                  WHERE p.game_id = ANY(@ids) AND p.at >= @weekFrom
                  GROUP BY p.game_id
@@ -280,7 +319,9 @@ public sealed partial class NpgsqlGameQueries(
             SELECT g.id AS GameId, recent.count AS CountNow, recent.at AS CountedAt,
                    recent.source AS CountSource, coalesce(week.nonzero, 0) AS NonZeroThisWeek,
                    coalesce(week.counted, 0) AS CountedThisWeek,
-                   coalesce(week.uncountable, 0) AS UncountableThisWeek
+                   coalesce(week.uncountable, 0) AS UncountableThisWeek,
+                   coalesce(week.counted_recently, 0) AS CountedWithinCadence,
+                   coalesce(week.uncountable_recently, 0) AS UncountableWithinCadence
               FROM unnest(@ids::uuid[]) AS g(id)
               LEFT JOIN recent ON recent.game_id = g.id
               LEFT JOIN week   ON week.game_id   = g.id
@@ -290,6 +331,7 @@ public sealed partial class NpgsqlGameQueries(
                 ids,
                 nowFrom = (now - nowWindow).ToUniversalTime(),
                 weekFrom = (now - ThisWeek).ToUniversalTime(),
+                cadenceFrom = (now - ProbeCadence).ToUniversalTime(),
             },
             cancellationToken: cancellationToken));
 
@@ -301,7 +343,9 @@ public sealed partial class NpgsqlGameQueries(
                 r.CountedAt,
                 r.CountSource is { } source ? SqlEnums.ToFieldSource(source) : null,
                 r.CountedThisWeek > 0,
-                r.UncountableThisWeek > 0));
+                r.UncountableThisWeek > 0,
+                r.CountedWithinCadence > 0,
+                r.UncountableWithinCadence > 0));
     }
 
     private sealed class DigestRow
@@ -319,6 +363,10 @@ public sealed partial class NpgsqlGameQueries(
         public long CountedThisWeek { get; init; }
 
         public long UncountableThisWeek { get; init; }
+
+        public long CountedWithinCadence { get; init; }
+
+        public long UncountableWithinCadence { get; init; }
     }
 
     /// <summary>
@@ -539,7 +587,13 @@ public sealed partial class NpgsqlGameQueries(
         bool CountedThisWeek = false,
 
         /// <summary>Any sample this week answered and carried no number (§5.4's middle state).</summary>
-        bool UncountableThisWeek = false)
+        bool UncountableThisWeek = false,
+
+        /// <summary>The same question as <see cref="CountedThisWeek"/>, over <see cref="ProbeCadence"/>.</summary>
+        bool CountedWithinCadence = false,
+
+        /// <summary>The same question as <see cref="UncountableThisWeek"/>, over <see cref="ProbeCadence"/>.</summary>
+        bool UncountableWithinCadence = false)
     {
         /// <summary>
         /// We hold presence rows for the week and not one of them is readable.
@@ -551,6 +605,17 @@ public sealed partial class NpgsqlGameQueries(
         /// is not measured — and naming a cause for that is the one thing rule 2 forbids.
         /// </remarks>
         public bool Uncounted => UncountableThisWeek && !CountedThisWeek;
+
+        /// <summary>
+        /// The same reading over <see cref="ProbeCadence"/>: we got in since the last probe was due
+        /// and no visit produced a number.
+        /// </summary>
+        /// <remarks>
+        /// Both halves are load-bearing for the same two reasons as <see cref="Uncounted"/>, and the
+        /// window is the third: over <c>PLAYERS</c>'s expected refresh this would catch every quiet
+        /// game between probes, which is most of them most of the time.
+        /// </remarks>
+        public bool AnsweredUncounted => UncountableWithinCadence && !CountedWithinCadence;
 
         public static readonly PresenceDigest None = new(null, false);
     }

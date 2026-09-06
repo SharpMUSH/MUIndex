@@ -57,9 +57,16 @@ else
 
             All four figures are counts of games, not of players — "populated" means "this many
             games have someone connected right now" (a connection, not a headcount: one player
-            with two clients is two connections, and a bot is a connection). "Unknown population"
-            is not "answering, but no count" — PlayersNow is also null for a game we simply
-            couldn't reach just now, so the tile covers both.
+            with two clients is two connections, and a bot is a connection).
+
+            "Unknown population" is exactly §5.4's middle state: we got in and no visit produced a
+            number. It is NOT "PlayersNow is null", which it used to be — that also catches a game
+            we have not reached lately, which is the third state and names no cause (rule 2), and
+            it made this figure drift on its own. PlayersNow goes null past PLAYERS's two-hour
+            expected refresh while a quiet game is only probed every six, so every quiet game fell
+            into this tile for four hours out of every six and back out again, with nothing at all
+            having happened. The tile now reads GameSummary.AnsweredUncounted, which asks the same
+            question over the probe cadence.
         *@
         <ul class="tiles">
             <li>

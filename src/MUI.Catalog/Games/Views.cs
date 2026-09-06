@@ -134,7 +134,28 @@ public sealed record GameSummary(
     int? GrowthPlayers = null,
 
     /// <summary>When we first saw this address, for <see cref="GameSort.Discovered"/>.</summary>
-    DateTimeOffset? FirstSeenAt = null);
+    DateTimeOffset? FirstSeenAt = null,
+
+    /// <summary>
+    /// We got into this game within the probe cadence and not one of those visits produced a number
+    /// — §5.4's middle state, asked over the window a healthy game is actually probed on.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Not the same question as <see cref="PlayersNow"/> being null</b>, and the difference is the
+    /// whole reason this exists. <see cref="PlayersNow"/> goes null the moment the newest count falls
+    /// outside <c>PLAYERS</c>'s expected refresh, which is the right window for "is this figure still
+    /// current" and the wrong one for "do we know this game's population": a quiet game is probed
+    /// every six hours against a two-hour freshness window, so it spends four hours of every six with
+    /// no fresh count and nothing at all wrong with it.
+    /// </para>
+    /// <para>
+    /// False for a game we simply have not reached lately, which is rule 2's third state and names no
+    /// cause. Distinct from <c>GameFacetRow.Uncounted</c> only in its window — that one asks the same
+    /// question of the whole week, and is a facet a reader can filter on.
+    /// </para>
+    /// </remarks>
+    bool AnsweredUncounted = false);
 
 /// <summary>
 /// What a game's counts added up to over one window — the basis a window sort ranks on (spec §9).

@@ -897,6 +897,53 @@ public class GameQueriesPostgresTests
         await Assert.That(page.Declared.Keys).IsEmpty();
     }
 
+    /// <summary>
+    /// "Answering but uncounted" is asked over the probe cadence, not over the count's own freshness
+    /// window — the two windows answer different questions and one value cannot serve both.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="GameSummary.PlayersNow"/> is null past <c>PLAYERS</c>'s two-hour expected refresh,
+    /// which is the right window for "is this number still current". It is the wrong window for "do
+    /// we know this game's population", because a quiet game is only probed every six hours
+    /// (<c>ProbeSchedule.BaseInterval</c>): between the two, every quiet game spends four hours of
+    /// every six with no fresh sample and nothing wrong with it.
+    /// </para>
+    /// <para>
+    /// The three cases here are the three that window straddles. <c>unreadable</c> answered and could
+    /// not be counted. <c>stale</c> was counted, four hours ago — later than the freshness window and
+    /// well inside the cadence, so its population is known and merely not current. <c>lapsed</c>
+    /// could not be counted eight hours ago and has not been reached since, which is §5.4's third
+    /// state and names no cause.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task AnsweringButUncountedIsMeasuredOverTheProbeCadenceAndNotTheCountsFreshness()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var unreadable = await Seed.GameAsync(db, "unreadable", "Unreadable", lastReachableAt: Now);
+        var stale = await Seed.GameAsync(db, "stale", "Counted a while ago", lastReachableAt: Now);
+        var lapsed = await Seed.GameAsync(db, "lapsed", "Not reached since", lastReachableAt: Now);
+        var writer = new PresenceWriter(new NpgsqlPresenceStore(db.DataSource));
+
+        await writer.WriteAsync(
+            unreadable,
+            PresenceReading.Unmeasurable(UnmeasurableReason.WhoUnparseable),
+            Now.AddHours(-3));
+        await writer.WriteAsync(stale, PresenceReading.Counted(4, FieldSource.Who), Now.AddHours(-4));
+        await writer.WriteAsync(
+            lapsed, PresenceReading.Unmeasurable(UnmeasurableReason.WhoUnparseable), Now.AddHours(-8));
+
+        var listed = await QueriesOn(db).ListAsync(new GameFilter());
+
+        // All three are past the count's freshness window, so "no count" cannot separate them.
+        await Assert.That(listed.Select(g => g.PlayersNow).Distinct().ToList())
+            .IsEquivalentTo(new int?[] { null });
+
+        await Assert.That(listed.Where(g => g.AnsweredUncounted).Select(g => g.Slug))
+            .IsEquivalentTo(new[] { "unreadable" });
+    }
+
     [Test]
     public async Task AnEndpointOnThePageSaysWhetherTlsWasMeasured()
     {
