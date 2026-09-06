@@ -100,6 +100,105 @@ public class ProbeSessionTests
         await Assert.That(told.CharsetSource).IsEqualTo(WireCharset.Overridden);
     }
 
+    /// <summary>
+    /// A game whose report is not in its connect screen's encoding is read correctly in both.
+    /// </summary>
+    /// <remarks>
+    /// Measured at <c>doom.twmuds.com:4000</c> on 2026-09-06: a Big5 screen and a UTF-8 report, in one
+    /// session. No value of <c>CHARSET</c> reads both, and the value that reads the screen destroys
+    /// the name — Big5 has no round trip for those bytes.
+    /// <para>
+    /// This also pins the lifetime bug it was written against. The report's raw bytes were read out
+    /// of the library's <c>MSSPConfig</c> long after the callback that delivered it returned, by
+    /// which time the buffers behind them had been reused: three raw values inside the callback,
+    /// none by the end of the session. Every report then fell back to the library's own decode and
+    /// silently ignored whatever encoding it was handed — sometimes. Whether it did was a race, so
+    /// this test failing again means the copy has stopped happening.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task AGameWhoseReportIsNotInItsScreensEncodingIsReadCorrectlyInBoth()
+    {
+        // FakeGame writes Latin-1, so a Latin-1 string of these bytes puts exactly them on the wire.
+        // 歡迎來到 in Big5, as the host's screen sends it.
+        var welcome = Encoding.Latin1.GetString(
+            new byte[] { 0xC5, 0x77, 0xAA, 0xEF, 0xA8, 0xD3, 0xA8, 0xEC });
+
+        // The report's own value. Unlike the screen, MSSP values go out through the library's
+        // encoder, which is UTF-8 here — so this string is UTF-8 on the wire, as doom sends it.
+        const string name = "Doom of Lost Kingdoms (\u5931\u843D\u7684\u570B\u5EA6)";
+
+        await using var game = new FakeGame
+        {
+            AnnouncesMssp = true,
+            MsspPlayers = 4,
+            MsspExtras = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["DESCRIPTION"] = name,
+            },
+            Banner = $"----====   {welcome}  ====----\r\n",
+            BannerTail = "Enter your name: ",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(
+            game.Target with { Charset = "big5", MsspCharset = "utf-8" });
+
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+
+        // The screen keeps the encoding it needs.
+        await Assert.That(result.Banner).Contains("歡迎來到");
+        await Assert.That(result.ReadAs).IsEqualTo("big5");
+
+        // And the report is read as a report, not as the screen.
+        await Assert.That(MsspReport.Last(result.Mssp, "DESCRIPTION"))
+            .IsEqualTo("Doom of Lost Kingdoms (失落的國度)");
+    }
+
+    /// <summary>
+    /// The report is decoded from its bytes, not taken as the telnet library already decoded them.
+    /// </summary>
+    /// <remarks>
+    /// The companion above cannot prove this on its own, and a reviewer was right to say so: its
+    /// fixture sends UTF-8 and the override names UTF-8, so <see cref="MsspReport.From"/>'s fallback
+    /// to the library's own decode would produce the same string and the test would pass with the
+    /// raw-byte path dead.
+    /// <para>
+    /// So this one names an encoding that <em>disagrees</em> with the wire. The bytes are UTF-8 and
+    /// the operator says Latin-1, which is wrong about the game and exactly the point: only decoding
+    /// the retained bytes can produce this answer. The library's decode would hand back the clean
+    /// string, so if that fallback ever starts firing, this fails and the other test does not.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task TheReportIsDecodedFromItsBytesRatherThanTakenAsAlreadyDecoded()
+    {
+        const string name = "Doom of Lost Kingdoms (\u5931\u843D\u7684\u570B\u5EA6)";
+
+        // What those UTF-8 bytes say when read as Latin-1 — reachable only through the bytes.
+        var throughTheBytes = Encoding.Latin1.GetString(Encoding.UTF8.GetBytes(name));
+
+        await using var game = new FakeGame
+        {
+            AnnouncesMssp = true,
+            MsspPlayers = 4,
+            MsspExtras = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["DESCRIPTION"] = name,
+            },
+            Banner = "Welcome\r\n",
+            BannerTail = "Enter your name: ",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(
+            game.Target with { MsspCharset = "iso-8859-1" });
+
+        await Assert.That(MsspReport.Last(result.Mssp, "DESCRIPTION")).IsEqualTo(throughTheBytes);
+
+        // Stated the other way round, because this is the assertion that has teeth: the library's
+        // own decode is the clean string, and getting it back would mean the bytes went unread.
+        await Assert.That(MsspReport.Last(result.Mssp, "DESCRIPTION")).IsNotEqualTo(name);
+    }
+
     [Test]
     public async Task AServerThatHangsUpOnTheFlushLineStillCountsAsHavingAnswered()
     {
@@ -1953,10 +2052,6 @@ public class ProbeSessionTests
         /// </remarks>
         public IReadOnlyDictionary<string, string> MsspExtras { get; init; } =
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        /// <summary>
-
-        /// <summary>
 
         /// <summary>
         /// Whether the server compresses everything after its option handshake, as MCCP2 servers do.

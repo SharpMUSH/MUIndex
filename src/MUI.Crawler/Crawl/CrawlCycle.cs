@@ -232,6 +232,7 @@ public sealed class CrawlCycle(
             new ProbeTarget(target.Host, target.Port)
             {
                 Charset = target.Charset,
+                MsspCharset = target.MsspCharset,
 
                 // The addresses the guard just vetted, so the dial reaches what was ruled on and the
                 // name is resolved once rather than twice.

@@ -198,12 +198,29 @@ public static class InternalFields
     /// </remarks>
     public const string CharsetRead = "charset.read";
 
+    /// <summary>
+    /// The encoding an operator has said this game's MSSP report is in (see <c>WireEncoding.Read</c>).
+    /// </summary>
+    /// <remarks>
+    /// Internal for the same reason as <see cref="CharsetRead"/>, and more plainly: no game publishes
+    /// this variable. It is a sentence we wrote about how to read what the game published, so
+    /// rendering it under <c>GamePage.Declared</c>'s "Declared by the game" would attribute our own
+    /// decision to the game, which is rule 5.
+    /// <para>
+    /// Unlike <see cref="CharsetRead"/> it is <em>also</em> a real <c>FieldRegistry</c> definition,
+    /// and both halves are load-bearing: the registry entry is what lets an operator set it through
+    /// <c>game_field_set</c> without new tooling, and this entry is what keeps it off the page.
+    /// </para>
+    /// </remarks>
+    public const string CharsetMssp = "CHARSET-MSSP";
+
     private static readonly HashSet<string> Names = new(StringComparer.Ordinal)
     {
         BannerHash,
         ConnectScreen,
         ConnectScreenSuppressed,
         CharsetRead,
+        CharsetMssp,
     };
 
     /// <summary>
@@ -341,6 +358,13 @@ public sealed class FieldRegistry : IFieldRegistry
         Add("IP", Automatic);
         Add("IPV6", Automatic);
         Add("CHARSET", Automatic);
+
+        // Not a variable any game publishes: an operator's statement about how this game's report is
+        // encoded, for the few whose report is not in their connect screen's encoding. Registered so
+        // it is settable through game_field_set like any other staff override, rather than needing
+        // tooling of its own — and listed in InternalFields so that registration does not also put
+        // it on the page under "Declared by the game". See WireEncoding.Read.
+        Add(InternalFields.CharsetMssp, Automatic);
         Add("CONTACT", Contactable, OwnerWritable.Override, FieldShape.Email);
         Add("WEBSITE", Contactable, OwnerWritable.Override, FieldShape.Url);
         Add("DISCORD", Contactable, OwnerWritable.Override, FieldShape.Url);

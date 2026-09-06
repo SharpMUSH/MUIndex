@@ -51,6 +51,17 @@ public sealed record CrawlTarget
     /// </remarks>
     public string? Charset { get; init; }
 
+    /// <summary>
+    /// The encoding an operator has said this game's MSSP report is in, from <c>CHARSET-MSSP</c>
+    /// under source <c>staff</c> — or null, which is nearly every target.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="Charset"/> because the two channels genuinely differ: world text is
+    /// legacy when the game is, while a report is generally a config file somebody wrote in a modern
+    /// editor. Travels with the target for the same reason, and is read-only for the same reason.
+    /// </remarks>
+    public string? MsspCharset { get; init; }
+
     public DateTimeOffset? LastProbedAt { get; init; }
 
     public Guid? DiscoveredFromGameId { get; init; }

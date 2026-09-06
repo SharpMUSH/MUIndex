@@ -205,7 +205,8 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             WireReading reading;
             lock (lines)
             {
-                reading = WireEncoding.Read(lines, target.Charset, MsspReport.RawValues(seen.Mssp));
+                reading = WireEncoding.Read(
+                    lines, target.Charset, MsspReport.RawValues(seen.Mssp), target.MsspCharset);
             }
 
             return BuildAnsweredResult(
@@ -614,7 +615,8 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             screen = [.. lines.Take(cursors.Banner)];
         }
 
-        var text = WireEncoding.Read(screen, target.Charset, MsspReport.RawValues(seen.Mssp)).Lines;
+        var text = WireEncoding.Read(
+            screen, target.Charset, MsspReport.RawValues(seen.Mssp), target.MsspCharset).Lines;
         var banner = string.Join("\n", text);
 
         return BannerCount.Find(PuebloSignal.IsPresent(banner) ? PuebloSignal.StripKnown(banner) : banner);
@@ -695,7 +697,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // why not asking must imply publishing. Second, not first: the session-wide charset
             // decision is made above and a screen this decode reads better is read better.
             BannerPlayerCount = BannerCount.Find(banner) ?? published,
-            Mssp = viaOption ? MsspReport.From(seen.Mssp, reading.Encoding) : MsspReport.Empty,
+            Mssp = viaOption ? MsspReport.From(seen.Mssp, reading.MsspEncoding) : MsspReport.Empty,
             MsspOutcome = seen.MsspOutcome,
             MsspBytesRejected = seen.MsspRejectedBytes,
             MsspTransport = viaOption ? MsspTransport.TelnetOption70 : MsspTransport.None,

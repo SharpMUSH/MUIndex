@@ -73,33 +73,56 @@ public static class WireEncoding
     /// More bytes the same server sent that are not part of the ordered screen — MSSP values, which
     /// arrive in a subnegotiation rather than in the stream. They decide the encoding along with
     /// <paramref name="lines"/> and are not returned; the caller decodes them with
-    /// <see cref="WireReading.Encoding"/>.
+    /// <see cref="WireReading.MsspEncoding"/>.
+    /// </param>
+    /// <param name="msspOverrideName">
+    /// The operator's <c>CHARSET-MSSP</c> override, for a game whose report is not in the same
+    /// encoding as its screen. Null on all but the few that have needed one.
     /// </param>
     /// <remarks>
+    /// <para>
     /// Decided once for all lines, not per line — a single line of pure ASCII is well-formed under
     /// every candidate and would let the same server be read two ways within one screen. The unit is
     /// the <em>session</em> rather than the screen for the same reason one step out: a game with an
     /// ASCII login prompt and a GBK name in MSSP would otherwise be called UTF-8 on the strength of
     /// the prompt, and its name read with an encoding nothing ever tested.
+    /// </para>
+    /// <para>
+    /// That last argument is exactly why <paramref name="msspOverrideName"/> takes the report's bytes
+    /// out of the vote when it is set: the vote protects the report, and a report whose encoding has
+    /// been stated no longer needs protecting. Leaving it in would mean an operator who fixes a
+    /// game's name drags its connect screen to Latin-1 in the same stroke. Measured at
+    /// <c>doom.twmuds.com:4000</c>, whose screen is Big5 and whose report is UTF-8 — no one value of
+    /// <c>CHARSET</c> reads both, and the one that read the screen destroyed the name.
+    /// </para>
     /// </remarks>
     public static WireReading Read(
         IReadOnlyList<byte[]> lines,
         string? overrideName = null,
-        IReadOnlyList<byte[]>? alsoFromThisSession = null)
+        IReadOnlyList<byte[]>? alsoFromThisSession = null,
+        string? msspOverrideName = null)
     {
         ArgumentNullException.ThrowIfNull(lines);
 
+        var report = Override(msspOverrideName);
+
+        // Evidence about the screen only while nothing has said what the report is.
+        var votes = report is null ? alsoFromThisSession : null;
+
         if (Override(overrideName) is { } forced)
         {
-            return new WireReading(Decode(lines, forced), forced.WebName, WireCharset.Overridden, forced);
+            return new WireReading(
+                Decode(lines, forced), forced.WebName, WireCharset.Overridden, forced, report ?? forced);
         }
 
-        if (IsUtf8(lines) && IsUtf8(alsoFromThisSession))
+        if (IsUtf8(lines) && IsUtf8(votes))
         {
-            return new WireReading(Decode(lines, Utf8), Utf8.WebName, WireCharset.Proven, Utf8);
+            return new WireReading(
+                Decode(lines, Utf8), Utf8.WebName, WireCharset.Proven, Utf8, report ?? Utf8);
         }
 
-        return new WireReading(Decode(lines, Fallback), Fallback.WebName, WireCharset.Undetermined, Fallback);
+        return new WireReading(
+            Decode(lines, Fallback), Fallback.WebName, WireCharset.Undetermined, Fallback, report ?? Fallback);
     }
 
     /// <summary>Whether every line is well-formed UTF-8. Nothing to read is nothing against it.</summary>
@@ -185,11 +208,18 @@ public enum WireCharset
 /// with the decision the whole session produced rather than with one taken again over a single
 /// field, which is usually a handful of bytes and decides nothing.
 /// </param>
+/// <param name="MsspEncoding">
+/// The encoding the report's values are read with. The same object as <paramref name="Encoding"/>
+/// unless an operator's <c>CHARSET-MSSP</c> says the report is in an encoding of its own — which
+/// happens because world text is legacy when the game is, while a report is generally a config file
+/// somebody wrote in a modern editor, and nothing makes the two agree.
+/// </param>
 public sealed record WireReading(
     IReadOnlyList<string> Lines,
     string Charset,
     WireCharset Source,
-    Encoding Encoding)
+    Encoding Encoding,
+    Encoding MsspEncoding)
 {
     /// <summary>Whether an operator's override drove the decode, rather than the bytes or a fallback.</summary>
     public bool Overridden => Source is WireCharset.Overridden;

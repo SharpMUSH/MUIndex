@@ -25,6 +25,18 @@ public sealed record ProbeTarget(string Host, int Port)
     /// </remarks>
     public string? Charset { get; init; }
 
+    /// <summary>
+    /// The encoding an operator has said this game's MSSP report is in, when that is not the one its
+    /// screen is in.
+    /// </summary>
+    /// <remarks>
+    /// Null on all but the few that have needed one — world text is legacy when the game is, while a
+    /// report is generally a config file somebody wrote in a modern editor, and nothing makes the two
+    /// agree. Measured at <c>doom.twmuds.com:4000</c>: Big5 screen, UTF-8 report, one session. See
+    /// <see cref="WireEncoding.Read"/>, including why a declared report stops voting on the screen.
+    /// </remarks>
+    public string? MsspCharset { get; init; }
+
     public override string ToString() => Host.Contains(':') ? $"[{Host}]:{Port}" : $"{Host}:{Port}";
 }
 

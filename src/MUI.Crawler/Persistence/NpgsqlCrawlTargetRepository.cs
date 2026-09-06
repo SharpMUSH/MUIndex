@@ -39,7 +39,12 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
            FROM game_field f
           WHERE f.game_id = crawl_target.game_id
             AND f.field = 'CHARSET'
-            AND f.source = 'staff') AS Charset
+            AND f.source = 'staff') AS Charset,
+        (SELECT f.value
+           FROM game_field f
+          WHERE f.game_id = crawl_target.game_id
+            AND f.field = 'CHARSET-MSSP'
+            AND f.source = 'staff') AS MsspCharset
         """;
 
     public async Task<CrawlTarget?> ByAddressAsync(string host, int port, CancellationToken ct)
@@ -216,6 +221,8 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
 
         public string? Charset { get; init; }
 
+        public string? MsspCharset { get; init; }
+
         public CrawlTarget ToRecord() => new()
         {
             Id = Id,
@@ -234,6 +241,7 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
             SubmittedAt = SubmittedAt,
             DiscoveredVia = DiscoverySources.From(DiscoveredVia),
             Charset = Charset,
+            MsspCharset = MsspCharset,
         };
     }
 }
