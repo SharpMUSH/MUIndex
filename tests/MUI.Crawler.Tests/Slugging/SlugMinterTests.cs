@@ -352,6 +352,50 @@ public class SlugMinterTests
     }
 
     /// <summary>
+    /// A standing staff override keeps the name — the guard on the test below.
+    /// </summary>
+    [Test]
+    public async Task AStandingStaffOverrideKeepsTheNameFromTheReport()
+    {
+        var catalogue = new Catalogue();
+        var game = catalogue.Listed();
+        await StaffDeclaredAsync(catalogue, game, "Harbourlight");
+        await catalogue.Minter(Grace).ApplyAsync(game, "Harbourlight");
+        await DeclaredAsync(catalogue, game, "Corvid Reborn", changedAt: Now.AddDays(-60));
+
+        var rename = await catalogue.Minter(Grace).ConsiderAsync(game, Now);
+
+        await Assert.That(rename).IsNull();
+        await Assert.That((await catalogue.Games.ByIdAsync(game))!.Name).IsEqualTo("Harbourlight");
+    }
+
+    /// <summary>
+    /// Withdrawing a <em>staff</em> override hands the name back to the report, exactly as
+    /// withdrawing an owner's does.
+    /// </summary>
+    /// <remarks>
+    /// The owner path reaches this by being excluded from the ladder outright; staff is not excluded
+    /// and must not be, so only dropping the empty value gets there. Without it the game wears the
+    /// name staff gave it permanently — a withdrawal that withdraws nothing.
+    /// </remarks>
+    [Test]
+    public async Task WithdrawingAStaffOverrideLetsTheReportHaveTheNameBack()
+    {
+        var catalogue = new Catalogue();
+        var game = catalogue.Listed();
+        await StaffDeclaredAsync(catalogue, game, "Harbourlight");
+        await catalogue.Minter(Grace).ApplyAsync(game, "Harbourlight");
+        await DeclaredAsync(catalogue, game, "Corvid Reborn", changedAt: Now.AddDays(-60));
+
+        // Withdrawn, which is an empty value on a row that goes on existing — nothing is deleted.
+        await StaffDeclaredAsync(catalogue, game, string.Empty);
+
+        var rename = await catalogue.Minter(Grace).ConsiderAsync(game, Now);
+
+        await Assert.That(rename!.Name).IsEqualTo("Corvid Reborn");
+    }
+
+    /// <summary>
     /// A game whose name is in a script the slug fold cannot keep takes the name and keeps the URL.
     /// </summary>
     /// <remarks>
@@ -375,6 +419,11 @@ public class SlugMinterTests
         await Assert.That(catalogue.Slugs.All).IsEmpty();
         await Assert.That((await catalogue.Games.ByIdAsync(game))!.Name).IsEqualTo("엘리시안 전기");
     }
+
+    /// <summary>The row <c>game_field_set</c> stores when staff overrides <c>NAME</c> by hand.</summary>
+    private static Task StaffDeclaredAsync(Catalogue catalogue, Guid game, string name) =>
+        catalogue.Fields.UpsertAsync(new GameField(
+            game, IdentityMsspVariables.Name, FieldSource.Staff, name, Now.AddDays(-1), Now));
 
     /// <summary>The row <c>OwnerEnrichment</c> stores when an owner answers <c>NAME</c>.</summary>
     private static Task OwnerDeclaredAsync(Catalogue catalogue, Guid game, string name) =>
