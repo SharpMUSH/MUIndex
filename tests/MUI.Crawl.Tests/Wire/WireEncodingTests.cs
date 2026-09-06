@@ -208,4 +208,118 @@ public class WireEncodingTests
         await Assert.That(asGbk).Contains("北");
         await Assert.That(asBig5).DoesNotContain("北");
     }
+
+    // ── A report in an encoding of its own ───────────────────────────────────────────────────────
+
+    /// <summary>
+    /// <c>Doom of Lost Kingdoms (失落的國度)</c> as <c>doom.twmuds.com:4000</c> sends it in MSSP:
+    /// UTF-8, and not well-formed Big5.
+    /// </summary>
+    private static readonly byte[] DoomReportName =
+    [
+        0x44, 0x6F, 0x6F, 0x6D, 0x20, 0x6F, 0x66, 0x20, 0x4C, 0x6F, 0x73, 0x74, 0x20, 0x4B, 0x69,
+        0x6E, 0x67, 0x64, 0x6F, 0x6D, 0x73, 0x20, 0x28, 0xE5, 0xA4, 0xB1, 0xE8, 0x90, 0xBD, 0xE7,
+        0x9A, 0x84, 0xE5, 0x9C, 0x8B, 0xE5, 0xBA, 0xA6, 0x29,
+    ];
+
+    /// <summary><c>歡迎來到</c> from the same host's connect screen, in Big5, and not UTF-8 at all.</summary>
+    private static readonly byte[] DoomScreenWelcome =
+        [0xC5, 0x77, 0xAA, 0xEF, 0xA8, 0xD3, 0xA8, 0xEC];
+
+    /// <summary>
+    /// The case this exists for: one session, two channels, and no single encoding that reads both.
+    /// </summary>
+    /// <remarks>
+    /// Measured at <c>doom.twmuds.com:4000</c> on 2026-09-06. Its world text is Big5 because the game
+    /// is; its report is UTF-8 because a report is generally a config file somebody wrote in a modern
+    /// editor. Before this override existed, a staff <c>CHARSET</c> of Big5 read the screen correctly
+    /// and turned the name into <c>Doom of Lost Kingdoms (憭梯??摨?</c> — lossily, so the bytes could
+    /// not be recovered afterwards.
+    /// </remarks>
+    [Test]
+    public async Task AReportOverrideReadsTheReportWithoutMovingTheScreen()
+    {
+        var reading = WireEncoding.Read(
+            [DoomScreenWelcome], "big5", [DoomReportName], msspOverrideName: "utf-8");
+
+        await Assert.That(reading.Lines[0]).IsEqualTo("歡迎來到");
+        await Assert.That(reading.Encoding.WebName).IsEqualTo("big5");
+
+        await Assert.That(reading.MsspEncoding.GetString(DoomReportName))
+            .IsEqualTo("Doom of Lost Kingdoms (失落的國度)");
+    }
+
+    /// <summary>
+    /// With nothing said about the report, it is read with whatever the session settled on — so the
+    /// games nobody has touched decode exactly as they did before this field existed.
+    /// </summary>
+    [Test]
+    [Arguments(null, WireCharset.Undetermined)]
+    [Arguments("gbk", WireCharset.Overridden)]
+    public async Task WithoutAReportOverrideTheReportSharesTheSessionEncoding(
+        string? charset, WireCharset expected)
+    {
+        var reading = WireEncoding.Read([PkuxkxTitle], charset);
+
+        await Assert.That(reading.Source).IsEqualTo(expected);
+        await Assert.That(reading.MsspEncoding).IsEqualTo(reading.Encoding);
+    }
+
+    /// <summary>And the same when the session proved itself UTF-8 rather than being told.</summary>
+    [Test]
+    public async Task AProvenSessionLendsItsEncodingToTheReportToo()
+    {
+        var reading = WireEncoding.Read([Ascii]);
+
+        await Assert.That(reading.Source).IsEqualTo(WireCharset.Proven);
+        await Assert.That(reading.MsspEncoding).IsEqualTo(reading.Encoding);
+    }
+
+    /// <summary>
+    /// A report with a declared encoding stops voting on the screen's.
+    /// </summary>
+    /// <remarks>
+    /// The vote exists to stop a report being read with an encoding nothing tested — see
+    /// <see cref="BytesFromElsewhereInTheSessionDecideItToo"/>, which is the same input without the
+    /// override and is pinned below. Once the report has been declared, its bytes are no longer
+    /// evidence about the screen, and leaving the vote in would mean an operator who fixes a game's
+    /// name drags its connect screen to Latin-1 in the same stroke.
+    /// </remarks>
+    [Test]
+    public async Task ADeclaredReportNoLongerDecidesTheScreen()
+    {
+        var reading = WireEncoding.Read(
+            [Ascii], alsoFromThisSession: [PkuxkxTitle], msspOverrideName: "gbk");
+
+        await Assert.That(reading.Charset).IsEqualTo("utf-8");
+        await Assert.That(reading.Source).IsEqualTo(WireCharset.Proven);
+        await Assert.That(reading.MsspEncoding.WebName).IsEqualTo("gb2312");
+    }
+
+    /// <summary>
+    /// The same input with nothing declared still reaches Latin-1 — the documented behaviour, pinned
+    /// so this change cannot quietly widen into the default path.
+    /// </summary>
+    [Test]
+    public async Task AnUndeclaredReportStillDecidesTheScreen()
+    {
+        var reading = WireEncoding.Read([Ascii], alsoFromThisSession: [PkuxkxTitle]);
+
+        await Assert.That(reading.Charset).IsEqualTo("iso-8859-1");
+        await Assert.That(reading.MsspEncoding).IsEqualTo(reading.Encoding);
+    }
+
+    /// <summary>
+    /// A typo in the report override costs nothing, exactly as a typo in the screen's does: the
+    /// report falls back to the session's encoding rather than the probe failing.
+    /// </summary>
+    [Test]
+    public async Task ANonsenseReportOverrideFallsBackToTheSession()
+    {
+        var reading = WireEncoding.Read(
+            [PkuxkxTitle], "gbk", msspOverrideName: "not-an-encoding");
+
+        await Assert.That(reading.MsspEncoding).IsEqualTo(reading.Encoding);
+        await Assert.That(reading.MsspEncoding.WebName).IsEqualTo("gb2312");
+    }
 }

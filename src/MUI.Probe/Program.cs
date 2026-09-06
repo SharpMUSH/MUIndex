@@ -10,6 +10,9 @@ var port = args.Length > 1 && int.TryParse(args[1], out var p) ? p : 4201;
 // gbk, big5, euc-kr, iso-8859-1. Anything this runtime does not know is ignored, not fatal.
 var charset = args.Length > 2 ? args[2] : null;
 
+// The operator's CHARSET-MSSP, for a game whose report is not in its screen's encoding.
+var msspCharset = args.Length > 3 ? args[3] : null;
+
 // §11: the same contact address the deployable announces, so a probe run by hand still identifies us.
 var options = Environment.GetEnvironmentVariable("MUI_CRAWL_INFO_URL") is { Length: > 0 } contact
     ? new ProbeOptions { InfoUrl = contact }
@@ -17,7 +20,7 @@ var options = Environment.GetEnvironmentVariable("MUI_CRAWL_INFO_URL") is { Leng
 
 options.Validate();
 
-var result = await new TelnetProbe(options).ProbeAsync(new ProbeTarget(host, port) { Charset = charset });
+var result = await new TelnetProbe(options).ProbeAsync(new ProbeTarget(host, port) { Charset = charset, MsspCharset = msspCharset });
 
 Console.WriteLine($"target        {result.Host}:{result.Port}");
 Console.WriteLine($"outcome       {result.Outcome}");

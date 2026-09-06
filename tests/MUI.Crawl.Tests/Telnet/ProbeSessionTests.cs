@@ -1955,10 +1955,6 @@ public class ProbeSessionTests
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
-
-        /// <summary>
-
-        /// <summary>
         /// Whether the server compresses everything after its option handshake, as MCCP2 servers do.
         /// </summary>
         /// <remarks>

@@ -341,6 +341,12 @@ public sealed class FieldRegistry : IFieldRegistry
         Add("IP", Automatic);
         Add("IPV6", Automatic);
         Add("CHARSET", Automatic);
+
+        // Not a variable any game publishes: an operator's statement about how this game's report is
+        // encoded, for the few whose report is not in their connect screen's encoding. Registered so
+        // it is settable through game_field_set like any other staff override, rather than needing
+        // tooling of its own. See WireEncoding.Read.
+        Add("CHARSET-MSSP", Automatic);
         Add("CONTACT", Contactable, OwnerWritable.Override, FieldShape.Email);
         Add("WEBSITE", Contactable, OwnerWritable.Override, FieldShape.Url);
         Add("DISCORD", Contactable, OwnerWritable.Override, FieldShape.Url);
