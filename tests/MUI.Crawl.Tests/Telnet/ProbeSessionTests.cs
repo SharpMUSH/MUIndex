@@ -154,6 +154,51 @@ public class ProbeSessionTests
             .IsEqualTo("Doom of Lost Kingdoms (失落的國度)");
     }
 
+    /// <summary>
+    /// The report is decoded from its bytes, not taken as the telnet library already decoded them.
+    /// </summary>
+    /// <remarks>
+    /// The companion above cannot prove this on its own, and a reviewer was right to say so: its
+    /// fixture sends UTF-8 and the override names UTF-8, so <see cref="MsspReport.From"/>'s fallback
+    /// to the library's own decode would produce the same string and the test would pass with the
+    /// raw-byte path dead.
+    /// <para>
+    /// So this one names an encoding that <em>disagrees</em> with the wire. The bytes are UTF-8 and
+    /// the operator says Latin-1, which is wrong about the game and exactly the point: only decoding
+    /// the retained bytes can produce this answer. The library's decode would hand back the clean
+    /// string, so if that fallback ever starts firing, this fails and the other test does not.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task TheReportIsDecodedFromItsBytesRatherThanTakenAsAlreadyDecoded()
+    {
+        const string name = "Doom of Lost Kingdoms (\u5931\u843D\u7684\u570B\u5EA6)";
+
+        // What those UTF-8 bytes say when read as Latin-1 — reachable only through the bytes.
+        var throughTheBytes = Encoding.Latin1.GetString(Encoding.UTF8.GetBytes(name));
+
+        await using var game = new FakeGame
+        {
+            AnnouncesMssp = true,
+            MsspPlayers = 4,
+            MsspExtras = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["DESCRIPTION"] = name,
+            },
+            Banner = "Welcome\r\n",
+            BannerTail = "Enter your name: ",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(
+            game.Target with { MsspCharset = "iso-8859-1" });
+
+        await Assert.That(MsspReport.Last(result.Mssp, "DESCRIPTION")).IsEqualTo(throughTheBytes);
+
+        // Stated the other way round, because this is the assertion that has teeth: the library's
+        // own decode is the clean string, and getting it back would mean the bytes went unread.
+        await Assert.That(MsspReport.Last(result.Mssp, "DESCRIPTION")).IsNotEqualTo(name);
+    }
+
     [Test]
     public async Task AServerThatHangsUpOnTheFlushLineStillCountsAsHavingAnswered()
     {
