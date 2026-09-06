@@ -120,28 +120,25 @@ Against the real bytes above, in `WireEncodingTests` beside the existing `pkuxkx
   change cannot quietly widen.
 - An unrecognised report override falls through to the session's encoding rather than throwing.
 
-### Why there is no probe-level test, which is a finding in itself
+### And at the probe
 
-One was written and removed. `FakeGame` cannot express this case: the client's
-`MSSPConfig.Variables.Raw(…)` comes back **empty** for every variable a fixture serves, typed and
-extended alike, so `MsspReport.From` falls through to `values[index]` — the string the telnet library
-already decoded with the negotiated charset — and no override can reach it.
+`AGameWhoseReportIsNotInItsScreensEncodingIsReadCorrectlyInBoth` drives the whole path against a
+fixture serving a Big5 screen and a UTF-8 report: the screen reads `big5`, the report reads
+`Doom of Lost Kingdoms (失落的國度)`.
 
-Measured, because it is worth stating precisely. A fixture serving a `NAME` of GBK bytes probes as
-`ReadAs=utf-8, Source=Proven`: the report's bytes did not vote, on a report that is not UTF-8. So
-`alsoFromThisSession` — the existing, documented, session-wide behaviour — **has never been exercised
-end to end**. `BytesFromElsewhereInTheSessionDecideItToo` passes because it hands the bytes to
-`WireEncoding` directly; the probe above it supplies none.
+Its value is what it does *without* the override — it reproduces the production symptom exactly,
+`Doom of Lost Kingdoms (憭梯??摨?`, the same string the catalogue carried for eighteen days. So the
+test fails for the real reason rather than an invented one.
 
-Against a real server both work. `mui-probe doom.twmuds.com 4000` with no override reads
-`iso-8859-1 (Undetermined)` and the mangled name; with `big5 utf-8` it reads `big5 (Overridden)` and
-`NAME = Doom of Lost Kingdoms (失落的國度)`. `mui-probe` takes the report override as a fourth
-argument for exactly this, and it is how this change was verified — *probe something before you
-theorise about it*.
+Note that MSSP values leave a fixture through the telnet library's own encoder, which is UTF-8 here,
+while the connect screen is written as Latin-1 bytes. The screen's fixtures use a Latin-1 string to
+place exact bytes on the wire; a report's cannot, and a first attempt that did produced a UTF-8
+encoding of Latin-1 mojibake and failed for a reason that had nothing to do with this change.
 
-The fixture gap is not closed here. It is a gap in how the fixture drives a first-party library, and
-CLAUDE.md is explicit that such a thing is a PR against `TelnetNegotiationCore` rather than a
-workaround carried in this tree.
+Verified against the real server too, which is what actually settles it:
+`mui-probe doom.twmuds.com 4000` reads `iso-8859-1 (Undetermined)` and the mangled name; with
+`big5 utf-8` it reads `big5 (Overridden)` and `NAME = Doom of Lost Kingdoms (失落的國度)`. `mui-probe`
+takes the report override as a fourth argument for exactly this.
 
 ## Afterwards
 
