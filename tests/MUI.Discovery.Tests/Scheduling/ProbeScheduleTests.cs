@@ -1,3 +1,5 @@
+using MUI.Catalog.Persistence;
+
 namespace MUI.Discovery.Tests;
 
 /// <summary>
@@ -127,5 +129,15 @@ public class ProbeScheduleTests
     public async Task ANegativeFailureCountIsAProgrammingError()
     {
         await Assert.That(() => ProbeSchedule.Next(-1, null)).Throws<ArgumentOutOfRangeException>();
+    }
+
+    /// <summary>
+    /// <c>MUI.Catalog</c> cannot reference <c>MUI.Discovery</c>, so <c>ProbeCadence</c> restates
+    /// this interval rather than reading it. This suite sees both, so it is where that is checked.
+    /// </summary>
+    [Test]
+    public async Task TheCatalogueAsksForNewsOverThisSchedulesOwnBaseInterval()
+    {
+        await Assert.That(NpgsqlGameQueries.ProbeCadence).IsEqualTo(ProbeSchedule.BaseInterval);
     }
 }

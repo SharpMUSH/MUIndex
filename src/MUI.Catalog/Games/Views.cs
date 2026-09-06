@@ -134,7 +134,17 @@ public sealed record GameSummary(
     int? GrowthPlayers = null,
 
     /// <summary>When we first saw this address, for <see cref="GameSort.Discovered"/>.</summary>
-    DateTimeOffset? FirstSeenAt = null);
+    DateTimeOffset? FirstSeenAt = null,
+
+    /// <summary>
+    /// We got in within the probe cadence and no visit produced a number — §5.4's middle state.
+    /// </summary>
+    /// <remarks>
+    /// Not <see cref="PlayersNow"/> being null, which also catches a game we have not reached lately
+    /// (§5.4's third state) and one merely past <c>PLAYERS</c>'s expected refresh. Same question as
+    /// <c>GameFacetRow.Uncounted</c>, over the cadence rather than the week.
+    /// </remarks>
+    bool AnsweredUncounted = false);
 
 /// <summary>
 /// What a game's counts added up to over one window — the basis a window sort ranks on (spec §9).

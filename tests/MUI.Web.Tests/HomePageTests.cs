@@ -42,6 +42,19 @@ public class HomePageTests
     }
 
     [Test]
+    public async Task TheUnknownPopulationTileCountsOnlyGamesWeGotIntoAndCouldNotCount()
+    {
+        // Midnight Sun answers and cannot be counted; Hollow Bell, Gaslight Row and Verdigris carry
+        // no count because we never got in. Counting "no count" put all four in the tile.
+        var listing = await Queries.ListAsync(new GameFilter { IncludeArchived = true });
+
+        await Assert.That(listing.Where(g => g.AnsweredUncounted).Select(g => g.Slug))
+            .IsEquivalentTo(new[] { "midnight-sun" });
+        await Assert.That(SiteCounts.From(listing).CountUnknown).IsEqualTo(1);
+        await Assert.That(listing.Count(g => g.PlayersNow is null)).IsEqualTo(4);
+    }
+
+    [Test]
     public async Task ThePlainMirrorCarriesTheSameSplit()
     {
         var listing = await Queries.ListAsync(new GameFilter { IncludeArchived = true });

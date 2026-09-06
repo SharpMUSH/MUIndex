@@ -190,7 +190,8 @@ public sealed partial class NpgsqlGameQueries
                 windows.GetValueOrDefault(row.Id),
                 growth.GetValueOrDefault(row.Id).Direction,
                 growth.GetValueOrDefault(row.Id).Players,
-                row.FirstSeenAt);
+                row.FirstSeenAt,
+                digest.AnsweredUncounted);
 
             facetRows.Add(new GameFacetRow(
                 summary,

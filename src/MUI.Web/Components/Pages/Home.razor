@@ -57,9 +57,12 @@ else
 
             All four figures are counts of games, not of players — "populated" means "this many
             games have someone connected right now" (a connection, not a headcount: one player
-            with two clients is two connections, and a bot is a connection). "Unknown population"
-            is not "answering, but no count" — PlayersNow is also null for a game we simply
-            couldn't reach just now, so the tile covers both.
+            with two clients is two connections, and a bot is a connection).
+
+            "Unknown population" is §5.4's middle state and reads AnsweredUncounted, not
+            "PlayersNow is null" — that also caught a game we had not reached lately (the third
+            state, which names no cause), and since PlayersNow ages out at two hours while a quiet
+            game is probed every six, it caught every quiet game two thirds of the time.
         *@
         <ul class="tiles">
             <li>

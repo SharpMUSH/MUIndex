@@ -65,7 +65,8 @@ public sealed partial class NpgsqlGameQueries
             CountChip(digest, now),
             Chip(codebase, now),
             (await IconsForAsync(connection, ids, cancellationToken)).Contains(row.Id),
-            FirstSeenAt: row.FirstSeenAt);
+            FirstSeenAt: row.FirstSeenAt,
+            AnsweredUncounted: digest.AnsweredUncounted);
     }
 
     public async Task<GamePage?> FindAsync(string slug, CancellationToken cancellationToken = default)
@@ -137,7 +138,8 @@ public sealed partial class NpgsqlGameQueries
             CountChip(digest, now),
             Chip(codebase, now),
             (await IconsForAsync(connection, ids, cancellationToken)).Contains(row.Id),
-            FirstSeenAt: row.FirstSeenAt);
+            FirstSeenAt: row.FirstSeenAt,
+            AnsweredUncounted: digest.AnsweredUncounted);
 
         return new GamePage(
             summary,

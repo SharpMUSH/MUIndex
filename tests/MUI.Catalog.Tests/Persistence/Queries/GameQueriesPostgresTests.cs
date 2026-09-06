@@ -897,6 +897,39 @@ public class GameQueriesPostgresTests
         await Assert.That(page.Declared.Keys).IsEmpty();
     }
 
+    /// <summary>
+    /// The three cases the two windows straddle: <c>unreadable</c> answered and could not be
+    /// counted; <c>stale</c> was counted four hours ago, past the count's freshness and inside the
+    /// cadence, so its population is known and merely not current; <c>lapsed</c> could not be
+    /// counted eight hours ago and has not been reached since (§5.4's third state).
+    /// </summary>
+    [Test]
+    public async Task AnsweringButUncountedIsMeasuredOverTheProbeCadenceAndNotTheCountsFreshness()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var unreadable = await Seed.GameAsync(db, "unreadable", "Unreadable", lastReachableAt: Now);
+        var stale = await Seed.GameAsync(db, "stale", "Counted a while ago", lastReachableAt: Now);
+        var lapsed = await Seed.GameAsync(db, "lapsed", "Not reached since", lastReachableAt: Now);
+        var writer = new PresenceWriter(new NpgsqlPresenceStore(db.DataSource));
+
+        await writer.WriteAsync(
+            unreadable,
+            PresenceReading.Unmeasurable(UnmeasurableReason.WhoUnparseable),
+            Now.AddHours(-3));
+        await writer.WriteAsync(stale, PresenceReading.Counted(4, FieldSource.Who), Now.AddHours(-4));
+        await writer.WriteAsync(
+            lapsed, PresenceReading.Unmeasurable(UnmeasurableReason.WhoUnparseable), Now.AddHours(-8));
+
+        var listed = await QueriesOn(db).ListAsync(new GameFilter());
+
+        // All three are past the count's freshness window, so "no count" cannot separate them.
+        await Assert.That(listed.Select(g => g.PlayersNow).Distinct().ToList())
+            .IsEquivalentTo(new int?[] { null });
+
+        await Assert.That(listed.Where(g => g.AnsweredUncounted).Select(g => g.Slug))
+            .IsEquivalentTo(new[] { "unreadable" });
+    }
+
     [Test]
     public async Task AnEndpointOnThePageSaysWhetherTlsWasMeasured()
     {
