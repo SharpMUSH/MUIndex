@@ -235,6 +235,12 @@ services:
   # downtime. See docs/deploy.md for the operational picture.
   traefik:
     image: traefik:v3.7
+    environment:
+      # The cgroup ceiling below is a kill boundary, not a Go GC budget. During the September
+      # 2026 facet crawl Traefik repeatedly hit 128 MiB and was OOM-killed. Leave headroom for
+      # stacks and transient allocations. The soft target alone still hit the old 128 MiB
+      # kill boundary once in ten minutes; 256 MiB allows headroom without removing the ceiling.
+      GOMEMLIMIT: 96MiB
     # Ordering only, not `condition: service_healthy`: Compose's health-gated `depends_on` is not
     # well-specified against a service running `deploy.replicas` > 1, and the real gate on whether a
     # given `web` container receives traffic is the per-container active healthcheck on `mui-web`
@@ -324,8 +330,8 @@ services:
       timeout: 3s
       retries: 3
       start_period: 10s
-    mem_limit: 128m
-    memswap_limit: 128m
+    mem_limit: 256m
+    memswap_limit: 256m
     restart: unless-stopped
 
   watchtower:

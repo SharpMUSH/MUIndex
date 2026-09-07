@@ -5,8 +5,7 @@
     and extractors resolve the visible age against, not something a person reads.
 *@
 
-<time datetime="@Dates.Machine(At)" title="@Title" class="@Class">@Text@if (Spoken)
-    {<span class="sr-only">@Messages.For(Tag, "time.spoken", new Dictionary<string, object?>(StringComparer.Ordinal) { ["stamp"] = Dates.Stamp(Tag, At) })</span>}</time>
+@Content(At, Now, Tag, Ago, Sense, Spoken, Class)
 
 @code {
     /// <summary>The instant being dated.</summary>
@@ -41,13 +40,17 @@
 
     private string Tag => Http.LocaleOf().Tag;
 
-    private string Text => Ago ? Relative.Ago(Tag, Now - At, Sense) : Relative.Format(Tag, Now - At);
-
-    /// <summary>The age and the instant, in one string, so a reader isn't left to do the subtraction.</summary>
-    /// <remarks>Word order belongs to the <c>time.title</c> message, not this file.</remarks>
-    private string Title => Messages.For(Tag, "time.title", new Dictionary<string, object?>(StringComparer.Ordinal)
+    /// <summary>The same localized markup without a component instance for each listing row.</summary>
+    public static RenderFragment Content(DateTimeOffset at, DateTimeOffset now, string tag,
+        bool ago = false, AgeSense sense = AgeSense.Confirmed, bool spoken = false, string? cssClass = null)
     {
-        ["age"] = Relative.Ago(Tag, Now - At, Sense),
-        ["stamp"] = Dates.Stamp(Tag, At),
-    });
+        var text = ago ? Relative.Ago(tag, now - at, sense) : Relative.Format(tag, now - at);
+        var title = Messages.For(tag, "time.title", new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["age"] = Relative.Ago(tag, now - at, sense),
+            ["stamp"] = Dates.Stamp(tag, at),
+        });
+        return @<time datetime="@Dates.Machine(at)" title="@title" class="@cssClass">@text@if (spoken)
+            {<span class="sr-only">@Messages.For(tag, "time.spoken", new Dictionary<string, object?>(StringComparer.Ordinal) { ["stamp"] = Dates.Stamp(tag, at) })</span>}</time>;
+    }
 }

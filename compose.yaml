@@ -35,6 +35,8 @@ services:
       postgres:
         condition: service_healthy
     environment:
+      # Bound concurrent page renders across all URLs and readers; excess work gets a retryable 503.
+      PageRendering__ConcurrencyLimit: ${MUI_PAGE_RENDER_CONCURRENCY:-8}
       # The one variable that decides whether this deployment shows measurements or a fixture.
       # Unset it and the site still starts — on the demo fixture, saying so on every page.
       MUI_POSTGRES: Host=postgres;Port=5432;Database=muindex;Username=muindex;Password=${MUI_POSTGRES_PASSWORD:-muindex}

@@ -46,6 +46,7 @@ public static class SiteComposition
         ArgumentNullException.ThrowIfNull(configuration);
 
         services.AddRazorComponents();
+        services.AddMuiPageRenderingLimit(configuration);
 
         // The chrome's own words, before anything that renders them.
         services.AddMuiLocalization();
@@ -175,6 +176,10 @@ public static class SiteComposition
         // not reach the API or account endpoints.
         app.UseMuiNotFoundPage();
 
+        // Inside status-code re-execution: an unknown URL has no policy on the first pass,
+        // but rendering /not-found must acquire the same permit as every other Razor page.
+        app.UseRateLimiter();
+
         // MapStaticAssets rather than UseStaticFiles: it publishes the fingerprinted address
         // App.razor links the stylesheet by, serving it immutable while the plain one revalidates.
         // The manifest is named explicitly because the argumentless overload derives the name from
@@ -213,7 +218,9 @@ public static class SiteComposition
         // URL before the pages, so a redirected request never costs a catalogue read.
         app.UseCanonicalListingUrls();
 
-        app.MapRazorComponents<App>();
+        // Admit work before allocating component trees. The lease lasts until rendering and
+        // response writing finish; health, metrics, static files and the API keep their own routes.
+        app.MapRazorComponents<App>().RequireRateLimiting(PageRenderingLimit.Policy);
         app.MapMuiApi();
 
         // robots.txt and sitemap.xml, after the pages since they're about the pages.

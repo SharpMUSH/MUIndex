@@ -140,11 +140,11 @@ else
                            monogram would be a brand we invented at 96px; a listing has five hundred,
                            where the plate's job is a left edge the eye can run down, and a column
                            that appears on one row in twenty is furniture rather than an edge. *@
-                        <GamePlate Slug="@g.Slug" Name="@g.Name" HasIcon="g.HasIcon" Fallback="true" />
+                        @GamePlate.Content(g.Slug, g.Name, g.HasIcon, fallback: true)
 
                         <div class="row-text">
                             <p class="row-head">
-                                <a class="name" href="@Http.Link($"/g/{g.Slug}")"><GameName Name="@g.Name" /></a>
+                                <a class="name" href="@Http.Link($"/g/{g.Slug}")">@GameName.Content(g.Name)</a>
                                 @* Archived and claimed are the two states worth marking here.
                                    Unclaimed is the majority state, so marking it on every row would
                                    distinguish nothing; it stays on the game page and in the API. *@
@@ -262,7 +262,7 @@ else
                                 <span class="sr-only">@Messages.For(Tag, "listing.row.discovered")&#160;</span>
                                 @if (g.FirstSeenAt is { } discovered)
                                 {
-                                    <Moment At="discovered" Now="Now" />
+                                    @Moment.Content(discovered, Now, Tag)
                                 }
                                 else
                                 {
@@ -274,7 +274,7 @@ else
                                 <span class="sr-only">@Messages.For(Tag, "listing.row.reached")&#160;</span>
                                 @if (g.LastReachableAt is { } seen)
                                 {
-                                    <Moment At="seen" Now="Now" />
+                                    @Moment.Content(seen, Now, Tag)
                                 }
                                 else
                                 {
@@ -332,8 +332,7 @@ else
     /// <summary>How many protocol names a row prints before it counts the rest.</summary>
     private const int ProtocolsShown = 3;
 
-    private GameSummary? FirstUnranked => Listing.Games
-        .FirstOrDefault(g => GameSorting.IsUnranked(g, Filter.Sort));
+    private GameSummary? FirstUnranked { get; set; }
 
     private bool BreakBefore(GameSummary game) => ReferenceEquals(game, FirstUnranked);
 
@@ -475,12 +474,14 @@ else
             Error = error;
             Filter = new GameFilter();
             Listing = GameListing.Empty;
+            FirstUnranked = null;
             return;
         }
 
         Error = null;
         Filter = query.Filter;
-        Listing = await Queries.SearchAsync(Filter);
+        Listing = await Queries.SearchAsync(Filter, Http?.RequestAborted ?? default);
+        FirstUnranked = Listing.Games.FirstOrDefault(g => GameSorting.IsUnranked(g, Filter.Sort));
     }
 
     /// <summary>The locale this page is being answered in.</summary>

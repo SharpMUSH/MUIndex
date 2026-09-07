@@ -54,8 +54,8 @@ public static class SiteIndex
     /// <remarks>
     /// Everything but the routes that aren't documents: <c>/games/random</c> answers differently
     /// every time, and account/claim routes belong to whoever is signed in.
-    /// <b>No <c>Crawl-delay</c> and no rate advice</b> — the facet permutations that would otherwise
-    /// be the real cost are handled by the canonical link instead.
+    /// Faceted listings remain crawlable. Canonical links guide indexing; they do not prevent
+    /// fetching, so serving these URLs efficiently is the application's responsibility.
     /// </remarks>
     private static string Robots(string sitemap)
     {

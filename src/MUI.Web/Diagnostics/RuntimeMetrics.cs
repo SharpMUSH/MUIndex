@@ -16,10 +16,9 @@ namespace MUI.Web.Diagnostics;
 /// </para>
 /// <para>
 /// <b>Heap size, committed and fragmented are three different questions and all three are reported.</b>
-/// The live set is what is reachable; committed is what the process has taken from the operating
-/// system and is the figure a container limit is compared against; fragmented is the part of the
-/// committed heap that is free but not returnable. A leak raises the first. Budget growth raises the
-/// second while the first stays flat. Fragmentation raises the third.
+/// Heap size includes fragmentation and describes the last collection, which may not have collected
+/// every generation. Committed is managed memory only: the container also accounts for native
+/// allocations, stacks and other charged pages. None of these numbers alone proves a leak.
 /// </para>
 /// </remarks>
 public static class RuntimeMetrics
@@ -35,18 +34,17 @@ public static class RuntimeMetrics
 
         text.Gauge(
             "mui_gc_heap_size_bytes",
-            "Bytes on the managed heap the last collection found reachable.",
+            "Managed heap size at the last collection, including fragmentation; not a live-object census.",
             info.HeapSizeBytes);
 
         text.Gauge(
             "mui_gc_committed_bytes",
-            "Bytes the managed heap has committed from the operating system. This is the figure a "
-            + "container memory limit is compared against, and it is not the live set.",
+            "Bytes committed for the managed heap. Excludes native memory and other container charges.",
             info.TotalCommittedBytes);
 
         text.Gauge(
             "mui_gc_fragmented_bytes",
-            "Bytes inside the committed heap that are free but not returnable.",
+            "Managed heap fragmentation reported by the last collection.",
             info.FragmentedBytes);
 
         text.Gauge(
@@ -55,8 +53,8 @@ public static class RuntimeMetrics
             + "cgroup limit rather than from the host's memory.",
             info.TotalAvailableMemoryBytes);
 
-        // Per generation, from the same snapshot. Generation 2 growing while 0 and 1 stay flat is a
-        // live set that is genuinely growing; the reverse is ordinary churn.
+        // Per generation, from the same snapshot. Gen 2 can contain garbage awaiting a full
+        // collection, so growth alone is not proof of retained live objects.
         var generations = info.GenerationInfo;
 
         for (var i = 0; i < generations.Length; i++)

@@ -27,18 +27,24 @@ public static class CanonicalListingUrls
         return app.Use(async (context, next) =>
         {
             var request = context.Request;
+            if (!IsListingPage(request))
+            {
+                await next(context);
+                return;
+            }
+
             var query = request.QueryString.Value ?? string.Empty;
             var canonical = ListingQuery.Canonical(query);
 
-            if (!IsListingPage(request)
-                || string.Equals(canonical, query, StringComparison.Ordinal))
+            if (string.Equals(canonical, query, StringComparison.Ordinal))
             {
                 await next(context);
                 return;
             }
 
             context.Response.StatusCode = StatusCodes.Status302Found;
-            context.Response.Headers[HeaderNames.Location] = request.Path.ToUriComponent() + canonical;
+            context.Response.Headers[HeaderNames.Location] =
+                request.PathBase.ToUriComponent() + request.Path.ToUriComponent() + canonical;
         });
     }
 

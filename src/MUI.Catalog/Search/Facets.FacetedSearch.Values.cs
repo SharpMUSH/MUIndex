@@ -22,13 +22,12 @@ public static partial class FacetedSearch
     /// counts.
     /// </remarks>
     private static List<FacetValue> Bounded(
-        IReadOnlyList<GameFacetRow> domain,
-        IReadOnlyList<GameFacetRow> catalogue,
-        ChoiceFacet facet,
+        IReadOnlyList<IndexedRow> domain,
+        IReadOnlyList<IndexedRow> catalogue,
+        int facet,
         IReadOnlyList<string> vocabulary,
-        GameFilter filter)
+        FacetChoice? selection)
     {
-        var selection = facet.SelectionOf(filter);
         var counts = Counts(domain, facet);
         var ever = Counts(catalogue, facet);
 
@@ -59,17 +58,16 @@ public static partial class FacetedSearch
     /// choice responsible for an empty listing.
     /// </remarks>
     private static List<FacetValue> Open(
-        IReadOnlyList<GameFacetRow> domain,
-        ChoiceFacet facet,
-        GameFilter filter)
+        IReadOnlyList<IndexedRow> domain,
+        int facet,
+        FacetChoice? selection)
     {
-        var selection = facet.SelectionOf(filter);
         var counts = Counts(domain, facet);
 
         var named = counts
             .Where(c => !string.Equals(c.Key, FacetChoice.UnknownToken, StringComparison.Ordinal))
             .Select(c => new FacetValue(
-                Spellings.Commonest(c.Value),
+                c.Value.Label,
                 c.Value.Count,
                 selection?.Covers(c.Key) ?? false,
                 IsUnknown: false,
@@ -109,25 +107,25 @@ public static partial class FacetedSearch
     /// How many games each value covers, and every spelling they used for it.
     /// </summary>
     /// <remarks>
-    /// Spellings are kept, not just counted, so <see cref="Spellings.Commonest"/> can label the
-    /// group — a bare ordinal-insensitive count would let whichever row was read first name the
-    /// value.
+    /// Count each distinct spelling without retaining one entry per game. Labels use the same
+    /// frequency and ordinal tie-break as <see cref="Spellings.Commonest"/>.
     /// </remarks>
-    private static Dictionary<string, List<string>> Counts(
-        IReadOnlyList<GameFacetRow> domain,
-        ChoiceFacet facet)
+    private static Dictionary<string, ValueCount> Counts(
+        IReadOnlyList<IndexedRow> domain,
+        int facet)
     {
-        var counts = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        var counts = new Dictionary<string, ValueCount>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var row in domain)
+        for (var row = 0; row < domain.Count; row++)
         {
-            foreach (var token in facet.TokensOf(row))
+            var tokens = domain[row].Tokens[facet];
+            for (var t = 0; t < tokens.Count; t++)
             {
-                var key = token ?? FacetChoice.UnknownToken;
+                var key = tokens[t] ?? FacetChoice.UnknownToken;
 
                 if (!counts.TryGetValue(key, out var spellings))
                 {
-                    counts[key] = spellings = [];
+                    counts[key] = spellings = new ValueCount();
                 }
 
                 spellings.Add(key);
@@ -135,5 +133,26 @@ public static partial class FacetedSearch
         }
 
         return counts;
+    }
+
+    private sealed class ValueCount
+    {
+        private readonly Dictionary<string, int> _spellings = new(StringComparer.Ordinal);
+        private int _highest;
+        public int Count { get; private set; }
+        public string Label { get; private set; } = string.Empty;
+
+        public void Add(string spelling)
+        {
+            Count++;
+            var frequency = _spellings.GetValueOrDefault(spelling) + 1;
+            _spellings[spelling] = frequency;
+            if (frequency > _highest || (frequency == _highest
+                && StringComparer.Ordinal.Compare(spelling, Label) < 0))
+            {
+                Label = spelling;
+                _highest = frequency;
+            }
+        }
     }
 }

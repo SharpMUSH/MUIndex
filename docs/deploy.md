@@ -110,6 +110,32 @@ hand is a supported thing to do; the ledger is a two-column table.
 
 ## What this process says about its own memory
 
+The catalogue cache coalesces refreshes per archive/window key and shares prepared facet values
+across all query combinations. Per-request filtering evaluates each choice once per row; it does
+not rebuild derived codebase values or query PostgreSQL for every filter URL. Listing rows reuse
+render fragments to avoid thousands of separate component buffers. Personalized HTML is not cached.
+
+`PageRendering:ConcurrencyLimit` is a secondary overload guard (default **8**, no queue).
+Compose forwards `MUI_PAGE_RENDER_CONCURRENCY` to this setting. Excess renders return **503** with
+`Cache-Control: no-store`; health checks, metrics, static assets and API routes do not consume this
+budget. It bounds overlapping component trees and HTML buffers, including slow response writes.
+It does not coalesce renders. There is no fixed retry hint that would synchronize client retries;
+clients still control their own retry behavior. Monitor rejection rates when tuning this budget.
+
+Faceted listings remain open to crawlers, robots and AI clients. Canonical links guide indexing;
+they do not prevent fetching or substitute for efficient code.
+
+**Image updates do not apply Compose changes.** After reviewing a change to replica count, memory
+limits or listeners, update the deployment checkout and run `docker compose config --quiet`, then
+`docker compose up -d --no-deps --pull never web` (and `traefik` when its settings changed).
+This recreates only the named service using the local image. Check `docker ps`, the public health
+probe and `curl --fail http://127.0.0.1:9102/metrics`; a changed file alone proves none of those.
+The September 2026 incident still had two replicas and no metrics listener despite both settings
+having been corrected in the deployment checkout.
+
+The proxy's `GOMEMLIMIT=96MiB` gives Go a soft collection target below its 256 MiB cgroup limit.
+It is not a hard RSS cap; verify working set and OOM/restart events under load.
+
 `MUI_METRICS_PORT` maps `GET /metrics`, in Prometheus text format. It exists because of a specific
 dead end: for three days at the start of September 2026 the site's memory climbed, and every
 measurement available from outside the process — `container_memory_rss`, the working set,
@@ -119,8 +145,8 @@ are one number. From inside they are three, and those three are the first thing 
 
 | Series | The question it answers |
 | --- | --- |
-| `mui_gc_heap_size_bytes`, `mui_gc_committed_bytes`, `mui_gc_fragmented_bytes` | Live set, what the process took from the OS, and what it holds but cannot return. A leak moves the first. Budget growth moves the second while the first stays flat. |
-| `mui_gc_heap_bytes{generation}` | Per generation, plus `loh` and `poh` by name. Generation 2 rising while 0 and 1 are flat is retention; the reverse is churn. |
+| `mui_gc_heap_size_bytes`, `mui_gc_committed_bytes`, `mui_gc_fragmented_bytes` | Heap size (including fragmentation) at the last collection, managed committed memory, and fragmentation. Committed excludes native memory and other container charges. None alone establishes a leak. |
+| `mui_gc_heap_bytes{generation}` | Per generation, plus `loh` and `poh` by name. Older generations can contain garbage awaiting a full collection; inspect across full collections before concluding retention. |
 | `mui_gc_allocated_bytes_total` | Allocation pressure as a rate, which is a different question from how much is retained — and, in this codebase, usually the more interesting one. |
 | `mui_gc_server_mode`, `mui_process_cpus` | How to read all of the above: Server GC sizes budgets per core and against the container limit. |
 | `mui_crawl_outcomes_total`, `mui_crawl_refusals_total` | What the crawl did. **A refusal is never folded into a failure** — rule 5 reaches a dashboard exactly as it reaches the database. |

@@ -17,6 +17,15 @@ namespace MUI.Web.Tests;
 /// </remarks>
 public class CanonicalListingUrlTests
 {
+    [Test]
+    public async Task DroppingEmptyFiltersPreservesTheLocale()
+    {
+        await using var site = await SiteHost.StartAsync();
+        using var response = await site.Client.GetAsync("/de/games?genre=Fantasy&q=");
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.Found);
+        await Assert.That(response.Headers.Location?.OriginalString).IsEqualTo("/de/games?genre=Fantasy");
+    }
+
     /// <summary>The submission this whole thing is for.</summary>
     private const string UntouchedForm =
         "?q=&sort=players&band=&seen=&charset=&lineage=&codebase=&version=&family=&genre=&language=";
