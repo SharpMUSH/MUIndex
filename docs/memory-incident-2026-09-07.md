@@ -39,8 +39,10 @@ The limit is an operational starting point, adjustable through
 `MUI_PAGE_RENDER_CONCURRENCY`; observe rejection rates and memory when tuning it.
 
 **Proxy deployment:** `GOMEMLIMIT=96MiB` gives Go a soft collection target below the
-existing 128 MiB cgroup kill boundary. This is not a guarantee about RSS; monitor OOM
-events and working set. The limit was applied to the production proxy during diagnosis.
+256 MiB cgroup kill boundary. Keeping the old 128 MiB hard limit still produced one
+OOM kill after about ten minutes despite the soft target, so the hard limit was raised
+to provide transient headroom. This is not a guarantee about RSS; monitor OOM events
+and working set. Both settings were applied to the production proxy during diagnosis.
 
 **TelnetNegotiationCore:** the deployed version is 2.14.0. MUIndex disposes each
 interpreter with `await using`; that version cancels and joins its processing loop

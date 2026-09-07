@@ -128,7 +128,7 @@ probe and `curl --fail http://127.0.0.1:9102/metrics`; a changed file alone prov
 The September 2026 incident still had two replicas and no metrics listener despite both settings
 having been corrected in the deployment checkout.
 
-The proxy's `GOMEMLIMIT=96MiB` gives Go a soft collection target below its 128 MiB cgroup limit.
+The proxy's `GOMEMLIMIT=96MiB` gives Go a soft collection target below its 256 MiB cgroup limit.
 It is not a hard RSS cap; verify working set and OOM/restart events under load.
 
 `MUI_METRICS_PORT` maps `GET /metrics`, in Prometheus text format. It exists because of a specific
