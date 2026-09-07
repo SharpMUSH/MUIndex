@@ -29,7 +29,6 @@ public static class PageRenderingLimit
             {
                 var response = rejected.HttpContext.Response;
                 response.StatusCode = StatusCodes.Status503ServiceUnavailable;
-                response.Headers.RetryAfter = "1";
                 response.Headers.CacheControl = "no-store";
                 response.ContentType = "text/plain; charset=utf-8";
                 await response.WriteAsync("The site is busy. Please try again shortly.", cancellationToken);

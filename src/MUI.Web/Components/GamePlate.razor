@@ -11,15 +11,7 @@
     this, so a screen reader announcing the picture too would read the name twice.
 *@
 
-@if (HasIcon)
-{
-    <img class="plate icon" alt="" src="@IconEndpoint.For(Slug)"
-         width="@Size" height="@Size" loading="lazy" decoding="async" />
-}
-else if (Fallback)
-{
-    <div class="plate mono" aria-hidden="true">@Monogram.Of(Name)</div>
-}
+@Content(Slug, Name, HasIcon, Fallback, Size)
 
 @code {
     [Parameter, EditorRequired] public string Slug { get; set; } = string.Empty;
@@ -48,4 +40,16 @@ else if (Fallback)
     /// reflow as the reader scrolls.
     /// </remarks>
     [Parameter] public int Size { get; set; } = 36;
+
+    /// <summary>The same markup without a component instance for each row of a large listing.</summary>
+    public static RenderFragment Content(string slug, string name, bool hasIcon, bool fallback = false, int size = 36) =>
+        @<text>@if (hasIcon)
+        {
+            <img class="plate icon" alt="" src="@IconEndpoint.For(slug)"
+                 width="@size" height="@size" loading="lazy" decoding="async" />
+        }
+        else if (fallback)
+        {
+            <div class="plate mono" aria-hidden="true">@Monogram.Of(name)</div>
+        }</text>;
 }

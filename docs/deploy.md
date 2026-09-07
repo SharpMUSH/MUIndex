@@ -110,15 +110,20 @@ hand is a supported thing to do; the ledger is a two-column table.
 
 ## What this process says about its own memory
 
-`PageRendering:ConcurrencyLimit` bounds simultaneous Razor page renders (default **8**, no queue).
-Compose forwards `MUI_PAGE_RENDER_CONCURRENCY` to this setting. Excess renders return **503** with
-`Retry-After: 1` and `Cache-Control: no-store`; health checks, metrics, static assets and API routes
-do not consume this budget. This bounds overlapping component trees and HTML buffers even when
-every request has a different filter or locale. It does not cache personalized responses.
+The catalogue cache coalesces refreshes per archive/window key and shares prepared facet values
+across all query combinations. Per-request filtering evaluates each choice once per row; it does
+not rebuild derived codebase values or query PostgreSQL for every filter URL. Listing rows reuse
+render fragments to avoid thousands of separate component buffers. Personalized HTML is not cached.
 
-`robots.txt` excludes query-bearing games/archive listings, including localized paths. Their
-unfiltered pages and the game-detail sitemap stay crawlable. A canonical link alone does not stop
-an automated client traversing the product of all facet choices.
+`PageRendering:ConcurrencyLimit` is a secondary overload guard (default **8**, no queue).
+Compose forwards `MUI_PAGE_RENDER_CONCURRENCY` to this setting. Excess renders return **503** with
+`Cache-Control: no-store`; health checks, metrics, static assets and API routes do not consume this
+budget. It bounds overlapping component trees and HTML buffers, including slow response writes.
+It does not coalesce renders. There is no fixed retry hint that would synchronize client retries;
+clients still control their own retry behavior. Monitor rejection rates when tuning this budget.
+
+Faceted listings remain open to crawlers, robots and AI clients. Canonical links guide indexing;
+they do not prevent fetching or substitute for efficient code.
 
 **Image updates do not apply Compose changes.** After reviewing a change to replica count, memory
 limits or listeners, update the deployment checkout and run `docker compose config --quiet`, then

@@ -24,7 +24,7 @@ public class PageRenderingLimitTests
             using var rejected = await site.Client.GetAsync("/de/games?genre=Fantasy")
                 .WaitAsync(TimeSpan.FromSeconds(5));
             await Assert.That(rejected.StatusCode).IsEqualTo(HttpStatusCode.ServiceUnavailable);
-            await Assert.That(rejected.Headers.RetryAfter?.Delta).IsEqualTo(TimeSpan.FromSeconds(1));
+            await Assert.That(rejected.Headers.RetryAfter).IsNull();
             await Assert.That(rejected.Headers.CacheControl?.NoStore).IsTrue();
             await Assert.That(queries.Calls).IsEqualTo(1);
 

@@ -29,14 +29,76 @@ replicas and no metrics listener. Watchtower updates images, not Compose configu
 Applying the existing configuration restored the intended memory budget and enabled
 Prometheus's already-configured application scrape.
 
-**MUIndex web:** a canonical URL is not a crawl restriction. `robots.txt` now excludes
-query-bearing listing URLs in every locale. A process-wide concurrency limiter admits
-eight simultaneous Razor renders, without queueing additional requests; excess work
-receives a non-cacheable 503 with a one-second retry hint. The permit spans response
-writing, including slow clients. Health, metrics, static assets and API routes do not
-consume it. The rendered not-found path must pass through the limiter on re-execution.
-The limit is an operational starting point, adjustable through
-`MUI_PAGE_RENDER_CONCURRENCY`; observe rejection rates and memory when tuning it.
+**MUIndex catalogue:** database assembly was already cached for one minute with FusionCache's
+per-key request coalescing. It was not repeated for each filter URL. The uncached facet search,
+however, repeatedly evaluated every other selection while counting each facet, allocating token
+arrays, derived codebase strings and selection objects along the way. The revised cache stores
+prepared facet values alongside each bounded catalogue snapshot. Each request evaluates every
+choice at most once per row. A row failing one choice contributes only to that choice's lifted
+domain; a row failing two cannot contribute to any. Spelling frequencies are counted without
+retaining one string-list entry per game. Cache keys, invalidation, expiry and coalescing stay the
+same; arbitrary query strings never become cache keys.
+
+**MUIndex web:** a listing instantiated GameName, GamePlate and Moment components for each row,
+incurring individual component state and render buffers. Shared Razor fragments now render the
+same markup directly inside the listing. The first unranked row is found once after loading,
+instead of scanning the listing again for every row. Request cancellation is passed to the
+catalogue caller without cancelling the shared cache factory.
+
+Faceted listings remain crawlable. No new robots exclusions are added. A process-wide concurrency
+guard admits eight simultaneous Razor renders without queueing; excess work receives a
+non-cacheable 503. This is a secondary overload guard, not cache stampede protection. It supplies
+no fixed retry interval, which could synchronize rejected clients. The permit includes response
+writing for slow clients; health, metrics, assets and API routes do not consume it. The rendered
+404 path passes through it on re-execution. Tune `MUI_PAGE_RENDER_CONCURRENCY` using rejection rates
+and memory after deployment.
+
+### Local allocation measurements
+
+A synthetic 900-game catalogue reproduces the cost without a database call. The warmed Release
+benchmark includes a filtered request selecting band, codebase, language and genre, and an HTML
+render of all 900 rows. These are local measurements, not production latency guarantees.
+
+| Operation | Before | Revised |
+| --- | ---: | ---: |
+| Unfiltered facets, allocated/request | 3.51 MB | 0.46 MB |
+| Filtered facets, allocated/request | 11.37 MB | 0.41 MB |
+| Render 900 rows, allocated/request | 10.54 MB | 5.93 MB |
+| Render 900 rows, mean duration | 21.5 ms | 8.0 ms |
+| Rendered document length | 604,368 characters | 604,368 characters |
+
+Reproduce the revised measurements with
+`dotnet run -c Release --project tools/MUI.Listing.Benchmarks </dev/null`.
+
+Facet measurements use thread allocation counters around synchronous searches. Render measurements
+use total allocation counters in an isolated process, including the headless renderer's setup and
+output string. The prepared index is built once, outside the request loop, as in production's
+catalogue cache. The allocation regression failed at 13.35 MB on the old implementation and passes
+below 1 MB with the prepared snapshot. All existing facet semantics and rendered-surface tests pass.
+This reduces request cost; it does not establish that production memory has recovered before the
+new image is deployed and observed under traffic.
+
+### Streaming assessment
+
+Microsoft's [.NET 10 streaming-rendering documentation](https://learn.microsoft.com/en-us/aspnet/core/blazor/components/rendering?view=aspnetcore-10.0#streaming-rendering)
+describes sending placeholders while asynchronous work completes, then patching completed content
+into the document. It is not row-at-a-time disposal of a component's render tree. In the deployed
+[10.0.8 endpoint implementation](https://github.com/dotnet/aspnetcore/blob/v10.0.8/src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs),
+component HTML is written to a buffered writer; asynchronous streaming updates are sent only when
+quiescence is incomplete. The [client implementation](https://github.com/dotnet/aspnetcore/blob/v10.0.8/src/Components/Web.JS/src/Rendering/StreamingRendering.ts)
+applies templates to the DOM using JavaScript. MUIndex intentionally omits that script.
+
+Adding `[StreamRendering]` to the current synchronous, cached listing would therefore not turn its
+900-row loop into bounded batches. Making the whole component grow in batches can also repeat
+rendering and transmission of earlier rows. It is not enabled by this fix.
+
+A separate sequential HTML response could render and dispose small row batches, flush them to
+[`HttpResponse.BodyWriter`](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/middleware/request-response?view=aspnetcore-10.0),
+and preserve a single complete scriptless document. That requires settling headers/status before
+flushing, reusing encoding/localization/layout correctly, and measuring retained memory under slow
+clients through the proxy. It remains a follow-up experiment, not a measured improvement claimed
+here. Ordinary linked pagination would also reduce per-response rows while remaining crawlable,
+but changes the listing's user experience.
 
 **Proxy deployment:** `GOMEMLIMIT=96MiB` gives Go a soft collection target below the
 256 MiB cgroup kill boundary. Keeping the old 128 MiB hard limit still produced one
@@ -72,7 +134,7 @@ triggers a full GC; use numeric `/metrics` samples for ordinary monitoring.
 
 HTTP regressions cover overloaded renders, shared capacity across locales, permit
 release after both success and failure, the rendered 404 path, health/robots access
-during overload, crawler exclusions and locale-preserving redirects. The full Web and
+during overload and locale-preserving redirects. No crawler exclusions were introduced. The full Web and
 Catalog suites exercise PostgreSQL; Crawl exercises the pinned protocol dependency.
 Deployment validation must check the effective container settings, public probes,
 private scrape health, memory and proxy restarts under continuing traffic.

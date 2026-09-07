@@ -1,5 +1,4 @@
 using System.Xml.Linq;
-using System.Text.RegularExpressions;
 
 namespace MUI.Web.Tests;
 
@@ -9,27 +8,6 @@ namespace MUI.Web.Tests;
 /// <remarks>Rule 3 says an archived game's page survives; the sitemap is where that promise stops being internal. Both are endpoints, not static files, since a static one would be stale from the first crawl cycle.</remarks>
 public class SiteIndexTests
 {
-    [Test]
-    [Arguments("/games/?genre=Fantasy")]
-    [Arguments("/de/games/?genre=Fantasy")]
-    [Arguments("/archive/?codebase=PennMUSH")]
-    [Arguments("/de/archive/?codebase=PennMUSH")]
-    public async Task CrawlExclusionsCoverTrailingSlashListings(string path)
-    {
-        await using var site = await SiteHost.StartAsync();
-        using var page = await site.Client.GetAsync(path);
-        await Assert.That(page.IsSuccessStatusCode).IsTrue();
-
-        var robots = await site.Client.GetStringAsync("/robots.txt");
-        var exclusions = robots.Split('\n')
-            .Where(line => line.StartsWith("Disallow: ", StringComparison.Ordinal))
-            .Select(line => line["Disallow: ".Length..].Trim());
-        // These directives use REP prefix matching and '*' wildcards, not substring matching.
-        var patterns = exclusions.Select(rule => "^" + Regex.Escape(rule).Replace("\\*", ".*")).ToArray();
-        await Assert.That(patterns.Any(pattern => Regex.IsMatch(path, pattern))).IsTrue();
-        await Assert.That(patterns.Any(pattern => Regex.IsMatch(path.Split('?')[0], pattern))).IsFalse();
-    }
-
     private static readonly XNamespace Sitemap = "http://www.sitemaps.org/schemas/sitemap/0.9";
 
     [Test]
@@ -53,23 +31,6 @@ public class SiteIndexTests
 
         await Assert.That(robots).Contains("Disallow: /games/random");
         await Assert.That(robots).Contains("Disallow: /account");
-    }
-
-    [Test]
-    public async Task RobotsExcludesFacetPermutationsIncludingLocalizedListings()
-    {
-        await using var site = await SiteHost.StartAsync();
-        var robots = await site.Client.GetStringAsync("/robots.txt");
-
-        foreach (var path in new[] { "/games?", "/*/games?", "/archive?", "/*/archive?", "/*/games/random" })
-        {
-            await Assert.That(robots).Contains($"Disallow: {path}");
-        }
-
-        // The documents themselves remain discoverable.
-        var sitemap = XDocument.Parse(await site.Client.GetStringAsync("/sitemap.xml"));
-        await Assert.That(Paths(sitemap)).Contains("/games");
-        await Assert.That(Paths(sitemap)).Contains("/archive");
     }
 
     [Test]

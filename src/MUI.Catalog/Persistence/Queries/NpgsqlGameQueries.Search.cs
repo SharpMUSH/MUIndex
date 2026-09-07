@@ -91,12 +91,12 @@ public sealed partial class NpgsqlGameQueries
     /// difference between a listing that is an hour stale and a listing that is a stack trace.
     /// </para>
     /// </remarks>
-    private async Task<IReadOnlyList<GameFacetRow>> CatalogueAsync(
+    private async Task<FacetedSearch.Catalogue> CatalogueAsync(
         CatalogueKey key,
         CancellationToken cancellationToken) =>
-        await _cache.GetOrSetAsync<IReadOnlyList<GameFacetRow>>(
+        await _cache.GetOrSetAsync<FacetedSearch.Catalogue>(
             $"mui:catalogue:archived={key.IncludeArchived}:window={key.Window?.Ticks ?? -1}",
-            async (_, _) => (await BuildCatalogueAsync(key, CancellationToken.None)).Rows,
+            async (_, _) => FacetedSearch.Prepare((await BuildCatalogueAsync(key, CancellationToken.None)).Rows),
             new FusionCacheEntryOptions
             {
                 Duration = CatalogueFreshness,

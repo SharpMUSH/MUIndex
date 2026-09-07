@@ -54,9 +54,8 @@ public static class SiteIndex
     /// <remarks>
     /// Everything but the routes that aren't documents: <c>/games/random</c> answers differently
     /// every time, and account/claim routes belong to whoever is signed in.
-    /// A canonical link is an indexing hint, not a crawl budget: crawlers still fetched tens of
-    /// thousands of facet permutations during the September 2026 memory incident. Exclude those
-    /// query spaces explicitly, including localized URLs; the unfiltered documents stay crawlable.
+    /// Faceted listings remain crawlable. Canonical links guide indexing; they do not prevent
+    /// fetching, so serving these URLs efficiently is the application's responsibility.
     /// </remarks>
     private static string Robots(string sitemap)
     {
@@ -64,15 +63,6 @@ public static class SiteIndex
 
         text.AppendLine("User-agent: *");
         text.AppendLine("Disallow: /games/random");
-        text.AppendLine("Disallow: /*/games/random");
-        text.AppendLine("Disallow: /games?");
-        text.AppendLine("Disallow: /games/?");
-        text.AppendLine("Disallow: /*/games?");
-        text.AppendLine("Disallow: /*/games/?");
-        text.AppendLine("Disallow: /archive?");
-        text.AppendLine("Disallow: /archive/?");
-        text.AppendLine("Disallow: /*/archive?");
-        text.AppendLine("Disallow: /*/archive/?");
         text.AppendLine("Disallow: /account");
         text.AppendLine("Disallow: /api/");
         text.AppendLine("Allow: /");

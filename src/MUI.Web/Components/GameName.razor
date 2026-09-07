@@ -14,23 +14,14 @@
     might legitimately want transliterated, unlike hostnames, codebase strings or protocol acronyms.
 *@
 
-@if (Ascii)
-{
-    @* Pure ASCII, most of the catalogue: no element, no attributes — the page's own lang covers it. *@
-    @Name
-}
-else
-{
-    <bdi lang="@Language" dir="@Direction">@Name</bdi>
-}
+@Content(Name)
 
 @code {
     [Parameter, EditorRequired] public string Name { get; set; } = string.Empty;
 
-    private bool Ascii => NameScript.IsPlainAscii(Name);
-
-    /// <summary>Null leaves the attribute off, which is what an unsettled script gets.</summary>
-    private string? Language => NameScript.LanguageOf(Name);
-
-    private string? Direction => NameScript.DirectionOf(Name);
+    /// <summary>The same markup without a component instance for each row of a large listing.</summary>
+    public static RenderFragment Content(string name) => @<text>@if (NameScript.IsPlainAscii(name))
+        { @name }
+        else
+        { <bdi lang="@NameScript.LanguageOf(name)" dir="@NameScript.DirectionOf(name)">@name</bdi> }</text>;
 }
