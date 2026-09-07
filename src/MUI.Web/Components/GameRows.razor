@@ -1,0 +1,128 @@
+@code {
+    public static RenderFragment Content(IEnumerable<GameSummary> games, GameRowPresentation presentation) =>
+        @<text>
+            @foreach (var g in games)
+            {
+
+                @if (ReferenceEquals(g, presentation.FirstUnranked))
+                {
+                    <li class="unranked-break">
+                        <span class="kicker">@Messages.For(presentation.Tag, "listing.fromHere")</span>
+                        <span>@FacetWords.Unranked(presentation.Tag, presentation.Sort)</span>
+                    </li>
+                }
+                <li class="game-row @(g.State is LifecycleState.Archived ? "archived" : null)">
+
+                    <div class="row-main">
+
+                        @GamePlate.Content(g.Slug, g.Name, g.HasIcon, fallback: true)
+
+                        <div class="row-text">
+                            <p class="row-head">
+                                <a class="name" href="@presentation.Http.Link($"/g/{g.Slug}")">@GameName.Content(g.Name)</a>
+
+                                @if (g.State is LifecycleState.Archived)
+                                {
+                                    <span class="badge archived">archived</span>
+                                }
+                                else if (g.IsClaimed)
+                                {
+
+                                    <span class="claim-ring" role="img"
+                                          aria-label="@Messages.For(presentation.Tag, "listing.claimed")"
+                                          title="@Messages.For(presentation.Tag, "listing.claimed")">✓</span>
+                                }
+                            </p>
+
+                            <p class="meta mono" translate="no">
+
+                                @if (g.CodebaseProvenance is { } codebase)
+                                {
+
+                                    <Chip Fact="codebase" Now="presentation.Now" AgeShown="false" />
+                                }
+                                else if (g.Codebase is { } cb)
+                                {
+                                    <text>@cb</text>
+                                }
+                                else
+                                {
+
+                                    <span class="state-unknown"
+                                          title="@Messages.For(presentation.Tag, "listing.unknownCodebase.title")">@Messages.For(presentation.Tag, "listing.unknownCodebase")</span>
+                                }
+
+                                @foreach (var p in g.MeasuredProtocols.Take(GameRowPresentation.ProtocolsShown))
+                                {
+                                    <text> · </text><span class="protocol">@p</span>
+                                }
+                                @if (g.MeasuredProtocols.Count > GameRowPresentation.ProtocolsShown)
+                                {
+                                    var rest = g.MeasuredProtocols.Count - GameRowPresentation.ProtocolsShown;
+                                    <text> </text>
+
+                                    <span class="protocol more"
+                                          title="@Messages.For(presentation.Tag, "listing.moreProtocols", new Dictionary<string, object?>(StringComparer.Ordinal)
+                                          {
+                                              ["count"] = rest,
+                                              ["names"] = string.Join(", ", g.MeasuredProtocols.Skip(GameRowPresentation.ProtocolsShown)),
+                                          })">
+                                        +@rest
+                                    </span>
+                                }
+
+                                @if (g.PlayersOverWindow is { } window && SortWindows.Of(presentation.Sort) is not null)
+                                {
+                                    <text> · </text><span class="window">@presentation.Sampled(window)</span>
+                                }
+                            </p>
+                        </div>
+
+                        @* Razor collapses a literal trailing space; the entity separates the screen-reader label from the count. *@
+                        <p class="row-count mono @presentation.CountState(g)">
+                            <span class="sr-only">@Messages.For(presentation.Tag, "listing.row.connected")&#160;</span>@presentation.CountText(g)
+                        </p>
+
+                        @if (g.Growth is { } growth)
+                        {
+                            <p class="row-trend @presentation.TrendState(growth)" role="img"
+                               aria-label="@presentation.TrendLabel(growth, presentation.TrendFigure(g))"
+                               title="@FacetWords.TrendingWord(presentation.Tag, growth)">
+                                @presentation.TrendGlyph(growth)@if (presentation.TrendFigure(g) is { } players)
+                                {
+                                    <text>&#160;@presentation.TrendPlayers(players)</text>
+                                }
+                            </p>
+                        }
+
+                        <p class="row-seen mono">
+                            @if (presentation.Sort == GameSort.Discovered)
+                            {
+                                <span class="sr-only">@Messages.For(presentation.Tag, "listing.row.discovered")&#160;</span>
+                                @if (g.FirstSeenAt is { } discovered)
+                                {
+                                    @Moment.Content(discovered, presentation.Now, presentation.Tag)
+                                }
+                                else
+                                {
+                                    <span class="state-unknown">@Messages.For(presentation.Tag, "listing.never")</span>
+                                }
+                            }
+                            else
+                            {
+                                <span class="sr-only">@Messages.For(presentation.Tag, "listing.row.reached")&#160;</span>
+                                @if (g.LastReachableAt is { } seen)
+                                {
+                                    @Moment.Content(seen, presentation.Now, presentation.Tag)
+                                }
+                                else
+                                {
+                                    <span class="state-unknown">@Messages.For(presentation.Tag, "listing.never")</span>
+                                }
+                            }
+                        </p>
+                    </div>
+                </li>
+            }
+        </text>;
+}

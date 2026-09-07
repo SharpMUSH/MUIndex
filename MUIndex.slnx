@@ -19,10 +19,6 @@
     <Project Path="tests/MUI.Web.Tests/MUI.Web.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
-    <!--
-      Built by CI and never run by it. This is the one thing in the repository that talks to somebody
-      else's live web server; it is in the solution so it cannot rot, and it runs when a human decides
-      to run it.
-    -->
+    <Project Path="tools/MUI.Streaming.Prototype/MUI.Streaming.Prototype.csproj" />
   </Folder>
 </Solution>

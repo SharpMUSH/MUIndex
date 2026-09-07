@@ -1,0 +1,6 @@
+@GameRows.Content(Games, Presentation)
+
+@code {
+    [Parameter, EditorRequired] public IEnumerable<MUI.Catalog.GameSummary> Games { get; set; } = [];
+    [Parameter, EditorRequired] public GameRowPresentation Presentation { get; set; } = default!;
+}
