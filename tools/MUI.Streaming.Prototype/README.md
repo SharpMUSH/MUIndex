@@ -6,7 +6,7 @@ dependency. Streaming is not enabled on production routes. Output is ordinary HT
 
 ## Run
 
-Requires the repository's .NET 10 SDK and Python 3. From the repository root:
+Requires the repository's .NET 10 SDK. Python 3 is needed only for the optional HTTP check. From the repository root:
 
 ```bash
 dotnet run -c Release --project tools/MUI.Streaming.Prototype </dev/null
@@ -50,19 +50,19 @@ One warmed local Release run over 900 games, ten timing iterations per mode:
 
 | Batch | Allocated/request | Sampled live render heap delta | Ready for first write | Total render/write-callback time |
 | --- | ---: | ---: | ---: | ---: |
-| Whole listing | 5.91 MB | 1.61 MB | 9.63 ms | 9.64 ms |
-| 25 rows | 7.12 MB | 0.16 MB | 0.41 ms | 11.30 ms |
-| 50 rows | 6.52 MB | 0.23 MB | 0.39 ms | 10.05 ms |
-| 100 rows | 6.22 MB | 0.38 MB | 0.47 ms | 9.57 ms |
+| Whole listing | 6.70 MB | 1.65 MB | 11.62 ms | 11.64 ms |
+| 25 rows | 7.13 MB | 0.27 MB | 0.52 ms | 12.98 ms |
+| 50 rows | 6.52 MB | 0.24 MB | 0.51 ms | 12.42 ms |
+| 100 rows | 6.22 MB | 0.33 MB | 0.49 ms | 11.62 ms |
 
 Timing varied between runs; some batched runs were slower overall. The repeatable result was lower
 sampled live render memory and earlier first-write readiness, not guaranteed throughput improvement.
 Fifty rows is a useful next integration candidate: approximately 86% less sampled live render heap
 in this fixture, with less renderer setup churn than 25 rows.
 
-A separate warmed loopback HTTP run measured median time to first byte of **12.42 ms buffered**
-and **2.60 ms for 50-row batches** (ten requests). Median completion was 13.15 vs. 11.16 ms.
-Each response contained all 900 rows in 605,853 UTF-8 bytes. Chunked delivery, invalid-batch 400 and
+A separate warmed loopback HTTP run measured median time to first byte of **12.17 ms buffered**
+and **2.38 ms for 50-row batches** (ten requests). Median completion was 13.08 vs. 10.41 ms.
+Each response contained all 900 rows in 605,998 UTF-8 bytes. Chunked delivery, invalid-batch 400 and
 completion with a throttled reader passed. These measurements exclude TLS and Traefik.
 
 ## What the checks establish
@@ -72,8 +72,9 @@ completion with a throttled reader passed. These measurements exclude TLS and Tr
 - Mixed Latin, Han and Arabic names, HTML metacharacters, icons, growth indicators and unknown
   counts exercise encoding, direction and ranking-separator placement across batches.
 - An awaited output callback stops subsequent rendering; cancellation while held prevents row writes.
+- Every fixture page, including plain and invalid-query responses, carries a visible demo banner.
 - Every chunk in a response uses one frozen timestamp and one query result. HTTP requests take
-  fresh timestamps; the benchmark deliberately freezes its clock across comparison runs.
+  fresh timestamps; the benchmark uses 2026-09-01 at 12:00 UTC for both fixture observations and rendering.
 
 ## Limits and next integration work
 

@@ -9,6 +9,11 @@ namespace MUI.Web.Components;
 public sealed record GameRowPresentation(
     GameSort Sort, DateTimeOffset Now, HttpContext? Http, GameSummary? FirstUnranked)
 {
+    /// <summary>Resolve the ranking boundary once for the complete listing, including batched renders.</summary>
+    public static GameRowPresentation For(
+        GameListing listing, GameSort sort, DateTimeOffset now, HttpContext? http = null)
+        => new(sort, now, http, listing.Games.FirstOrDefault(game => GameSorting.IsUnranked(game, sort)));
+
     public const int ProtocolsShown = 3;
     public string Tag => Http.LocaleOf().Tag;
 

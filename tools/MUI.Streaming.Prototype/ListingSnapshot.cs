@@ -13,15 +13,15 @@ public sealed record ListingSnapshot(
     HttpContext? Context = null)
 {
     public static ListingSnapshot FromFixture(
-        IReadOnlyList<GameFacetRow> rows, string query = "", HttpContext? context = null)
-        => FromCatalogue(FacetedSearch.Prepare(rows), query, context);
+        IReadOnlyList<GameFacetRow> rows, string query = "", HttpContext? context = null, DateTimeOffset? now = null)
+        => FromCatalogue(FacetedSearch.Prepare(rows), query, context, now);
 
     public static ListingSnapshot FromCatalogue(
-        FacetedSearch.Catalogue catalogue, string query = "", HttpContext? context = null)
+        FacetedSearch.Catalogue catalogue, string query = "", HttpContext? context = null, DateTimeOffset? now = null)
     {
         var valid = GameFilterBinding.TryRead(query, out var bound, out var error);
         var filter = valid ? bound.Filter : new GameFilter();
         return new(valid ? FacetedSearch.Search(catalogue, filter) : GameListing.Empty,
-            filter, query, error, DateTimeOffset.UtcNow, context);
+            filter, query, error, now ?? DateTimeOffset.UtcNow, context);
     }
 }

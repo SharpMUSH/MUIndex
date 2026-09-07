@@ -7,7 +7,7 @@ namespace MUI.Streaming.Prototype;
 
 public static class Compatibility
 {
-    public static async Task VerifyAsync(GameFacetRow[] source)
+    public static async Task VerifyAsync(GameFacetRow[] source, DateTimeOffset now)
     {
         var varied = source.Select((row, i) => row with
         {
@@ -27,8 +27,12 @@ public static class Compatibility
         {
             var context = new DefaultHttpContext();
             context.Items[LocaleRouting.ItemKey] = new LocaleContext(Locales.Find(tag)!, FromPath: tag != "en");
-            var experiment = new ListingExperiment(ListingSnapshot.FromFixture(varied, query, context));
+            var experiment = new ListingExperiment(ListingSnapshot.FromFixture(varied, query, context, now));
             var expected = await Capture(experiment, 0);
+            if (!expected.Contains(@"class=""demo-banner"""))
+            {
+                throw new InvalidOperationException("Fixture page is missing its visible demo banner.");
+            }
             foreach (var batch in new[] { 1, 25, 50, 100, 900 })
             {
                 var actual = await Capture(experiment, batch);
@@ -41,7 +45,7 @@ public static class Compatibility
         }
 
         var renders = 0;
-        var stream = new ListingExperiment(ListingSnapshot.FromFixture(source), () => renders++);
+        var stream = new ListingExperiment(ListingSnapshot.FromFixture(source, now: now), () => renders++);
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var cancellation = new CancellationTokenSource();

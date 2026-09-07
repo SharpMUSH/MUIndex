@@ -23,8 +23,8 @@ public sealed class ListingExperiment(ListingSnapshot snapshot, Action? rendered
 
         await Send(parts.Prefix);
         var games = snapshot.Listing.Games;
-        var presentation = new GameRowPresentation(snapshot.Filter.Sort, snapshot.Now, snapshot.Context,
-            games.FirstOrDefault(game => GameSorting.IsUnranked(game, snapshot.Filter.Sort)));
+        var presentation = GameRowPresentation.For(
+            snapshot.Listing, snapshot.Filter.Sort, snapshot.Now, snapshot.Context);
         for (var offset = 0; offset < games.Count; offset += batchSize)
         {
             cancellationToken.ThrowIfCancellationRequested();

@@ -161,8 +161,7 @@ else
     /// <summary>Optional row content for callers that write the rows separately.</summary>
     [Parameter] public RenderFragment? Rows { get; set; }
 
-    private GameRowPresentation Presentation => new(
-        Filter.Sort, Now, Http, Listing.Games.FirstOrDefault(g => GameSorting.IsUnranked(g, Filter.Sort)));
+    private GameRowPresentation Presentation => GameRowPresentation.For(Listing, Filter.Sort, Now, Http);
 
     /// <summary>One option on the order switch: what it says, and whether a rule precedes it.</summary>
     private sealed record SortOption(GameSort Sort, string Label, bool Rule = false);
