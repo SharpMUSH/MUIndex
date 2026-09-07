@@ -34,6 +34,23 @@ public class SiteIndexTests
     }
 
     [Test]
+    public async Task RobotsExcludesFacetPermutationsIncludingLocalizedListings()
+    {
+        await using var site = await SiteHost.StartAsync();
+        var robots = await site.Client.GetStringAsync("/robots.txt");
+
+        foreach (var path in new[] { "/games?", "/*/games?", "/archive?", "/*/archive?", "/*/games/random" })
+        {
+            await Assert.That(robots).Contains($"Disallow: {path}");
+        }
+
+        // The documents themselves remain discoverable.
+        var sitemap = XDocument.Parse(await site.Client.GetStringAsync("/sitemap.xml"));
+        await Assert.That(Paths(sitemap)).Contains("/games");
+        await Assert.That(Paths(sitemap)).Contains("/archive");
+    }
+
+    [Test]
     public async Task TheSitemapIsWellFormedAndAbsolute()
     {
         await using var site = await SiteHost.StartAsync();

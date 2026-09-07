@@ -70,7 +70,8 @@ public sealed class SiteHost : IAsyncDisposable
         bool measured = false,
         TimeProvider? clock = null,
         string? connectionString = null,
-        bool configureMetricsPortToOwn = false)
+        bool configureMetricsPortToOwn = false,
+        Action<IServiceCollection>? overrides = null)
     {
         // Named for the web project, so UseStaticWebAssets below finds that project's manifest.
         var builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions
@@ -115,6 +116,7 @@ public sealed class SiteHost : IAsyncDisposable
         // The site's own registrations — the fixture catalogue, the clock, the demo marker and the
         // read API — through the one call Program makes.
         builder.Services.AddMuiSite(builder.Configuration, connectionString);
+        overrides?.Invoke(builder.Services);
 
         if (measured && connectionString is null)
         {
