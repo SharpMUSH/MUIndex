@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
+    <GenerateTestingPlatformEntryPoint>false</GenerateTestingPlatformEntryPoint>
+    <IsTestProject>false</IsTestProject>
+    <IsTestingPlatformApplication>false</IsTestingPlatformApplication>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../tests/MUI.Web.Tests/MUI.Web.Tests.csproj" />
+    <Compile Remove="Generated/**/*.cs" />
+    <Compile Include="Generated/StreamingRender.cs" />
+    <Content Remove="Generated/**/*.razor" />
+    <Content Include="Generated/StreamedGames.razor;Generated/_Imports.razor" />
+  </ItemGroup>
+  <Target Name="GenerateStreamingPrototype" BeforeTargets="PrepareForBuild"
+          Inputs="generate.py;../../src/MUI.Web/Components/Pages/Games.razor;../../src/MUI.Web/Components/_Imports.razor;../../tests/MUI.Web.Tests/Render.cs"
+          Outputs="Generated/StreamedGames.razor;Generated/_Imports.razor;Generated/StreamingRender.cs">
+    <Exec Command="python3 &quot;$(MSBuildProjectDirectory)/generate.py&quot;" />
+  </Target>
+</Project>
