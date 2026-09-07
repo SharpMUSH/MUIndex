@@ -9,27 +9,21 @@ else
 {
     <SitePreview Title="@PreviewCopy.Titles.Games(Tag)" Description="@PreviewCopy.Pages.Games(Tag)" />
 
-    @* Card page: blocks bleed to the card's edges and pad themselves, so the header rule and the
-       filter column's fill run full width — inside main's padding neither could. *@
     <div class="card-page">
 
-    @* No count restated here; it already appears in the toolbar's "sorted by" line below. *@
     <header class="listing-head">
         <h1>@Messages.For(Tag, "games.title")</h1>
     </header>
 
     @if (Error is { } problem)
     {
-        @* An unreadable filter is refused, not dropped: listing the whole catalogue under a filter
-           that silently failed would present our parse failure as the answer to the question. *@
+        @* A failed filter must not silently return the unfiltered catalogue. *@
         <p class="problem" role="alert">@problem</p>
         <p><a href="@Http.Link("/games")">@Messages.For(Tag, "listing.clearFilters")</a></p>
     }
     else
     {
-        @* Two columns: filters left, results right, filter edge running the card's full height.
-           Source order is filters then listing, so a narrow screen and a screen reader agree
-           with the visual layout. *@
+
         <div class="listing-grid">
         <FacetPanel Facets="Listing.Facets" Filter="Filter" Query="@Query" />
 
@@ -37,15 +31,12 @@ else
 
         @if (Filter.Codebase is { Exclude: false, Value: { } family })
         {
-            @* Only what the facet chip above doesn't already say: the link to the codebase's own page. *@
+
             <p class="kicker">
                 <a href="@Http.Link($"/reference/codebases/{family.ToLowerInvariant()}")">@Messages.For(Tag, "listing.aboutCodebase", new Dictionary<string, object?> { ["codebase"] = family })</a>
             </p>
         }
 
-        @* Toolbar: current order on the left, the order switch and column names on the right. A
-           toggle group of links rather than a <select>+button, so a choice applies on click with
-           no script and the address bar carries the answer. *@
         <div class="listing-bar">
             <p class="listing-order">
                 @((MarkupString)Messages.For(Tag, "listing.sortedBy", new Dictionary<string, object?>
@@ -54,7 +45,7 @@ else
                 }))
                 @if (Listing.Games.Count > 0)
                 {
-                    @* Only where there is something to be random among. *@
+
                     <span class="sep" aria-hidden="true">·</span><a href="@RandomHref">@Messages.For(Tag, "listing.random")</a>
                 }
             </p>
@@ -78,18 +69,11 @@ else
                     }
                 </nav>
 
-                @* Column names said once, here, rather than repeated on every row. Decorative — a
-                   screen reader gets the same names per row instead (each cell's own sr-only label),
-                   so this exists for a sighted reader scanning the head, and has to name what that
-                   reader actually sees below it: the trend column added beside the count, and the
-                   last column reading as a discovery date rather than "reached" while that sort is
-                   active. *@
+                @* Each row supplies accessible labels; this heading is visual only. *@
                 <p class="kicker column-head" aria-hidden="true">@ColumnsHeading()</p>
             </div>
         </div>
 
-        @* A median is a median *of* something (§15.7): the window it's computed over is part of
-           the order's name, shown only while a statistical order is in force. *@
         @if (SortWindows.Of(Filter.Sort) is not null)
         {
             <nav class="switch windows" aria-label="@Messages.For(Tag, "switch.window")">
@@ -141,7 +125,6 @@ else
 
     [Parameter] public GameFilter Filter { get; set; } = new();
 
-    /// <summary>Names the columns a sighted reader actually sees below it — see the caller's own comment.</summary>
     private string ColumnsHeading() => Messages.For(
         Tag, Filter.Sort == GameSort.Discovered ? "listing.columns.discovered" : "listing.columns");
 
@@ -149,30 +132,19 @@ else
 
     [Parameter] public string? Error { get; set; }
 
-    /// <summary>The querystring this render is answering, exactly as the request carried it.</summary>
     [Parameter] public string Query { get; set; } = string.Empty;
 
     private bool Plain => Truthy.Is(
         QueryHelpers.ParseQuery(Query).TryGetValue("plain", out var flag) ? flag.ToString() : null);
 
-    /// <summary>Random, within whatever is on screen (spec §9) — filters ride along.</summary>
     private string RandomHref => Http.Link("/games/random" + ListingLinks.With(Query, "plain", null));
 
-    /// <summary>Optional row content for callers that write the rows separately.</summary>
     [Parameter] public RenderFragment? Rows { get; set; }
 
     private GameRowPresentation Presentation => GameRowPresentation.For(Listing, Filter.Sort, Now, Http);
 
-    /// <summary>One option on the order switch: what it says, and whether a rule precedes it.</summary>
     private sealed record SortOption(GameSort Sort, string Label, bool Rule = false);
 
-    /// <summary>The order switch, as the handoff draws it plus the two orders it never had to draw.</summary>
-    /// <remarks>
-    /// The switch chooses which measurement the count column shows (now / median / peak), not just
-    /// row order. <c>name</c> and <c>reached</c> follow a rule because they're a different kind of
-    /// order — a spelling and a date rather than a count — kept from the old control though absent
-    /// from the mockup.
-    /// </remarks>
     private SortOption[] SortOptions =>
     [
         new(GameSort.Players, Messages.For(Tag, "switch.now")),
@@ -183,23 +155,14 @@ else
         new(GameSort.Discovered, Messages.For(Tag, "switch.discovered")),
     ];
 
-    /// <summary>
-    /// The three spans, spelled for whichever statistic is in force.
-    /// </summary>
-    /// <remarks>
-    /// Derived from the sort rather than listed twice, so a median and a peak cannot drift into
-    /// offering different windows.
-    /// </remarks>
     private IEnumerable<(GameSort Sort, string Label)> WindowOptions =>
         SortWindows.IsMedian(Filter.Sort)
             ? [(GameSort.MedianWeek, Messages.For(Tag, "window.7")), (GameSort.MedianMonth, Messages.For(Tag, "window.30")), (GameSort.MedianQuarter, Messages.For(Tag, "window.90"))]
             : [(GameSort.PeakWeek, Messages.For(Tag, "window.7")), (GameSort.PeakMonth, Messages.For(Tag, "window.30")), (GameSort.PeakQuarter, Messages.For(Tag, "window.90"))];
 
-    /// <summary>This listing in one other order, keeping every other thing it was asked.</summary>
     private string SortHref(GameSort sort) =>
         Http.Link("/games" + ListingLinks.With(Query, FacetKeys.Sort, FacetTokens.Of(sort)));
 
-    /// <summary>The locale this page is being answered in.</summary>
     [CascadingParameter] private HttpContext? Http { get; set; }
 
     private string Tag => Http.LocaleOf().Tag;
