@@ -108,7 +108,17 @@ internal static class OpenApiDocument
                     },
                 },
             },
-            ["304"] = new JsonObject { ["description"] = "Unchanged; no response body." },
+            ["304"] = new JsonObject
+            {
+                ["description"] = "Unchanged; no response body.",
+                ["headers"] = new JsonObject
+                {
+                    ["ETag"] = Header("Validator for these exact bytes."),
+                    ["Link"] = Header("Service description, documentation and configured licence URL."),
+                    ["X-MUIndex-Licence"] = Header("Dataset licence identifier, when configured."),
+                    ["Cache-Control"] = Header("Cache policy retained from the corresponding successful response."),
+                },
+            },
         };
         if (keyed)
         {

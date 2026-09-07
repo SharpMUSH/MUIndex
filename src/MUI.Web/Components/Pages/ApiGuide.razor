@@ -94,7 +94,7 @@ GET /api/games/{id-or-slug}/availability</code></pre>
             default to 90 days and accept up to 1826 days; hourly presence defaults to 7 days and accepts up to 90 days.
             Presence statistics cover counted probes only. Counted and uncountable sample totals count probes, not people.</p>
         <ul>
-            <li><a href="@Link(ApiRoutes.Feeds)">Change feeds (JSON and links to RSS)</a>: newly discovered, went dark, and came back.</li>
+            <li><a href="@Link(ApiRoutes.Feeds)">Change feeds (JSON and links to RSS)</a>: newly discovered by this crawler, observed as unreachable, and observed as reachable again.</li>
             <li><a href="@Link(ApiRoutes.Dump)">Catalogue export (JSON)</a>: licence, attribution, and full game records.</li>
             <li><a href="@Link(ApiRoutes.DumpLines)">Catalogue export (NDJSON)</a>: one full game record per line, with no header record.</li>
         </ul>

@@ -5,6 +5,30 @@ namespace MUI.Web.Tests.Api;
 public class OpenApiTests
 {
     [Test]
+    public async Task ConditionalResponsesDocumentTheHeadersTheyRetain()
+    {
+        await using var host = await ApiHost.StartAsync();
+        var document = await Json.ElementAsync(await host.Client.GetAsync("/api/openapi.json"));
+        using var original = await host.Client.GetAsync("/api/games");
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/games");
+        request.Headers.IfNoneMatch.Add(original.Headers.ETag!);
+        using var unchanged = await host.Client.SendAsync(request);
+
+        await Assert.That((int)unchanged.StatusCode).IsEqualTo(304);
+        await Assert.That(await unchanged.Content.ReadAsStringAsync()).IsEmpty();
+        foreach (var name in new[] { "ETag", "Link", "X-MUIndex-Licence", "Cache-Control" })
+        {
+            await Assert.That(unchanged.Headers.GetValues(name)).IsEquivalentTo(original.Headers.GetValues(name));
+            foreach (var path in document.GetProperty("paths").EnumerateObject())
+            {
+                var response = path.Value.GetProperty("get").GetProperty("responses").GetProperty("304");
+                await Assert.That(response.GetProperty("headers").TryGetProperty(name, out _)).IsTrue();
+                await Assert.That(response.TryGetProperty("content", out _)).IsFalse();
+            }
+        }
+    }
+
+    [Test]
     public async Task EveryDataRouteAndEmbeddedSchemaReferenceCanBeResolved()
     {
         await using var host = await ApiHost.StartAsync();
