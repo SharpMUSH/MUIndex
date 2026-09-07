@@ -66,9 +66,13 @@ public static class SiteIndex
         text.AppendLine("Disallow: /games/random");
         text.AppendLine("Disallow: /*/games/random");
         text.AppendLine("Disallow: /games?");
+        text.AppendLine("Disallow: /games/?");
         text.AppendLine("Disallow: /*/games?");
+        text.AppendLine("Disallow: /*/games/?");
         text.AppendLine("Disallow: /archive?");
+        text.AppendLine("Disallow: /archive/?");
         text.AppendLine("Disallow: /*/archive?");
+        text.AppendLine("Disallow: /*/archive/?");
         text.AppendLine("Disallow: /account");
         text.AppendLine("Disallow: /api/");
         text.AppendLine("Allow: /");
