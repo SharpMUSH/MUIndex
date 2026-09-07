@@ -1,0 +1,8 @@
+<!doctype html><html lang="@Snapshot.Context.LocaleOf().Tag"><head><meta charset="utf-8"><title>Streaming prototype</title></head><body><GamesView
+    Listing="Snapshot.Listing" Filter="Snapshot.Filter" Query="@Snapshot.Query"
+    Error="@Snapshot.Error" Now="Snapshot.Now" Rows="Rows" /></body></html>
+
+@code {
+    [Parameter, EditorRequired] public ListingSnapshot Snapshot { get; set; } = default!;
+    [Parameter] public RenderFragment? Rows { get; set; }
+}

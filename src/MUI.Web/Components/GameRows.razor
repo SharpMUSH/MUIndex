@@ -1,0 +1,177 @@
+@code {
+    /// <summary>Shared row markup for complete listings and bounded streaming batches.</summary>
+    public static RenderFragment Content(IEnumerable<GameSummary> games, GameRowPresentation presentation) =>
+        @<text>
+            @foreach (var g in games)
+            {
+                @* Marks where a sort runs out of things it can rank — e.g. counted games end and
+                   uncountable ones begin — so an unbroken run of blanks doesn't read as a tail of
+                   empty games. A real list item, so it survives in the a11y tree and plain text. *@
+                @if (ReferenceEquals(g, presentation.FirstUnranked))
+                {
+                    <li class="unranked-break">
+                        <span class="kicker">@Messages.For(presentation.Tag, "listing.fromHere")</span>
+                        <span>@FacetWords.Unranked(presentation.Tag, presentation.Sort)</span>
+                    </li>
+                }
+                <li class="game-row @(g.State is LifecycleState.Archived ? "archived" : null)">
+                    @* Three zones — identity · measurement · freshness — with metadata spanning
+                       underneath, and the game's face holding the left edge of all of it. *@
+                    <div class="row-main">
+                        @* The icon a game published where we hold one, and its monogram otherwise —
+                           the two drawn identically on purpose, because "declared no icon" and "we
+                           could not fetch the one it declared" are our afternoon and its choice, and
+                           only one of them is a fact about the game (rule 5).
+
+                           Fallback is on here and off on the game page, and the difference is the
+                           surface rather than an inconsistency: a page has one plate, where a
+                           monogram would be a brand we invented at 96px; a listing has five hundred,
+                           where the plate's job is a left edge the eye can run down, and a column
+                           that appears on one row in twenty is furniture rather than an edge. *@
+                        @GamePlate.Content(g.Slug, g.Name, g.HasIcon, fallback: true)
+
+                        <div class="row-text">
+                            <p class="row-head">
+                                <a class="name" href="@presentation.Http.Link($"/g/{g.Slug}")">@GameName.Content(g.Name)</a>
+                                @* Archived and claimed are the two states worth marking here.
+                                   Unclaimed is the majority state, so marking it on every row would
+                                   distinguish nothing; it stays on the game page and in the API. *@
+                                @if (g.State is LifecycleState.Archived)
+                                {
+                                    <span class="badge archived">archived</span>
+                                }
+                                else if (g.IsClaimed)
+                                {
+                                    @* Ring with a tick, no visible word — the label reaches a
+                                       screen reader and tooltip via aria-label/title instead. *@
+                                    <span class="claim-ring" role="img"
+                                          aria-label="@Messages.For(presentation.Tag, "listing.claimed")"
+                                          title="@Messages.For(presentation.Tag, "listing.claimed")">✓</span>
+                                }
+                            </p>
+
+                            <p class="meta mono" translate="no">
+                                @* Same provenance chip the game page uses (value, glyph, age) rather
+                                   than a bare string, so staleness is visible here too. *@
+                                @if (g.CodebaseProvenance is { } codebase)
+                                {
+                                    @* No age on the chip: the row's own freshness column dates the
+                                       same probe, and printing it here made every row say one age
+                                       twice. *@
+                                    <Chip Fact="codebase" Now="presentation.Now" AgeShown="false" />
+                                }
+                                else if (g.Codebase is { } cb)
+                                {
+                                    <text>@cb</text>
+                                }
+                                else
+                                {
+                                    @* An unidentified codebase is a fact about how far our parsers
+                                       reach, not about the game — the title attribute says so; the
+                                       short label alone would not (rule 5). *@
+                                    <span class="state-unknown"
+                                          title="@Messages.For(presentation.Tag, "listing.unknownCodebase.title")">@Messages.For(presentation.Tag, "listing.unknownCodebase")</span>
+                                }
+                                @* All measured; shown as three then a "+N more" rather than a dot
+                                   per protocol. Full list with handshake provenance is on the game page. *@
+                                @foreach (var p in g.MeasuredProtocols.Take(GameRowPresentation.ProtocolsShown))
+                                {
+                                    <text> · </text><span class="protocol">@p</span>
+                                }
+                                @if (g.MeasuredProtocols.Count > GameRowPresentation.ProtocolsShown)
+                                {
+                                    var rest = g.MeasuredProtocols.Count - GameRowPresentation.ProtocolsShown;
+                                    <text> </text>
+                                    @* Protocol names inside are machine voice and pass through
+                                       untranslated; the "and … more" wrapper is ours. *@
+                                    <span class="protocol more"
+                                          title="@Messages.For(presentation.Tag, "listing.moreProtocols", new Dictionary<string, object?>(StringComparer.Ordinal)
+                                          {
+                                              ["count"] = rest,
+                                              ["names"] = string.Join(", ", g.MeasuredProtocols.Skip(GameRowPresentation.ProtocolsShown)),
+                                          })">
+                                        +@rest
+                                    </span>
+                                }
+                                @* A median is a median *of* something (§15.7): the span and sample
+                                   tally ride along with the statistic. *@
+                                @if (g.PlayersOverWindow is { } window && SortWindows.Of(presentation.Sort) is not null)
+                                {
+                                    <text> · </text><span class="window">@presentation.Sampled(window)</span>
+                                }
+                            </p>
+                        </div>
+
+                        @* Three states, spelled rather than implied: a missing count says so in
+                           words, never rendered as zero and never left blank (rules 2/4). No
+                           provenance glyph or unit per row — those live on the game page and the
+                           column head, so 500 rows don't repeat one string 500 times. *@
+                        @* The column head above is aria-hidden, so a screen reader needs a label
+                           in the row itself to say which bare number is the count. *@
+                        @* The trailing space is an entity because Razor collapses a literal one,
+                           and without it the row is announced as "connected219". *@
+                        <p class="row-count mono @presentation.CountState(g)">
+                            <span class="sr-only">@Messages.For(presentation.Tag, "listing.row.connected")&#160;</span>@presentation.CountText(g)
+                        </p>
+
+                        @* Its own column, same grid row as row-count rather than falling to an
+                           implicit row below it (row-main's grid-template-columns carries five now:
+                           the plate and four) — a reader scans the row once, left to right, rather than
+                           finding the count and then hunting a line down for what it did lately. The
+                           fitted line's own figure is shown beside the glyph, not just its direction:
+                           a bare glyph said "up" without saying by how much. Players rather than a
+                           percentage, because one player becoming three is a 200% rise and fifty
+                           becoming a hundred only 100%, which reads as though two extra players were
+                           the bigger event.
+
+                           A steady row gets the glyph alone. "Steady" is precisely the finding that
+                           the move was too small to call a change, and a number printed beside it
+                           would re-assert the change the glyph just declined to claim — a big game
+                           can sit several players from flat and still be inside the band. *@
+                        @if (g.Growth is { } growth)
+                        {
+                            <p class="row-trend @presentation.TrendState(growth)" role="img"
+                               aria-label="@presentation.TrendLabel(growth, presentation.TrendFigure(g))"
+                               title="@FacetWords.TrendingWord(presentation.Tag, growth)">
+                                @presentation.TrendGlyph(growth)@if (presentation.TrendFigure(g) is { } players)
+                                {
+                                    <text>&#160;@presentation.TrendPlayers(players)</text>
+                                }
+                            </p>
+                        }
+
+                        @* Never-reached is its own sentence, never dated from our first sighting.
+                           The column reads whichever date the active sort ranks on — reached by
+                           default, first-seen while sorting by discovery — rather than showing
+                           reached even when the row order says something else. *@
+                        <p class="row-seen mono">
+                            @if (presentation.Sort == GameSort.Discovered)
+                            {
+                                <span class="sr-only">@Messages.For(presentation.Tag, "listing.row.discovered")&#160;</span>
+                                @if (g.FirstSeenAt is { } discovered)
+                                {
+                                    @Moment.Content(discovered, presentation.Now, presentation.Tag)
+                                }
+                                else
+                                {
+                                    <span class="state-unknown">@Messages.For(presentation.Tag, "listing.never")</span>
+                                }
+                            }
+                            else
+                            {
+                                <span class="sr-only">@Messages.For(presentation.Tag, "listing.row.reached")&#160;</span>
+                                @if (g.LastReachableAt is { } seen)
+                                {
+                                    @Moment.Content(seen, presentation.Now, presentation.Tag)
+                                }
+                                else
+                                {
+                                    <span class="state-unknown">@Messages.For(presentation.Tag, "listing.never")</span>
+                                }
+                            }
+                        </p>
+                    </div>
+                </li>
+            }
+        </text>;
+}

@@ -1,8 +1,8 @@
 # Sequential HTML streaming prototype
 
-An isolated experiment based on the listing after PR #173. No production routes, container
-settings or crawler policies are changed. This is ordinary HTML, with no Blazor streaming patches
-or JavaScript dependency.
+An experiment based on the listing after PR #173. The normal page and prototype now share ordinary
+Razor presentation components; there is no source generator, reflection proxy or test-project
+dependency. Streaming is not enabled on production routes. Output is ordinary HTML without JavaScript.
 
 ## Run
 
@@ -13,11 +13,9 @@ dotnet run -c Release --project tools/MUI.Streaming.Prototype </dev/null
 python3 tools/MUI.Streaming.Prototype/http_check.py
 ```
 
-The first command generates experimental Razor components from the **current** Games.razor and
-headless renderer, runs 75 exact-output comparisons plus backpressure/cancellation checks, and
-prints allocation, timing and live-heap samples. Generation is a build dependency; generated files
-are ignored by Git. Expected source shapes are checked so a changed template fails visibly.
-The second command starts and stops its own loopback server on port 5187 and checks real HTTP.
+The first command runs 75 exact-output comparisons plus backpressure/cancellation checks, then
+prints allocation, timing and live-heap samples. The second starts and stops its own loopback
+server on port 5187 and checks real HTTP. Python is used only for that optional HTTP check.
 
 For manual requests:
 
@@ -29,19 +27,22 @@ curl --no-buffer http://127.0.0.1:5187/streamed?batch=50
 `/buffered` renders the whole listing. `/streamed?batch=25`, `50` or `100` sends its shell first,
 then rows in batches, then the suffix. The wrapper is intentionally minimal and unstyled.
 
-## Mechanism
+## Structure
 
-Capture one GameListing and one timestamp before writing. Render the shell without its row loop,
-keeping the facets and controls computed over the complete result. Each row batch uses a new,
-short-lived HtmlRenderer and the same immutable answer. Dispose that renderer before awaiting the
-output write. Await each write/flush before rendering the next batch, so a slow consumer does not
-cause a queue of rendered batches. Cancellation prevents further rendering/writes. Compute the
-ranking separator once for the whole result, not once per batch.
+- `Games.razor` binds the request and loads its data. `GamesView.razor` renders the listing and
+  `GameRows.razor` supplies shared row markup. `GameRowPresentation` owns the row's formatting rules.
+- `ListingSnapshot` holds the experiment's query result, locale and timestamp. Every batch reads
+  the same snapshot. The preview server shares a prepared catalogue across requests.
+- `BatchRenderer` owns and disposes each HtmlRenderer and its services. `ListingExperiment` writes
+  the document prefix, row batches and suffix, awaiting each write before rendering another batch.
+- `ListingDocument` and `ListingBatch` are ordinary Razor components. `HtmlInsertion` provides one
+  explicit insertion point because Razor components produce balanced markup. It splits rendered
+  HTML only; it does not rewrite source or manually construct document tags.
+- `RenderBenchmark`, `Compatibility` and `PreviewServer` separate measurement, validation and hosting.
+  Measurement is an instance callback; it has no global state.
 
-The generated components use the original Razor row markup and its encoding/localization helpers.
-The original, unmodified Games component is the comparison baseline. Plain mode and invalid filter
-responses fall back to their normal non-batched document. The declaration and closing document tags
-are shared between the two experiment endpoints. Synthetic games only; no production data is read.
+The ranking separator is resolved once over the full result. Cancellation stops further writes.
+Plain mode and invalid filters return their normal complete document. All data is synthetic.
 
 ## Measurements
 
@@ -49,18 +50,18 @@ One warmed local Release run over 900 games, ten timing iterations per mode:
 
 | Batch | Allocated/request | Sampled live render heap delta | Ready for first write | Total render/write-callback time |
 | --- | ---: | ---: | ---: | ---: |
-| Whole listing | 7.13 MB | 1.61 MB | 13.26 ms | 13.27 ms |
-| 25 rows | 7.32 MB | 0.19 MB | 0.49 ms | 10.25 ms |
-| 50 rows | 6.64 MB | 0.26 MB | 0.56 ms | 9.50 ms |
-| 100 rows | 6.30 MB | 0.41 MB | 0.70 ms | 10.11 ms |
+| Whole listing | 5.91 MB | 1.61 MB | 9.63 ms | 9.64 ms |
+| 25 rows | 7.12 MB | 0.16 MB | 0.41 ms | 11.30 ms |
+| 50 rows | 6.52 MB | 0.23 MB | 0.39 ms | 10.05 ms |
+| 100 rows | 6.22 MB | 0.38 MB | 0.47 ms | 9.57 ms |
 
 Timing varied between runs; some batched runs were slower overall. The repeatable result was lower
 sampled live render memory and earlier first-write readiness, not guaranteed throughput improvement.
-Fifty rows is a useful next integration candidate: approximately 84% less sampled live render heap
+Fifty rows is a useful next integration candidate: approximately 86% less sampled live render heap
 in this fixture, with less renderer setup churn than 25 rows.
 
-A separate warmed loopback HTTP run measured median time to first byte of **11.70 ms buffered**
-and **1.08 ms for 50-row batches** (ten requests). Median completion was 12.44 vs. 9.76 ms.
+A separate warmed loopback HTTP run measured median time to first byte of **12.42 ms buffered**
+and **2.60 ms for 50-row batches** (ten requests). Median completion was 13.15 vs. 11.16 ms.
 Each response contained all 900 rows in 605,853 UTF-8 bytes. Chunked delivery, invalid-batch 400 and
 completion with a throttled reader passed. These measurements exclude TLS and Traefik.
 
@@ -81,11 +82,12 @@ after ToHtmlString and a forced collection. It is not peak request memory, alloc
 or a production memory guarantee. GC sampling runs separately from the timed pass. Timing uses a
 completed-task sink; only the separately reported HTTP check measures network arrival.
 
-The baseline here uses the headless renderer and a full HTML string, whereas production's
+The baseline here renders the complete shared listing into a string, whereas production's
 RazorComponentEndpointInvoker uses its own buffered writer. The production layout, HeadOutlet,
 authentication, antiforgery, cookies, compression, middleware and Traefik are not integrated or
-validated by this tool. Exact output means the Games component plus the common experimental wrapper,
-not the full production application. A throttled localhost reader may fit in OS buffers; the held
+validated by this tool. The 75 exact comparisons cover buffered versus batched GamesView/GameRows with the same
+experimental wrapper, not the pre-extraction implementation or full production application. The
+1,188 Web tests validate the extraction through the real page and its existing surface contracts. A throttled localhost reader may fit in OS buffers; the held
 callback is the deterministic backpressure check. Concurrent slow-reader RSS remains unmeasured.
 
 Before shipping, integrate the real application shell while preserving personalization and header
@@ -93,5 +95,5 @@ behavior; settle status/headers before the first flush; abort correctly on error
 exercise cancellation and concurrent slow clients through the proxy; and measure allocations,
 retained memory and throughput at production-like load. Keep the catalogue snapshot coalesced and
 bounded. Do not route each batch through independent database queries or accumulate batches in a
-single long-lived renderer. Generated-source surgery is for this experiment, not the intended
-production architecture.
+single long-lived renderer. The explicit HTML insertion point remains an experimental boundary
+until the full application shell is integrated.
