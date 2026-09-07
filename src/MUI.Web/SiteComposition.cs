@@ -157,6 +157,7 @@ public static class SiteComposition
         // of the pipeline, resolving the endpoint before the middleware above rewrites the path —
         // which 404'd every localized URL.
         app.UseRouting();
+        app.UseCors();
 
         // After routing, so a counted request is one that reached the route table, and inside
         // everything above, so a response the middleware above shaped is counted as it was sent.

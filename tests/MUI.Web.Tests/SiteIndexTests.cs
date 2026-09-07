@@ -31,6 +31,8 @@ public class SiteIndexTests
 
         await Assert.That(robots).Contains("Disallow: /games/random");
         await Assert.That(robots).Contains("Disallow: /account");
+        await Assert.That(robots).DoesNotContain("Disallow: /api/");
+        await Assert.That(robots).Contains("Disallow: /mcp");
     }
 
     [Test]
@@ -59,6 +61,7 @@ public class SiteIndexTests
         await Assert.That(paths).Contains("/games");
         await Assert.That(paths).Contains("/archive");
         await Assert.That(paths).Contains("/reference");
+        await Assert.That(paths).Contains("/about/api");
     }
 
     [Test]

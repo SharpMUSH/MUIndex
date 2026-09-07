@@ -113,6 +113,45 @@ public class GameStructuredDataTests
         await Assert.That(json).DoesNotContain("\"https://muindex.test/g/");
     }
 
+    [Test]
+    public async Task SemanticFieldsDescribeTheGameAndLinkToItsEvidence()
+    {
+        var page = Page(3, FieldSource.Who, Now) with
+        {
+            Declared = new Dictionary<string, ProvenanceChip>
+            {
+                ["GENRE"] = new("Science fiction", FieldSource.Mssp, Now, false),
+                ["LANGUAGE"] = new("English", FieldSource.Mssp, Now, false),
+            },
+        };
+        using var document = JsonDocument.Parse(GameStructuredData.For(page, Origin));
+        var game = document.RootElement.GetProperty("@graph")[0];
+
+        await Assert.That(game.TryGetProperty("gameServer", out _)).IsFalse();
+        await Assert.That(game.GetProperty("runtimePlatform").GetString()).IsEqualTo("PennMUSH 1.8.8p0");
+        await Assert.That(game.GetProperty("genre").GetString()).IsEqualTo("Science fiction");
+        await Assert.That(game.GetProperty("inLanguage").GetString()).IsEqualTo("English");
+        await Assert.That(game.GetProperty("description").GetString()).IsEqualTo(page.Description);
+        await Assert.That(game.GetProperty("subjectOf").GetProperty("url").GetString())
+            .IsEqualTo("https://muindex.test/api/games/aaaaaaaa-0000-0000-0000-000000000001");
+    }
+
+    [Test]
+    public async Task MissingOrStaleSemanticFieldsAreNotInvented()
+    {
+        var page = Page(3, FieldSource.Who, Now) with
+        {
+            Declared = new Dictionary<string, ProvenanceChip>
+            {
+                ["GENRE"] = new("Fantasy", FieldSource.Mssp, Now, true),
+            },
+        };
+        using var document = JsonDocument.Parse(GameStructuredData.For(page, Origin));
+        var game = document.RootElement.GetProperty("@graph")[0];
+        await Assert.That(game.TryGetProperty("genre", out _)).IsFalse();
+        await Assert.That(game.TryGetProperty("inLanguage", out _)).IsFalse();
+    }
+
     private static JsonElement? Counter(JsonDocument document)
     {
         foreach (var node in document.RootElement.GetProperty("@graph").EnumerateArray())

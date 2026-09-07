@@ -41,7 +41,7 @@ public class DumpApiTests
             .IsEqualTo("ODbL-1.0");
         await Assert.That(response.Headers.GetValues("X-MUIndex-Licence").Single())
             .IsEqualTo("ODbL-1.0");
-        await Assert.That(response.Headers.GetValues("Link").Single()).Contains("rel=\"license\"");
+        await Assert.That(string.Join(", ", response.Headers.GetValues("Link"))).Contains("rel=\"license\"");
         await Assert.That(dump.GetProperty("notice").GetString()).IsNotNull();
         await Assert.That(dump.TryGetProperty("attribution", out _)).IsTrue();
     }

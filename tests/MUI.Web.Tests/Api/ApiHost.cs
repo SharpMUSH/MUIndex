@@ -78,6 +78,7 @@ public sealed class ApiHost : IAsyncDisposable
         builder.WebHost.UseUrls("http://127.0.0.1:0");
 
         var app = builder.Build();
+        app.UseCors();
         app.MapMuiApi();
         await app.StartAsync();
 

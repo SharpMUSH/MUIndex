@@ -165,7 +165,7 @@ public class ReadingControlsTests
         string[] bare =
         [
             "/account", "/account/sign-in", "/g/{Slug}/claim", "/g/{Slug}/mssp", "/games/random",
-            "/not-found",
+            "/not-found", "/about/api",
         ];
 
         var routes = typeof(TextMirror).Assembly.GetTypes()

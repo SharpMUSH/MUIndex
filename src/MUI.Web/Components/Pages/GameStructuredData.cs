@@ -65,10 +65,10 @@ public static class GameStructuredData
             ["name"] = summary.Name,
             ["url"] = url,
             ["playMode"] = "MultiPlayer",
-            ["gamePlatform"] = "MU* server, over telnet",
+            ["gamePlatform"] = "Text-based MU* server, over telnet",
         };
 
-        if ((summary.Tagline ?? page.Description) is { } description)
+        if ((page.Description ?? summary.Tagline) is { } description)
         {
             game["description"] = description;
         }
@@ -83,8 +83,27 @@ public static class GameStructuredData
         // Named only when we have a chip for it — an unlabelled value may not enter this graph.
         if (summary.CodebaseProvenance is not null && summary.Codebase is { } codebase)
         {
-            game["gameServer"] = codebase;
+            game["runtimePlatform"] = codebase;
         }
+
+        // Descriptive claims already displayed on the page; the linked API retains their sources.
+        foreach (var (field, property) in new[] { ("GENRE", "genre"), ("LANGUAGE", "inLanguage") })
+        {
+            if (page.Declared.TryGetValue(field, out var chip)
+                && !chip.IsStale && !string.IsNullOrWhiteSpace(chip.Value))
+            {
+                game[property] = chip.Value;
+            }
+        }
+
+        game["identifier"] = summary.Id.ToString("D");
+        game["subjectOf"] = new JsonObject
+        {
+            ["@type"] = "DataFeed",
+            ["url"] = $"{root}{Api.ApiRoutes.Game(summary.Id)}",
+            ["encodingFormat"] = "application/json",
+            ["name"] = "MUIndex game record with sources and observation timestamps",
+        };
 
         if (Counter(summary) is { } counter)
         {

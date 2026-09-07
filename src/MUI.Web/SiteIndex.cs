@@ -64,7 +64,8 @@ public static class SiteIndex
         text.AppendLine("User-agent: *");
         text.AppendLine("Disallow: /games/random");
         text.AppendLine("Disallow: /account");
-        text.AppendLine("Disallow: /api/");
+        text.AppendLine("Disallow: /mcp");
+        text.AppendLine("Disallow: /metrics");
         text.AppendLine("Allow: /");
         text.AppendLine();
         text.AppendLine(CultureInfo.InvariantCulture, $"Sitemap: {sitemap}");
@@ -126,6 +127,7 @@ public static class SiteIndex
         "/reference",
         "/ecosystem",
         "/about",
+        ApiRoutes.Documentation,
         "/submit",
     ];
 
