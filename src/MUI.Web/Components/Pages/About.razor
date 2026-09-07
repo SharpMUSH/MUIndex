@@ -19,6 +19,7 @@ else
 
     <h1>@L("about.title")</h1>
     <p class="summary">@Page.Lede</p>
+    <p lang="en"><a href="@Http.Link(MUI.Web.Api.ApiRoutes.Documentation)">Public API, data exports and usage guide</a></p>
 
     @foreach (var section in Page.Sections)
     {

@@ -14,9 +14,17 @@ namespace MUI.Web.Api;
 /// </remarks>
 public static class MuiApi
 {
+    private const string ReadCorsPolicy = "mui-public-read";
+
     public static IServiceCollection AddMuiApi(
         this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddCors(options => options.AddPolicy(ReadCorsPolicy, policy => policy
+            .AllowAnyOrigin()
+            .WithMethods("GET")
+            .WithHeaders("If-None-Match")
+            .WithExposedHeaders("ETag", "Link", "X-MUIndex-Licence")));
+
         services.Configure<DatasetLicenceOptions>(
             configuration.GetSection(DatasetLicenceOptions.Section));
 
@@ -42,15 +50,17 @@ public static class MuiApi
 
     public static IEndpointRouteBuilder MapMuiApi(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapGet(ApiRoutes.Base, IndexAsync);
+        var api = endpoints.MapGroup(string.Empty).RequireCors(ReadCorsPolicy);
+        api.MapGet(ApiRoutes.Base, IndexAsync);
+        api.MapGet(ApiRoutes.OpenApi, OpenApiDocument.WriteAsync);
 
-        GameEndpoints.Map(endpoints);
-        FeedEndpoints.Map(endpoints);
-        DumpEndpoints.Map(endpoints);
-        SeriesEndpoints.Map(endpoints);
+        GameEndpoints.Map(api);
+        FeedEndpoints.Map(api);
+        DumpEndpoints.Map(api);
+        SeriesEndpoints.Map(api);
 
         // §8.5's owner-published outputs — off /g/ rather than /api/, since these get pasted by hand.
-        BadgeEndpoints.Map(endpoints);
+        BadgeEndpoints.Map(api);
 
         return endpoints;
     }
@@ -68,9 +78,11 @@ public static class MuiApi
             ApiClock.Now(clock),
             licence.Value.View(),
             [
+                new RouteView("GET", ApiRoutes.OpenApi, "OpenAPI 3.1 contract: parameters, response schemas and errors."),
+                new RouteView("GET", ApiRoutes.Documentation, "HTML usage guide and examples."),
                 new RouteView("GET", ApiRoutes.Games,
-                    "The listing. Same querystring as the site's facet panel: q, archived, "
-                    + "protocol (repeatable), band, limit, offset. Archived games are excluded "
+                    "The listing. Same querystring as the site's facet panel; see /api/openapi.json "
+                    + "for every parameter, including genre, language, protocol, sort and pagination. Archived games are excluded "
                     + "unless archived=true. Two states are never in it and archived=true does not "
                     + "lift them: an address an editor ruled out as not a game, and a game whose "
                     + "owners asked to come out. Both still answer at their own route."),

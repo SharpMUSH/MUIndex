@@ -1,0 +1,121 @@
+@page "/about/api"
+@using MUI.Web.Api
+@using MUI.Web.Localization
+
+<SitePreview Title="Public API and data" Description="Search and reuse MUIndex's text-based game catalogue: public JSON API, OpenAPI contract, bulk exports, and source-labelled observations." />
+
+<article class="api-guide" lang="en">
+    <h1>Public API and data</h1>
+    <p class="summary">Find MUDs, MUSHes, MUCKs and MOOs, inspect their connection details,
+        and reuse observations with their sources and dates. The public read API needs no account or API key.</p>
+
+    <nav aria-label="On this page">
+        <ul>
+            <li><a href="#start">Start reading</a></li>
+            <li><a href="#search">Search and filter</a></li>
+            <li><a href="#interpret">Interpret the evidence</a></li>
+            <li><a href="#history">History and exports</a></li>
+            <li><a href="#reuse">Reuse and attribution</a></li>
+        </ul>
+    </nav>
+
+    <section aria-labelledby="start">
+        <h2 id="start">Start reading</h2>
+        <p>The <a href="@Link(ApiRoutes.Base)">API index</a> lists the routes and this deployment's
+            dataset licence. The <a href="@Link(ApiRoutes.OpenApi)">OpenAPI 3.1 contract (JSON)</a>
+            describes parameters, response fields, nullable values, and errors for client authors and automated tools.</p>
+        <p>Begin with the <a href="@Link("/api/games?limit=10&sort=name")">first ten games by name</a>.
+            Each entry supplies a readable <code>url</code> and an <code>apiUrl</code> for its full record.
+            Save the immutable <code>id</code>; names and slugs can change. Former slugs redirect permanently.</p>
+        <pre><code>GET /api/games?limit=10&amp;sort=name
+GET /api/games/{id-or-slug}</code></pre>
+        <p>These paths are relative to this site's origin. JSON keys and enum values use camelCase.
+            Responses are available to browser clients through public CORS.</p>
+    </section>
+
+    <section aria-labelledby="search">
+        <h2 id="search">Search and filter</h2>
+        <p>The <a href="@Link("/games")">game listing</a> and API share a query language.
+            Start with the listing's <code>facets</code>: they contain available values, counts,
+            selections, and the kind of evidence behind each filter.</p>
+        <dl>
+            <dt><code>q</code></dt><dd>Text search across names, taglines, and codebases.</dd>
+            <dt><code>genre</code> and <code>language</code></dt>
+            <dd>Descriptive values supplied by sources. Use values returned by facets, such as
+                <a href="@Link("/api/games?genre=Fantasy")">games declaring Fantasy</a>.
+                These labels are claims, not independently verified gameplay assessments.</dd>
+            <dt><code>protocol</code> and <code>tls</code></dt>
+            <dd>Observed connection capabilities. For example,
+                <a href="@Link("/api/games?protocol=GMCP&tls=1")">measured GMCP with measured TLS</a>.
+                Repeat <code>protocol</code> for multiple requirements.</dd>
+            <dt><code>codebase</code>, <code>version</code>, <code>lineage</code>, <code>family</code>, <code>charset</code></dt>
+            <dd>Engine and technical facets. Read their <code>evidence</code> labels; a lineage classification
+                is MUIndex's grouping, while a declared family comes from a source.</dd>
+            <dt><code>uncounted=yes</code></dt><dd>Games that answered recently but have no readable count in the relevant probe interval. Not measured zeroes.</dd>
+            <dt><code>unreachable=yes</code></dt><dd>Recent reachability classification, separate from player counts and the archive.</dd>
+            <dt><code>archived=true</code> and <code>adult=1</code></dt>
+            <dd>Include archived games or games declaring adult content. Both are excluded from the default listing.</dd>
+            <dt><code>limit</code> and <code>offset</code></dt>
+            <dd>Pagination: default limit 100, maximum 500. Advance offset by the returned count until reaching total.
+                The catalogue can change between requests.</dd>
+        </dl>
+        <p>Open-ended facets accept <code>!value</code> to exclude a value and <code>~unknown</code>
+            to select missing information. The contract also lists activity bands, last-seen filters,
+            trends, and available sorts. A <code>400</code> response describes invalid filters in a JSON problem document.</p>
+    </section>
+
+    <section aria-labelledby="interpret">
+        <h2 id="interpret">Interpret the evidence</h2>
+        <ul>
+            <li><strong>Null is unknown.</strong> A measured zero is a real count of zero. Never convert a missing count to zero.</li>
+            <li><strong>Read the count's source.</strong> <code>playersNowState</code> distinguishes measured,
+                declared and unknown counts. <code>playersNowProvenance</code> supplies source,
+                confirmation time and staleness. A declared count is what the game reported.</li>
+            <li><strong>Date the observation.</strong> <code>generatedAt</code> dates the response;
+                <code>lastConfirmedAt</code> dates the underlying evidence. A newly downloaded response can carry old evidence.</li>
+            <li><strong>A gap has no inferred cause.</strong> A missing presence bucket means no measurement.
+                It cannot establish that a game was empty or unreachable. Reachability has its own series.</li>
+            <li><strong>Reachability has limits.</strong> It describes connections from one vantage point at intervals.
+                Another player may reach a game that this crawler cannot.</li>
+        </ul>
+        <p>The full game's <code>fields</code> dictionary retains descriptive values alongside provenance.
+            When summarizing a game, attribute declared themes and languages to their sources. Do not infer
+            permadeath, beginner friendliness, accessibility, or play style from an engine name or a missing field.</p>
+        <p>For an answer or citation, link to the game's <code>url</code> and include the relevant observation date.
+            <a href="@Link("/about")">About MUIndex</a> explains the measurement policy.
+            Game pages offer a plain-text view and carry structured metadata drawn from their displayed information.</p>
+    </section>
+
+    <section aria-labelledby="history">
+        <h2 id="history">History and exports</h2>
+        <pre><code>GET /api/games/{id-or-slug}/presence?grain=day
+GET /api/games/{id-or-slug}/availability</code></pre>
+        <p>Both accept ISO 8601 <code>from</code> and <code>to</code> timestamps. Daily presence and availability
+            default to 90 days and accept up to 1826 days; hourly presence defaults to 7 days and accepts up to 90 days.
+            Presence statistics cover counted probes only. Counted and uncountable sample totals count probes, not people.</p>
+        <ul>
+            <li><a href="@Link(ApiRoutes.Feeds)">Change feeds (JSON and links to RSS)</a>: newly discovered, went dark, and came back.</li>
+            <li><a href="@Link(ApiRoutes.Dump)">Catalogue export (JSON)</a>: licence, attribution, and full game records.</li>
+            <li><a href="@Link(ApiRoutes.DumpLines)">Catalogue export (NDJSON)</a>: one full game record per line, with no header record.</li>
+        </ul>
+        <p>Exports include archived games and games declaring adult content. The NDJSON response carries its licence
+            identifier in the <code>X-MUIndex-Licence</code> header; consult the API index for attribution and terms.</p>
+    </section>
+
+    <section aria-labelledby="reuse">
+        <h2 id="reuse">Reuse and attribution</h2>
+        <p>Read the configured licence and attribution from the API index or JSON export before republishing.
+            Preserve sources and dates, cite individual game pages, and distinguish reported claims from observations.</p>
+        <p>Cache responses. Send the previous <code>ETag</code> as <code>If-None-Match</code> on later reads;
+            unchanged responses return <code>304</code> without a body. Follow <code>Cache-Control</code>,
+            use modest request rates, and prefer an export to fetching every game separately for a bulk import.</p>
+        <p>The public catalogue and contract are crawlable. Account and administration services are separate
+            and require their own authorization. This read API cannot edit records or contact game operators.</p>
+    </section>
+</article>
+
+@code {
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Link(string path) => Http.Link(path);
+}

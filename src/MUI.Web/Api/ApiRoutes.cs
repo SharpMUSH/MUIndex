@@ -9,6 +9,10 @@ public static class ApiRoutes
 {
     public const string Base = "/api";
 
+    public const string OpenApi = Base + "/openapi.json";
+
+    public const string Documentation = "/about/api";
+
     public const string Games = Base + "/games";
 
     public const string Feeds = Base + "/feeds";

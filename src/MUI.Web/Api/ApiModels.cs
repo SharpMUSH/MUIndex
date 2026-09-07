@@ -58,7 +58,7 @@ public enum PresenceState
     /// <summary>Probed, answered, and produced no number we could trust. Never a zero.</summary>
     Unmeasurable,
 
-    /// <summary>Not reachable in that hour. Emphatically not a zero either.</summary>
+    /// <summary>Not measured in that hour. Says nothing about reachability or player count.</summary>
     Gap,
 }
 

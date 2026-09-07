@@ -60,13 +60,18 @@ public static class ApiResponse
         // Open CORS: a read-only public dataset, browser-side code elsewhere may read it (§10).
         headers[HeaderNames.AccessControlAllowOrigin] = "*";
 
+        headers.Append(HeaderNames.Link,
+            $"<{http.Request.PathBase}{ApiRoutes.OpenApi}>; rel=\"service-desc\"; type=\"application/json\"");
+        headers.Append(HeaderNames.Link,
+            $"<{http.Request.PathBase}{ApiRoutes.Documentation}>; rel=\"service-doc\"; type=\"text/html\"");
+
         // Licence travels with every response, not just the bulk dump, so no route ships unlabelled.
         if (http.RequestServices.GetService<IOptions<DatasetLicenceOptions>>()?.Value is { } licence)
         {
             headers["X-MUIndex-Licence"] = licence.LicenceId;
             if (licence.LicenceUrl is { Length: > 0 } url)
             {
-                headers[HeaderNames.Link] = $"<{url}>; rel=\"license\"";
+                headers.Append(HeaderNames.Link, $"<{url}>; rel=\"license\"");
             }
         }
 
