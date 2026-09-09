@@ -2212,19 +2212,19 @@
     <value>Spellen die {value} aanbieden</value>
   </data>
   <data name="preview.desc.category.codebase" xml:space="preserve">
-    <value>Elk spel dat we bereikt hebben en dat op {value} draait, met de spelersaantallen, protocollen en bereikbaarheid die we gemeten hebben — elk met het moment van de laatste bevestiging.</value>
+    <value>Elk door ons bereikt {value}-spel, met de spelersaantallen, protocollen en bereikbaarheid die we voor elk gemeten hebben.</value>
   </data>
   <data name="preview.desc.category.lineage" xml:space="preserve">
-    <value>Elk spel dat we bereikt hebben in de afstamming {value}. De afstamming is een indeling van ons, geen opgave van deze spellen; de aantallen, protocollen en bereikbaarheid ernaast zijn gemeten en gedateerd.</value>
+    <value>Elk door ons bereikt spel in de afstamming {value} — een indeling van ons, geen opgave van deze spellen.</value>
   </data>
   <data name="preview.desc.category.genre" xml:space="preserve">
-    <value>Spellen die zichzelf als {value} omschrijven. Het genre is de eigen opgave van het spel; de aantallen, protocollen en bereikbaarheid ernaast zijn van ons, gemeten en gedateerd.</value>
+    <value>Spellen die zichzelf als {value} omschrijven. Het genre is hun opgave; de aantallen en protocollen ernaast zijn van ons, gemeten.</value>
   </data>
   <data name="preview.desc.category.language" xml:space="preserve">
-    <value>Spellen die zeggen dat ze in {value} gespeeld worden. De taal is de eigen opgave van het spel; de aantallen, protocollen en bereikbaarheid ernaast zijn van ons, gemeten en gedateerd.</value>
+    <value>Spellen die zeggen dat ze in {value} gespeeld worden. De taal is hun opgave; de aantallen en protocollen ernaast zijn van ons, gemeten.</value>
   </data>
   <data name="preview.desc.category.protocol" xml:space="preserve">
-    <value>Spellen waarvan we de handshake {value} zagen aanbieden — waargenomen op de lijn, nooit afgelezen uit wat een spel over zichzelf opgeeft. Elke regel vermeldt wanneer dat het laatst bevestigd is.</value>
+    <value>Spellen die we in de handshake {value} zagen aanbieden — waargenomen op de lijn, niet afgelezen uit wat een spel over zichzelf opgeeft.</value>
   </data>
   <data name="games.heading.codebase" xml:space="preserve">
     <value>{value}-spellen</value>

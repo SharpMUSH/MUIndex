@@ -82,40 +82,58 @@ public class CategoryPageTests
     }
 
     [Test]
-    public async Task ACategoryPageIntroducesItselfBetweenItsHeadingAndItsResults()
+    public async Task ACategoryPageHeaderIsAHeadingAndNoParagraphOfCopy()
     {
-        // Heading, sentence, results — what the rest of this site does and what a category page is
-        // expected to look like. The reference link used to be the only thing here and sat in the
-        // results column, in kicker caps, between the filter chips and the sort bar.
+        // The heading names the category, the chips say what is filtered and the columns say what
+        // was measured. A sentence restating those is the filler every faceted listing on the web
+        // is padded with; Amazon does not put "About Computers" above a filtered grid either. The
+        // description belongs in <meta>, where a search result needs one — see the test below.
         await using var site = await SiteHost.StartAsync();
 
-        var body = await site.Client.GetStringAsync("/games?codebase=PennMUSH");
-        var header = Header(body);
+        var header = Header(await site.Client.GetStringAsync("/games?codebase=PennMUSH"));
 
         await Assert.That(header).Contains("PennMUSH games");
-        await Assert.That(header).Contains("Every game we have reached that runs PennMUSH");
-        await Assert.That(header).Contains("/reference/codebases/pennmush");
-
-        // And nowhere else: the copy in the results column is what this replaced. Measured from the
-        // listing's own header rather than the first one in the document, which is the site banner.
-        var after = body.IndexOf("</header>", body.IndexOf(ListingHead, StringComparison.Ordinal),
-            StringComparison.Ordinal);
-
-        await Assert.That(body[after..]).DoesNotContain("/reference/codebases/pennmush");
+        await Assert.That(header).DoesNotContain("Every PennMUSH game we have reached");
     }
 
     [Test]
-    public async Task ARefinedListingKeepsTheReferenceLinkAndGainsNoDescriptionItCannotStandBehind()
+    public async Task TheDescriptionIsInTheHeadWhereASearchResultNeedsItAndNotOnThePage()
     {
-        // Two facets is not a category, so there is no sentence — "every game that runs PennMUSH"
-        // would be false of a page also filtered to MSSP. The link survives because the listing
-        // header is the only place on the site that reaches a codebase's reference page.
         await using var site = await SiteHost.StartAsync();
 
-        var header = Header(await site.Client.GetStringAsync("/games?codebase=PennMUSH&protocol=MSSP"));
+        var body = await site.Client.GetStringAsync("/games?codebase=PennMUSH");
 
-        await Assert.That(header).Contains("/reference/codebases/pennmush");
-        await Assert.That(header).DoesNotContain("Every game we have reached that runs");
+        await Assert.That(Head.Meta(body, "description")!).Contains("Every PennMUSH game we have reached");
+
+        // Once, in the head. The body carries the heading and the rows.
+        var head = body[..body.IndexOf("</head>", StringComparison.Ordinal)];
+        var rest = body[body.IndexOf("</head>", StringComparison.Ordinal)..];
+
+        await Assert.That(head).Contains("Every PennMUSH game we have reached");
+        await Assert.That(rest).DoesNotContain("Every PennMUSH game we have reached");
+    }
+
+    [Test]
+    public async Task TheReferenceLinkSitsWithTheHeadingRatherThanInTheResults()
+    {
+        // It used to sit in the results column, in kicker capitals, between the filter chips and the
+        // sort bar. It is the only path on the site from a listing to a codebase's reference page,
+        // so it stays — in the header, as a plain link.
+        await using var site = await SiteHost.StartAsync();
+
+        foreach (var address in new[] { "/games?codebase=PennMUSH", "/games?codebase=PennMUSH&protocol=MSSP" })
+        {
+            var body = await site.Client.GetStringAsync(address);
+
+            await Assert.That(Header(body)).Contains("/reference/codebases/pennmush");
+
+            var after = body.IndexOf("</header>", body.IndexOf(ListingHead, StringComparison.Ordinal),
+                StringComparison.Ordinal);
+
+            await Assert.That(body[after..])
+                .DoesNotContain("/reference/codebases/pennmush")
+                .Because($"{address} has one copy of the link, in its header");
+        }
     }
 
     [Test]

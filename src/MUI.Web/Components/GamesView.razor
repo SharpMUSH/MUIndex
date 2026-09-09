@@ -29,28 +29,20 @@ else
     <div class="card-page">
 
     @*
-        Heading, then a sentence saying what this listing is, then the results — the shape every
-        other page on this site already uses and the one a category page is expected to have. The
-        reference link used to sit alone between the filter chips and the sort bar, in kicker caps,
-        belonging to neither.
+        The heading, and a link to the reference page where the filter names something we have
+        written one about. No description of the category: the heading names it, the chips say what
+        is filtered and the columns say what was measured, so a sentence restating those is the
+        filler every faceted listing on the web is padded with and Amazon is not. The description
+        lives in <meta>, where a search result needs one and a reader does not.
+
+        The link used to sit in the results column in kicker capitals, between the chips and the
+        sort bar, belonging to neither.
     *@
     <header class="listing-head">
         <h1>@(Category is { } heading ? CategoryCopy.Heading(Tag, heading) : Messages.For(Tag, "games.title"))</h1>
 
-        @if (Category is { } lede)
+        @if (Reference is { } about)
         {
-            <p class="dim">
-                @CategoryCopy.Description(Tag, lede)
-                @if (Reference is { } about)
-                {
-                    <text>&#32;</text><a href="@about.Href">@about.Label</a>
-                }
-            </p>
-        }
-        else if (Reference is { } about)
-        {
-            @* A refined listing is not a category and has no sentence of its own, but the codebase
-               it is filtered to still has a page worth reaching. *@
             <p class="dim"><a href="@about.Href">@about.Label</a></p>
         }
     </header>

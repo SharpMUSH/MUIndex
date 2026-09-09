@@ -2212,19 +2212,19 @@
     <value>{value} を提供するゲーム</value>
   </data>
   <data name="preview.desc.category.codebase" xml:space="preserve">
-    <value>{value} で動いている、到達できたすべてのゲーム。接続数・プロトコル・到達可能性はいずれも当サイトの実測で、それぞれ最後に確認した時点を伴う。</value>
+    <value>到達できた {value} のゲームすべて。接続数・プロトコル・到達可能性はいずれも当サイトの実測。</value>
   </data>
   <data name="preview.desc.category.lineage" xml:space="preserve">
-    <value>{value} 系として到達できたすべてのゲーム。系統は当サイトによる分類であり、ゲーム側の申告ではない。隣に並ぶ接続数・プロトコル・到達可能性は実測で、時点を伴う。</value>
+    <value>{value} 系として到達できたゲームすべて。系統は当サイトによる分類であり、ゲーム側の申告ではない。</value>
   </data>
   <data name="preview.desc.category.genre" xml:space="preserve">
-    <value>自らを {value} と説明しているゲーム。ジャンルはゲーム自身の申告。隣に並ぶ接続数・プロトコル・到達可能性は当サイトの実測で、時点を伴う。</value>
+    <value>自らを {value} と説明しているゲーム。ジャンルはゲーム側の申告、隣の接続数とプロトコルは当サイトの実測。</value>
   </data>
   <data name="preview.desc.category.language" xml:space="preserve">
-    <value>{value} で遊ばれていると自ら述べているゲーム。言語はゲーム自身の申告。隣に並ぶ接続数・プロトコル・到達可能性は当サイトの実測で、時点を伴う。</value>
+    <value>{value} で遊ばれていると自ら述べているゲーム。言語はゲーム側の申告、隣の接続数とプロトコルは当サイトの実測。</value>
   </data>
   <data name="preview.desc.category.protocol" xml:space="preserve">
-    <value>ハンドシェイクで {value} を提供しているのを確認したゲーム。回線上で観測したものであり、ゲーム自身の申告から読み取ったものではない。各行に最後に確認した時点を記す。</value>
+    <value>ハンドシェイクで {value} を提供しているのを確認したゲーム。回線上での観測であり、ゲーム自身の申告ではない。</value>
   </data>
   <data name="games.heading.codebase" xml:space="preserve">
     <value>{value} のゲーム</value>

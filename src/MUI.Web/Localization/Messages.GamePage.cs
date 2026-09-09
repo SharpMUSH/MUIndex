@@ -371,21 +371,11 @@ public static partial class Messages
         ["preview.title.category.language"] = "MU* games in {value}",
         ["preview.title.category.protocol"] = "Games offering {value}",
 
-        ["preview.desc.category.codebase"] = "Every game we have reached that runs {value}, with the "
-            + "player counts, protocols and reachability we measured — each carrying when it was "
-            + "last confirmed.",
-        ["preview.desc.category.lineage"] = "Every game we have reached in the {value} lineage. The "
-            + "lineage is a classification of ours, not a claim any of these games made; the counts, "
-            + "protocols and reachability beside it are measured and dated.",
-        ["preview.desc.category.genre"] = "Games that describe themselves as {value}. The genre is "
-            + "the game's own claim about itself; the counts, protocols and reachability beside it "
-            + "are ours, measured, and dated.",
-        ["preview.desc.category.language"] = "Games that say they are played in {value}. The "
-            + "language is the game's own claim about itself; the counts, protocols and reachability "
-            + "beside it are ours, measured, and dated.",
-        ["preview.desc.category.protocol"] = "Games whose handshake we watched offer {value} — "
-            + "observed on the wire, never read off a game's own claim about itself. Each row "
-            + "carries when it was last confirmed.",
+        ["preview.desc.category.codebase"] = "Every {value} game we have reached, with the players, protocols and reachability we measured for each.",
+        ["preview.desc.category.lineage"] = "Every game we have reached in the {value} lineage — a classification of ours, not a claim any of these games made.",
+        ["preview.desc.category.genre"] = "Games that describe themselves as {value}. The genre is their claim; the counts and protocols beside it are ours, measured.",
+        ["preview.desc.category.language"] = "Games that say they are played in {value}. The language is their claim; the counts and protocols beside it are ours, measured.",
+        ["preview.desc.category.protocol"] = "Games we watched offer {value} in the handshake — observed on the wire, not read off what a game says about itself.",
 
         // Headings, apart from the titles above for the reason stated there.
         ["games.heading.codebase"] = "{value} games",

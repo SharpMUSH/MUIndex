@@ -2212,19 +2212,19 @@
     <value>提供 {value} 的游戏</value>
   </data>
   <data name="preview.desc.category.codebase" xml:space="preserve">
-    <value>我们连通过的、运行 {value} 的全部游戏，附带我们实测的连接数、协议与可连通性，每一项都注明最后确认的时间。</value>
+    <value>我们连通过的全部 {value} 游戏，附我们为每个实测的连接数、协议与可连通性。</value>
   </data>
   <data name="preview.desc.category.lineage" xml:space="preserve">
-    <value>我们连通过的、属于 {value} 谱系的全部游戏。谱系是我们的归类，并非这些游戏自己的说法；旁边的连接数、协议与可连通性都是实测并注明时间的。</value>
+    <value>我们连通过的、属于 {value} 谱系的全部游戏——这是我们的归类，并非这些游戏自己的说法。</value>
   </data>
   <data name="preview.desc.category.genre" xml:space="preserve">
-    <value>自述为 {value} 的游戏。题材是游戏自己的说法；旁边的连接数、协议与可连通性是我们实测并注明时间的。</value>
+    <value>自述为 {value} 的游戏。题材是它们的说法；旁边的连接数与协议是我们实测的。</value>
   </data>
   <data name="preview.desc.category.language" xml:space="preserve">
-    <value>自述以 {value} 进行的游戏。语言是游戏自己的说法；旁边的连接数、协议与可连通性是我们实测并注明时间的。</value>
+    <value>自述以 {value} 进行的游戏。语言是它们的说法；旁边的连接数与协议是我们实测的。</value>
   </data>
   <data name="preview.desc.category.protocol" xml:space="preserve">
-    <value>在握手过程中被我们观察到提供 {value} 的游戏——在连接上实地观测，而非取自游戏对自己的说法。每一行都注明最后确认的时间。</value>
+    <value>我们在握手中观察到提供 {value} 的游戏——在连接上实测，而非取自游戏对自己的说法。</value>
   </data>
   <data name="games.heading.codebase" xml:space="preserve">
     <value>{value} 游戏</value>

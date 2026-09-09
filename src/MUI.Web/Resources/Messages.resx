@@ -3253,23 +3253,23 @@
     <comment>one faceted listing, once it is a page of its own</comment>
   </data>
   <data name="preview.desc.category.codebase" xml:space="preserve">
-    <value>Every game we have reached that runs {value}, with the player counts, protocols and reachability we measured — each carrying when it was last confirmed.</value>
+    <value>Every {value} game we have reached, with the players, protocols and reachability we measured for each.</value>
     <comment>one faceted listing, once it is a page of its own</comment>
   </data>
   <data name="preview.desc.category.lineage" xml:space="preserve">
-    <value>Every game we have reached in the {value} lineage. The lineage is a classification of ours, not a claim any of these games made; the counts, protocols and reachability beside it are measured and dated.</value>
+    <value>Every game we have reached in the {value} lineage — a classification of ours, not a claim any of these games made.</value>
     <comment>one faceted listing, once it is a page of its own</comment>
   </data>
   <data name="preview.desc.category.genre" xml:space="preserve">
-    <value>Games that describe themselves as {value}. The genre is the game's own claim about itself; the counts, protocols and reachability beside it are ours, measured, and dated.</value>
+    <value>Games that describe themselves as {value}. The genre is their claim; the counts and protocols beside it are ours, measured.</value>
     <comment>one faceted listing, once it is a page of its own</comment>
   </data>
   <data name="preview.desc.category.language" xml:space="preserve">
-    <value>Games that say they are played in {value}. The language is the game's own claim about itself; the counts, protocols and reachability beside it are ours, measured, and dated.</value>
+    <value>Games that say they are played in {value}. The language is their claim; the counts and protocols beside it are ours, measured.</value>
     <comment>one faceted listing, once it is a page of its own</comment>
   </data>
   <data name="preview.desc.category.protocol" xml:space="preserve">
-    <value>Games whose handshake we watched offer {value} — observed on the wire, never read off a game's own claim about itself. Each row carries when it was last confirmed.</value>
+    <value>Games we watched offer {value} in the handshake — observed on the wire, not read off what a game says about itself.</value>
     <comment>one faceted listing, once it is a page of its own</comment>
   </data>
   <data name="games.heading.codebase" xml:space="preserve">

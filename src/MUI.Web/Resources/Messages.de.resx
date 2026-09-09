@@ -2212,19 +2212,19 @@
     <value>Spiele, die {value} anbieten</value>
   </data>
   <data name="preview.desc.category.codebase" xml:space="preserve">
-    <value>Jedes von uns erreichte Spiel, das {value} einsetzt, mit den Spielerzahlen, Protokollen und der Erreichbarkeit, die wir gemessen haben — jeweils mit dem Zeitpunkt der letzten Bestätigung.</value>
+    <value>Jedes von uns erreichte {value}-Spiel, mit den Spielerzahlen, Protokollen und der Erreichbarkeit, die wir für jedes gemessen haben.</value>
   </data>
   <data name="preview.desc.category.lineage" xml:space="preserve">
-    <value>Jedes von uns erreichte Spiel der Abstammung {value}. Die Abstammung ist eine Einordnung von uns, keine Angabe dieser Spiele; die Zahlen, Protokolle und die Erreichbarkeit daneben sind gemessen und datiert.</value>
+    <value>Jedes von uns erreichte Spiel der Abstammung {value} — eine Einordnung von uns, keine Angabe dieser Spiele.</value>
   </data>
   <data name="preview.desc.category.genre" xml:space="preserve">
-    <value>Spiele, die sich selbst als {value} beschreiben. Das Genre ist die eigene Angabe des Spiels; die Zahlen, Protokolle und die Erreichbarkeit daneben sind unsere, gemessen und datiert.</value>
+    <value>Spiele, die sich selbst als {value} beschreiben. Das Genre ist ihre Angabe; die Zahlen und Protokolle daneben sind unsere, gemessen.</value>
   </data>
   <data name="preview.desc.category.language" xml:space="preserve">
-    <value>Spiele, die angeben, auf {value} gespielt zu werden. Die Sprache ist die eigene Angabe des Spiels; die Zahlen, Protokolle und die Erreichbarkeit daneben sind unsere, gemessen und datiert.</value>
+    <value>Spiele, die angeben, auf {value} gespielt zu werden. Die Sprache ist ihre Angabe; die Zahlen und Protokolle daneben sind unsere, gemessen.</value>
   </data>
   <data name="preview.desc.category.protocol" xml:space="preserve">
-    <value>Spiele, deren Handshake wir {value} anbieten sahen — auf der Leitung beobachtet, nie aus der Selbstauskunft eines Spiels gelesen. Jede Zeile nennt den Zeitpunkt der letzten Bestätigung.</value>
+    <value>Spiele, die wir im Handshake {value} anbieten sahen — auf der Leitung beobachtet, nicht aus der Selbstauskunft eines Spiels gelesen.</value>
   </data>
   <data name="games.heading.codebase" xml:space="preserve">
     <value>{value}-Spiele</value>
