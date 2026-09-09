@@ -3,9 +3,10 @@
   <!--
     Nederlands, machine-translated and not reviewed by a person.
 
-    Every page served in this locale carries the ◆ notice saying so, and the locale is reachable but
-    never offered: nothing sends a reader here. Promotion to LocaleStatus.Shipped is a person reading
-    the locked strings against Glossary.cs, not an edit to a status enum.
+    The locale is offered: Locales.cs marks it LocaleStatus.Shipped, so it is in the switcher and a
+    reader can be sent here. What a test holds is that Glossary.cs's locked strings exist in it —
+    provenance words like "measured", "declared" and "unreachable" are distinct claims, and a
+    translation engine otherwise treats them as synonyms for "unavailable".
 
     The values are ICU MessageFormat. Argument names in braces are code.
   -->

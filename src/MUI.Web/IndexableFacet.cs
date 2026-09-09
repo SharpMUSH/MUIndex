@@ -117,6 +117,24 @@ public static class IndexableFacet
         return found;
     }
 
+    /// <summary>
+    /// Whether this filter selects nothing, so the rows drawn are the whole listing.
+    /// </summary>
+    /// <remarks>
+    /// Asked so a page can tell whether it may publish its rows as <c>/games</c>. Written against
+    /// <see cref="Default"/> rather than member by member on purpose: a filter member added later and
+    /// not thought about here makes this <see langword="false"/>, which withholds a graph rather than
+    /// publishing a wrong one.
+    /// </remarks>
+    public static bool IsUnfiltered(GameFilter filter)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        // Neutralised because record equality compares the list by reference, not by contents.
+        return filter.MeasuredProtocols.Count == 0
+            && filter with { MeasuredProtocols = Default.MeasuredProtocols } == Default;
+    }
+
     /// <summary>The querystring for a category — leading <c>?</c>, escaped, and nothing else in it.</summary>
     public static string Query(Category category)
     {

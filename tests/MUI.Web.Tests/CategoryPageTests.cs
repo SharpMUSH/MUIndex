@@ -266,6 +266,27 @@ public class CategoryPageTests
     }
 
     [Test]
+    public async Task OnlyTheBareListingCountsAsUnfiltered()
+    {
+        await Assert.That(IndexableFacet.IsUnfiltered(new GameFilter { IncludeAdult = false })).IsTrue();
+
+        await Assert.That(IndexableFacet.IsUnfiltered(new GameFilter
+        {
+            IncludeAdult = false,
+            Codebase = FacetChoice.Of("PennMUSH"),
+        })).IsFalse();
+
+        await Assert.That(IndexableFacet.IsUnfiltered(new GameFilter
+        {
+            IncludeAdult = false,
+            MeasuredProtocols = ["MSSP"],
+        })).IsFalse();
+
+        // The filter a failed bind leaves behind: the record's own default, not the listing's.
+        await Assert.That(IndexableFacet.IsUnfiltered(new GameFilter())).IsFalse();
+    }
+
+    [Test]
     public async Task AQueryIsBuiltEscapedSoAValueWithASpaceStaysOneParameter()
     {
         var query = IndexableFacet.Query(new IndexableFacet.Category("genre", "Science fiction"));
@@ -299,18 +320,55 @@ public class CategoryPageTests
     }
 
     [Test]
-    public async Task TheCollectionNamesTheAddressTheHeadDeclares()
+    [Arguments("/games?codebase=PennMUSH&sort=name", "a chosen sort draws the category's rows in another order")]
+    [Arguments("/games?codebase=PennMUSH&protocol=MSSP", "a refinement draws a subset of both categories")]
+    [Arguments("/games?q=dune", "a search draws whatever matched the words")]
+    [Arguments("/games?codebase=!Evennia", "an exclusion draws everything but one category")]
+    [Arguments("/games?band=quiet", "a volatile category has no canonical URL of its own to be at")]
+    public async Task NoListingPublishesItsRowsAsTheAddressItConsolidatesOnto(string address, string because)
     {
-        // A refined listing canonicalizes to /games, so its collection must say /games too — a graph
-        // naming the reader's own URL would contradict the canonical link three lines above it.
+        // The graph names an address and then lists what is at it. Everything here canonicalizes to
+        // /games while drawing a subset of it, so a collection saying @id=/games would state that
+        // these are the games in the catalogue. Absent is the honest answer — the same one the
+        // archive gives while a search is narrowing it.
         await using var site = await SiteHost.StartAsync(measured: true);
 
-        var blocks = Head.StructuredData(
-            await site.Client.GetStringAsync("/games?codebase=PennMUSH&sort=name"));
-
-        foreach (var block in blocks.Where(b => b.Contains("CollectionPage", StringComparison.Ordinal)))
+        foreach (var block in Head.StructuredData(await site.Client.GetStringAsync(address)))
         {
-            await Assert.That(block).DoesNotContain("sort=name");
+            await Assert.That(block).DoesNotContain("CollectionPage").Because(because);
+            await Assert.That(block).DoesNotContain("ItemList").Because(because);
+        }
+    }
+
+    [Test]
+    [Arguments("/games", "the bare listing is the rows at /games")]
+    [Arguments("/games?codebase=PennMUSH", "an indexable category is the rows at its own canonical URL")]
+    public async Task ThePagesWhoseRowsAreTheirOwnAddressStillPublishThem(string address, string because)
+    {
+        // The other half: withholding the graph from everything would be the deindexing this change
+        // exists to undo.
+        await using var site = await SiteHost.StartAsync(measured: true);
+
+        var blocks = Head.StructuredData(await site.Client.GetStringAsync(address));
+
+        await Assert.That(blocks.Any(b => b.Contains("ItemList", StringComparison.Ordinal)))
+            .IsTrue().Because(because);
+    }
+
+    [Test]
+    public async Task TheCollectionNamesTheAddressTheHeadDeclares()
+    {
+        // A category's collection must name the address its canonical link names, not the reader's
+        // own URL — a graph saying otherwise would contradict the link three lines above it.
+        await using var site = await SiteHost.StartAsync(measured: true);
+
+        var body = await site.Client.GetStringAsync("/games?codebase=pennmush");
+        var canonical = Head.Link(body, "canonical")!;
+
+        foreach (var block in Head.StructuredData(body)
+            .Where(b => b.Contains("CollectionPage", StringComparison.Ordinal)))
+        {
+            await Assert.That(block).Contains($"\"@id\":\"{canonical}\"");
         }
     }
 

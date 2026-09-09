@@ -10,16 +10,12 @@
     <SitePreview Title="@CategoryCopy.Title(Tag, category)"
                  Description="@CategoryCopy.Description(Tag, category)"
                  CanonicalQuery="@Indexed(category)"
-                 Graph="@(origin => Collection(origin, Indexed(category) ?? string.Empty,
-                                              CategoryCopy.Title(Tag, category),
-                                              CategoryCopy.Description(Tag, category)))" />
+                 Graph="@Collection(Indexed(category))" />
 }
 else
 {
     <SitePreview Title="@PreviewCopy.Titles.Games(Tag)" Description="@PreviewCopy.Pages.Games(Tag)"
-                 Graph="@(origin => Collection(origin, string.Empty,
-                                              PreviewCopy.Titles.Games(Tag),
-                                              PreviewCopy.Pages.Games(Tag)))" />
+                 Graph="@Collection(IndexableFacet.IsUnfiltered(Filter) && Error is null ? string.Empty : null)" />
 }
 
 @if (Plain)
@@ -171,11 +167,29 @@ else
     private static string? Indexed(IndexableFacet.Category category) =>
         category.IsStable ? IndexableFacet.Query(category) : null;
 
-    /// <summary>This listing as a collection of games.</summary>
-    /// <remarks>The path is what the canonical link says, not what the reader asked for, so the two
-    /// cannot name different addresses.</remarks>
-    private string Collection(Uri origin, string query, string name, string description) =>
-        ListingStructuredData.For(Listing.Games, origin, "/games" + query, name, description);
+    /// <summary>
+    /// This listing as a collection of games, or nothing where the rows are not that collection.
+    /// </summary>
+    /// <remarks>
+    /// The graph names an address and then lists what is at it, so it may only be published where the
+    /// two agree. They do on a category with a canonical URL of its own, and on the bare listing. They
+    /// do not on anything that consolidates onto <c>/games</c> while drawing a subset of it — a
+    /// refinement, a search, a chosen sort, or a category too volatile to index — and the mismatch is
+    /// not visible to a reader, which is what makes it worth a guard rather than a comment. Same rule
+    /// the archive follows while a search is narrowing it.
+    /// </remarks>
+    /// <param name="query">The canonical querystring, empty for the bare listing, null to publish nothing.</param>
+    private Func<Uri, string>? Collection(string? query) => query is null
+        ? null
+        : origin => ListingStructuredData.For(
+            Listing.Games, origin, "/games" + query, Name(), Description());
+
+    /// <summary>What the head calls this page, so the graph cannot name it something else.</summary>
+    private string Name() =>
+        Category is { } category ? CategoryCopy.Title(Tag, category) : PreviewCopy.Titles.Games(Tag);
+
+    private string Description() =>
+        Category is { } category ? CategoryCopy.Description(Tag, category) : PreviewCopy.Pages.Games(Tag);
 
     private bool Plain => Truthy.Is(
         QueryHelpers.ParseQuery(Query).TryGetValue("plain", out var flag) ? flag.ToString() : null);
