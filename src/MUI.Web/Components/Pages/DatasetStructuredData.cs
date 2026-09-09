@@ -8,23 +8,14 @@ namespace MUI.Web.Components;
 /// The catalogue as a described dataset, for the indexes that look for one.
 /// </summary>
 /// <remarks>
+/// The site already publishes what makes a dataset one — a bulk export in two formats, an OpenAPI
+/// contract, a configured licence and attribution — and said so in no vocabulary a dataset index
+/// reads.
 /// <para>
-/// This site already publishes what a dataset is: a bulk export in two formats, an OpenAPI contract
-/// describing every field, a licence, and an attribution string — all of it configured rather than
-/// asserted. What it had not done is say so in the vocabulary the dataset indexes read, which is why
-/// a catalogue of a few thousand measured game servers was discoverable only as a website.
-/// </para>
-/// <para>
-/// <b>Gated on the catalogue being measured, unlike <see cref="SiteStructuredData"/>.</b> The
-/// distributions this node names return the fixture on a deployment with no database, and there is
-/// no property here meaning "these rows are invented" — the same argument that suppresses
-/// <see cref="GameStructuredData"/>.
-/// </para>
-/// <para>
-/// <b>No <c>temporalCoverage</c> and no row count.</b> Both would be measurements, and neither is
-/// one this page holds: the coverage of a catalogue that never retires a host is open-ended at both
-/// ends, and a count written here would be a number nothing re-measures. The dump itself carries the
-/// instant it was generated, on every row, which is where a consumer should read it.
+/// Gated on the catalogue being measured, unlike <see cref="SiteStructuredData"/>: the distributions
+/// named here return the fixture on a deployment with no database. No <c>temporalCoverage</c> and no
+/// row count — both would be measurements this page does not hold, and the dump carries the instant
+/// it was generated on every row.
 /// </para>
 /// </remarks>
 public static class DatasetStructuredData
@@ -55,9 +46,6 @@ public static class DatasetStructuredData
             ["publisher"] = publisher,
             ["license"] = (JsonNode?)licence.LicenceUrl ?? licence.LicenceId,
 
-            // The words somebody would actually search a dataset index for. Not keyword stuffing:
-            // each is a name for the thing the rows are about, and there is no other place in this
-            // vocabulary to put them.
             ["keywords"] = new JsonArray("MUD", "MUSH", "MUCK", "MOO", "MU*", "telnet", "MSSP", "text games"),
 
             ["distribution"] = new JsonArray(

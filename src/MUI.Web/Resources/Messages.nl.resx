@@ -2196,6 +2196,69 @@
   <data name="preview.cardAlt.named" xml:space="preserve">
     <value>{title} op {site}</value>
   </data>
+  <data name="preview.title.category.codebase" xml:space="preserve">
+    <value>{value}-spellen</value>
+  </data>
+  <data name="preview.title.category.lineage" xml:space="preserve">
+    <value>{value}-spellen</value>
+  </data>
+  <data name="preview.title.category.genre" xml:space="preserve">
+    <value>MU*-spellen in het genre {value}</value>
+  </data>
+  <data name="preview.title.category.language" xml:space="preserve">
+    <value>MU*-spellen in {value}</value>
+  </data>
+  <data name="preview.title.category.protocol" xml:space="preserve">
+    <value>Spellen die {value} aanbieden</value>
+  </data>
+  <data name="preview.desc.category.codebase" xml:space="preserve">
+    <value>Elk spel dat we bereikt hebben en dat op {value} draait, met de spelersaantallen, protocollen en bereikbaarheid die we gemeten hebben — elk met het moment van de laatste bevestiging.</value>
+  </data>
+  <data name="preview.desc.category.lineage" xml:space="preserve">
+    <value>Elk spel dat we bereikt hebben in de afstamming {value}. De afstamming is een indeling van ons, geen opgave van deze spellen; de aantallen, protocollen en bereikbaarheid ernaast zijn gemeten en gedateerd.</value>
+  </data>
+  <data name="preview.desc.category.genre" xml:space="preserve">
+    <value>Spellen die zichzelf als {value} omschrijven. Het genre is de eigen opgave van het spel; de aantallen, protocollen en bereikbaarheid ernaast zijn van ons, gemeten en gedateerd.</value>
+  </data>
+  <data name="preview.desc.category.language" xml:space="preserve">
+    <value>Spellen die zeggen dat ze in {value} gespeeld worden. De taal is de eigen opgave van het spel; de aantallen, protocollen en bereikbaarheid ernaast zijn van ons, gemeten en gedateerd.</value>
+  </data>
+  <data name="preview.desc.category.protocol" xml:space="preserve">
+    <value>Spellen waarvan we de handshake {value} zagen aanbieden — waargenomen op de lijn, nooit afgelezen uit wat een spel over zichzelf opgeeft. Elke regel vermeldt wanneer dat het laatst bevestigd is.</value>
+  </data>
+  <data name="games.heading.codebase" xml:space="preserve">
+    <value>{value}-spellen</value>
+  </data>
+  <data name="games.heading.lineage" xml:space="preserve">
+    <value>{value}-spellen</value>
+  </data>
+  <data name="games.heading.genre" xml:space="preserve">
+    <value>{value}-spellen</value>
+  </data>
+  <data name="games.heading.language" xml:space="preserve">
+    <value>Spellen in {value}</value>
+  </data>
+  <data name="games.heading.protocol" xml:space="preserve">
+    <value>Spellen die {value} aanbieden</value>
+  </data>
+  <data name="preview.title.crawler" xml:space="preserve">
+    <value>Wat de crawler aan het doen is</value>
+  </data>
+  <data name="preview.desc.crawler" xml:space="preserve">
+    <value>De crawl terwijl hij loopt: wanneer de laatste ronde eindigde, wat er veranderde, welke adressen als volgende aan de beurt zijn en welke spellen stilvielen of terugkwamen. De herkomst van elk cijfer elders op deze site.</value>
+  </data>
+  <data name="preview.desc.find" xml:space="preserve">
+    <value>Zes vragen — wie er nu speelt, welk genre, wat voor spel, welke taal, wat je client nodig heeft — afgezet tegen gemeten gegevens, met na elk antwoord het aantal treffers.</value>
+  </data>
+  <data name="preview.title.game" xml:space="preserve">
+    <value>{game}: hoe je verbinding maakt, en wat wij gemeten hebben</value>
+  </data>
+  <data name="game.badge.summary" xml:space="preserve">
+    <value>de spelerstelling van dit spel op je eigen site zetten</value>
+  </data>
+  <data name="game.badge.note" xml:space="preserve">
+    <value>De badge is een afbeelding die wij tekenen en serveren. Hij draagt de telling en wanneer we die gemeten hebben, zegt dat in plaats van nul waar we niet konden tellen, vereist geen account, en werkt of iemand deze vermelding nu geclaimd heeft of niet.</value>
+  </data>
   <data name="preview.title.home" xml:space="preserve">
     <value>Gids voor MUSHes, MUDs, MUCKs en MOOs</value>
   </data>

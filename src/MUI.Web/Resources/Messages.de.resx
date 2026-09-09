@@ -2196,6 +2196,69 @@
   <data name="preview.cardAlt.named" xml:space="preserve">
     <value>{title} auf {site}</value>
   </data>
+  <data name="preview.title.category.codebase" xml:space="preserve">
+    <value>{value}-Spiele</value>
+  </data>
+  <data name="preview.title.category.lineage" xml:space="preserve">
+    <value>{value}-Spiele</value>
+  </data>
+  <data name="preview.title.category.genre" xml:space="preserve">
+    <value>MU*-Spiele im Genre {value}</value>
+  </data>
+  <data name="preview.title.category.language" xml:space="preserve">
+    <value>MU*-Spiele auf {value}</value>
+  </data>
+  <data name="preview.title.category.protocol" xml:space="preserve">
+    <value>Spiele, die {value} anbieten</value>
+  </data>
+  <data name="preview.desc.category.codebase" xml:space="preserve">
+    <value>Jedes von uns erreichte Spiel, das {value} einsetzt, mit den Spielerzahlen, Protokollen und der Erreichbarkeit, die wir gemessen haben — jeweils mit dem Zeitpunkt der letzten Bestätigung.</value>
+  </data>
+  <data name="preview.desc.category.lineage" xml:space="preserve">
+    <value>Jedes von uns erreichte Spiel der Abstammung {value}. Die Abstammung ist eine Einordnung von uns, keine Angabe dieser Spiele; die Zahlen, Protokolle und die Erreichbarkeit daneben sind gemessen und datiert.</value>
+  </data>
+  <data name="preview.desc.category.genre" xml:space="preserve">
+    <value>Spiele, die sich selbst als {value} beschreiben. Das Genre ist die eigene Angabe des Spiels; die Zahlen, Protokolle und die Erreichbarkeit daneben sind unsere, gemessen und datiert.</value>
+  </data>
+  <data name="preview.desc.category.language" xml:space="preserve">
+    <value>Spiele, die angeben, auf {value} gespielt zu werden. Die Sprache ist die eigene Angabe des Spiels; die Zahlen, Protokolle und die Erreichbarkeit daneben sind unsere, gemessen und datiert.</value>
+  </data>
+  <data name="preview.desc.category.protocol" xml:space="preserve">
+    <value>Spiele, deren Handshake wir {value} anbieten sahen — auf der Leitung beobachtet, nie aus der Selbstauskunft eines Spiels gelesen. Jede Zeile nennt den Zeitpunkt der letzten Bestätigung.</value>
+  </data>
+  <data name="games.heading.codebase" xml:space="preserve">
+    <value>{value}-Spiele</value>
+  </data>
+  <data name="games.heading.lineage" xml:space="preserve">
+    <value>{value}-Spiele</value>
+  </data>
+  <data name="games.heading.genre" xml:space="preserve">
+    <value>{value}-Spiele</value>
+  </data>
+  <data name="games.heading.language" xml:space="preserve">
+    <value>Spiele auf {value}</value>
+  </data>
+  <data name="games.heading.protocol" xml:space="preserve">
+    <value>Spiele, die {value} anbieten</value>
+  </data>
+  <data name="preview.title.crawler" xml:space="preserve">
+    <value>Was der Crawler gerade tut</value>
+  </data>
+  <data name="preview.desc.crawler" xml:space="preserve">
+    <value>Der Crawl im Lauf: wann der letzte Durchgang endete, was er geändert hat, welche Adressen als Nächstes fällig sind und welche Spiele verstummt oder zurückgekehrt sind. Die Herkunft jeder Zahl auf dieser Website.</value>
+  </data>
+  <data name="preview.desc.find" xml:space="preserve">
+    <value>Sechs Fragen — wer gerade spielt, welches Genre, welche Art Spiel, welche Sprache, was Ihr Client braucht — abgeglichen mit gemessenen Daten, mit der Trefferzahl nach jeder Antwort.</value>
+  </data>
+  <data name="preview.title.game" xml:space="preserve">
+    <value>{game}: wie man sich verbindet und was wir gemessen haben</value>
+  </data>
+  <data name="game.badge.summary" xml:space="preserve">
+    <value>die Spielerzahl dieses Spiels auf Ihrer eigenen Website zeigen</value>
+  </data>
+  <data name="game.badge.note" xml:space="preserve">
+    <value>Das Abzeichen ist ein Bild, das wir zeichnen und ausliefern. Es nennt die Zählung und wann wir sie gemessen haben, sagt das statt null, wo wir nicht zählen konnten, braucht kein Konto und funktioniert unabhängig davon, ob jemand diesen Eintrag beansprucht hat.</value>
+  </data>
   <data name="preview.title.home" xml:space="preserve">
     <value>Verzeichnis von MUSHes, MUDs, MUCKs und MOOs</value>
   </data>

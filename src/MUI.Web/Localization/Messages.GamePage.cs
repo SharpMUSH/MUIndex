@@ -339,6 +339,9 @@ public static partial class Messages
             + "when we measured it, says so rather than nought where we could not count, needs no "
             + "account, and works whether or not anybody has claimed this listing.",
 
+        ["preview.desc.find"] = "Six questions — who is playing, what genre, what kind of game, "
+            + "which language, what your client needs — narrowed against measured data, with the "
+            + "count of matches after each answer.",
         ["preview.desc.games"] = "Every MU* we have reached, faceted on what we measured: codebase, "
             + "the protocols a server offered in the handshake, TLS, charset, language, and when we "
             + "last got in.",

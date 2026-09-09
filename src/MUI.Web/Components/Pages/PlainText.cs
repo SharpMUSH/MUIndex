@@ -654,30 +654,6 @@ public static class PlainText
             }
         }
 
-        // The same four passages the rendered page carries, in the same order. A mirror that
-        // dropped them would make the plain surface the one place a newcomer still cannot find out
-        // what a MUCK is — and this surface exists precisely for the readers least able to guess.
-        foreach (var passage in HomeCopy.Prose)
-        {
-            b.AppendLine();
-            b.AppendLine(Say(tag, passage.Title).ToUpperInvariant());
-            Wrap(b, Say(tag, passage.Body), "  ");
-
-            if (passage == HomeCopy.Prose[^1])
-            {
-                Wrap(b, Say(tag, HomeCopy.NoVote), "  ");
-            }
-        }
-
-        b.AppendLine();
-        b.AppendLine(Say(tag, "home.start.title").ToUpperInvariant());
-
-        foreach (var start in HomeCopy.Starts)
-        {
-            b.AppendLine($"  {Say(tag, start.Label)}  {Path(tag, start.Path)}");
-            Wrap(b, Say(tag, start.Note), "    ");
-        }
-
         return b.ToString();
     }
 

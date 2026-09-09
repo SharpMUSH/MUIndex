@@ -367,7 +367,7 @@ else
             {
                 <details class="publish">
                     <summary class="faint">@L("game.badge.summary")</summary>
-                    <pre class="mono">&lt;a href="@Origin/g/@Page.Summary.Slug"&gt;&lt;img src="@Origin/g/@Page.Summary.Slug/badge.svg" alt="@Page.Summary.Name on mu*index"&gt;&lt;/a&gt;</pre>
+                    <pre class="mono">&lt;a href="@Origin/g/@Page.Summary.Slug"&gt;&lt;img src="@Origin/g/@Page.Summary.Slug/badge.svg" alt="@System.Net.WebUtility.HtmlEncode(Page.Summary.Name) on mu*index"&gt;&lt;/a&gt;</pre>
                     <p class="faint">@L("game.badge.note")</p>
                 </details>
             }

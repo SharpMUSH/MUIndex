@@ -128,27 +128,14 @@ public static class GameStructuredData
     }
 
     /// <summary>
-    /// Where you connect, as the one thing in this vocabulary that says so.
+    /// Where you connect. <c>telnet://</c> is a registered URI scheme (RFC 4248).
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The address is the fact a reader most often wanted the page for, and it was in the preview
-    /// description and nowhere a program could read it as an address. <c>telnet://</c> is a
-    /// registered URI scheme (RFC 4248) and is what this is.
-    /// </para>
-    /// <para>
-    /// <b>No <c>serverStatus</c>, and that omission is the rule rather than an oversight.</b>
-    /// <c>GameServerStatus</c> offers Online and Offline, and this graph has nowhere to say "as of
-    /// when" about either — <c>userInteractionCount</c> has the same gap, which is why the count
-    /// travels on an <c>InteractionCounter</c> with an <c>endTime</c> instead. An undated "Offline"
-    /// would also state our vantage point as a fact about somebody's game: a game we cannot route to
-    /// is unreachable and perfectly alive (rule 5, and the reason this project says reachable and
-    /// never up). <c>dateModified</c> above already carries when we last got in.
-    /// </para>
-    /// <para>
-    /// <b>No <c>playersOnline</c></b>, for the first half of the same reason: it is a number with no
-    /// slot for its age.
-    /// </para>
+    /// <b>No <c>serverStatus</c> and no <c>playersOnline</c>.</b> Both are values with nowhere to say
+    /// "as of when" — the same gap that puts the count on an <c>InteractionCounter</c> with an
+    /// <c>endTime</c>. An undated "Offline" would also state our vantage point as a fact about
+    /// somebody's game: a game we cannot route to is unreachable and perfectly alive (rule 5).
+    /// <c>dateModified</c> already carries when we last got in.
     /// </remarks>
     private static JsonObject? Server(GamePage page)
     {

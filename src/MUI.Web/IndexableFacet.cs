@@ -6,31 +6,15 @@ namespace MUI.Web;
 /// The listing filters that earn a page of their own in a search index.
 /// </summary>
 /// <remarks>
+/// <see cref="SiteUrls.CanonicalOf"/> drops the querystring, which is right for the reason written
+/// there — the facet panel submits every control it has, so filter/sort combinations are unbounded.
+/// Applied to every listing URL it also swept up the ones that are not near-duplicates:
+/// <c>/games?codebase=PennMUSH</c> is a different question over a different set of rows, and every
+/// such page was declaring itself a duplicate of <c>/games</c>.
 /// <para>
-/// <b>Why this exists.</b> <see cref="SiteUrls.CanonicalOf"/> drops the querystring, which is right
-/// for the reason written there — the facet panel's GET form makes every filter/sort/exclude
-/// combination another URL, and an unbounded supply of near-duplicates is exactly what a canonical
-/// link is for. But it was applied to <em>every</em> listing URL, and that swept up the handful that
-/// are not near-duplicates at all: <c>/games?codebase=PennMUSH</c> is the answer to "which games run
-/// PennMUSH", a different question from "which games are there" and a different set of rows. Every
-/// one of them declared <c>/games</c> as its canonical and carried <c>/games</c>'s title and
-/// description, so a search engine was being told, correctly by its own rules, to index none of them.
-/// </para>
-/// <para>
-/// <b>What separates the two.</b> A category is one included value of one dimension, at the default
-/// sort, with nothing else asked. Everything else — two facets at once, an excluded value
-/// (<c>?codebase=!Evennia</c>), the unknown token, a chosen sort, free text — stays consolidated onto
-/// <c>/games</c>, because those are refinements of a category rather than categories, and they are
-/// where the combinatorial explosion lives. That keeps the indexable set at roughly the sum of the
-/// dimensions' value counts rather than their product.
-/// </para>
-/// <para>
-/// <b>The dimensions are a whitelist, not everything filterable.</b> Each one here is a durable
-/// property of a game that somebody types into a search engine — a codebase, a lineage, a genre, a
-/// language, a protocol. <see cref="FacetKeys.Band"/>, <see cref="FacetKeys.LastSeen"/>,
-/// <see cref="FacetKeys.Trending"/> and the two measurement switches are deliberately absent: they
-/// read a measurement that moves, so the page behind such a URL is a different set of games next
-/// week, and an index entry for it would be wrong more often than right.
+/// One included value of one whitelisted dimension at the default sort is a category. Two facets, an
+/// exclusion, the unknown token, a chosen sort or free text are refinements and stay consolidated —
+/// which keeps the indexable set at the sum of the dimensions' values rather than their product.
 /// </para>
 /// </remarks>
 public static class IndexableFacet
@@ -44,8 +28,11 @@ public static class IndexableFacet
     /// The dimensions whose values get a page of their own, in the order a sitemap lists them.
     /// </summary>
     /// <remarks>
-    /// <see cref="FacetKeys.CodebaseVersion"/> is not here on purpose: one page per patchlevel is
-    /// hundreds of near-identical listings, which is the thing this type exists to avoid.
+    /// Each is a durable property somebody types into a search engine. <see cref="FacetKeys.Band"/>,
+    /// <see cref="FacetKeys.LastSeen"/>, <see cref="FacetKeys.Trending"/> and the two measurement
+    /// switches are absent because they read a measurement that moves — the page behind such a URL
+    /// holds a different set of games next week. <see cref="FacetKeys.CodebaseVersion"/> is absent
+    /// because one page per patchlevel is hundreds of near-identical listings.
     /// </remarks>
     public static IReadOnlyList<string> Dimensions { get; } =
     [
@@ -60,16 +47,14 @@ public static class IndexableFacet
     /// The category this filter names, or <see langword="null"/> where it names none.
     /// </summary>
     /// <remarks>
-    /// Read off the parsed <see cref="GameFilter"/> rather than off the querystring, so the old
-    /// <c>?codebase-family=</c> spelling and the current one reach the same answer, and so a
-    /// parameter that selects nothing cannot disqualify a page by being present.
+    /// Read off the parsed <see cref="GameFilter"/> rather than the querystring, so the old
+    /// <c>?codebase-family=</c> spelling reaches the same answer and a parameter that selects nothing
+    /// cannot disqualify a page.
     /// </remarks>
     public static Category? Of(GameFilter filter)
     {
         ArgumentNullException.ThrowIfNull(filter);
 
-        // Everything a bare /games does not ask. Any of these set means this is a refinement, and a
-        // refinement consolidates onto /games.
         if (filter.Text is not null
             || filter.IncludeArchived
             || filter.IncludeAdult
@@ -82,13 +67,8 @@ public static class IndexableFacet
             || filter.CodebaseVersion is not null
             || filter.Family is not null
             || filter.Trending is not null
-            || filter.Sort != Default.Sort)
-        {
-            return null;
-        }
-
-        // At most one protocol, and it counts as one of the selections below.
-        if (filter.MeasuredProtocols.Count > 1)
+            || filter.Sort != Default.Sort
+            || filter.MeasuredProtocols.Count > 1)
         {
             return null;
         }
@@ -102,7 +82,6 @@ public static class IndexableFacet
                 continue;
             }
 
-            // Two dimensions at once is a refinement, not a category.
             if (found is not null)
             {
                 return null;
@@ -127,11 +106,9 @@ public static class IndexableFacet
     /// </summary>
     /// <remarks>
     /// A hand-typed <c>?codebase=pennmush</c> selects the same games as the <c>PennMUSH</c> the panel
-    /// links to, and without this both would be self-canonical — two indexed URLs for one page, which
-    /// is the duplication this whole type is trying to prevent. Matched against the facet groups the
-    /// same pass produced, so the spelling can only ever be one the site itself links to. A value the
-    /// panel does not offer (an open-ended facet only publishes its commonest values) is left as it
-    /// was rather than dropped: it still selects a real, distinct set of games.
+    /// links to; without this both would be self-canonical, which is the duplication this type exists
+    /// to prevent. A value the panel does not offer — an open-ended facet only publishes its
+    /// commonest — is left as it was rather than dropped: it still selects a real set of games.
     /// </remarks>
     public static Category AsPublished(Category category, IReadOnlyList<FacetGroup> facets)
     {
@@ -150,9 +127,8 @@ public static class IndexableFacet
 
     /// <summary>The filter a bare <c>/games</c> produces, which every category differs from in one place.</summary>
     /// <remarks>
-    /// <see cref="GameFilter.IncludeAdult"/> defaults to <c>true</c> on the record and to <c>false</c>
-    /// on the listing surface (see <c>GameFilterBinding</c>), so the baseline is written the
-    /// surface's way rather than the record's.
+    /// <see cref="GameFilter.IncludeAdult"/> written the listing surface's way rather than the
+    /// record's — see <c>GameFilterBinding</c>.
     /// </remarks>
     private static readonly GameFilter Default = new() { IncludeAdult = false };
 
@@ -172,9 +148,8 @@ public static class IndexableFacet
     /// A facet selection as a category, or nothing.
     /// </summary>
     /// <remarks>
-    /// An exclusion and the unknown token both return null rather than a category: "every game that
-    /// is not Evennia" and "every game whose codebase we could not read" are real questions the
-    /// listing answers, and neither is a thing anybody searches for by name.
+    /// An exclusion and the unknown token are real questions the listing answers, and neither is a
+    /// thing anybody searches for by name.
     /// </remarks>
     private static Category? Included(string key, FacetChoice? choice) =>
         choice is { Exclude: false, Value: { } value } && !string.IsNullOrWhiteSpace(value)

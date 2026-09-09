@@ -58,6 +58,8 @@ public static class PreviewCopy
 
         public static string Crawler(string tag) => Messages.For(tag, "preview.desc.crawler");
 
+        public static string Find(string tag) => Messages.For(tag, "preview.desc.find");
+
         public static string About(string tag) => Messages.For(tag, "preview.desc.about");
 
         public static string NotFound(string tag) => Messages.For(tag, "preview.desc.notFound");
@@ -114,25 +116,13 @@ public static class PreviewCopy
         /// A game page: the game's name, and what the page under it holds.
         /// </summary>
         /// <remarks>
-        /// <para>
-        /// The name alone made a nineteen-character title on a few thousand pages, which tells a
-        /// search result nothing that the name does not. The clause after it describes <em>this
-        /// page</em> — where to connect, and what we measured — rather than making any claim about
-        /// the game, so it stays true of an archived game and of one we hold no count for. The name
-        /// comes first so a truncated title keeps the half that identifies it.
-        /// </para>
-        /// <para>
-        /// <b>Gated on the locale having its own words, which is unusual here and deliberate.</b>
-        /// Everywhere else an untranslated string falls back to English, because the alternative is
-        /// no string at all. Here the alternative is the game's own name — machine voice, correct in
-        /// every language — so a locale with no translation keeps that rather than being handed an
-        /// English clause it did not ask for. English is the source locale and always has its own.
-        /// </para>
+        /// The name alone made a nineteen-character title on a few thousand pages. The clause after
+        /// it describes <em>this page</em> rather than making any claim about the game, so it stays
+        /// true of an archived game and of one we hold no count for; the name comes first so a
+        /// truncated title keeps the half that identifies it.
         /// </remarks>
         public static string Game(string tag, string name) =>
-            Messages.HasOwn(tag, "preview.title.game")
-                ? Messages.For(tag, "preview.title.game", Args(("game", name)))
-                : name;
+            Messages.For(tag, "preview.title.game", Args(("game", name)));
     }
 
     /// <summary>

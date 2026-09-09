@@ -53,8 +53,6 @@
     <meta name="twitter:description" content="@Text" />
     <meta name="twitter:image" content="@Image" />
 
-    @* Who runs this site, on every page and over the fixture too — see SiteStructuredData for why
-       this one is not gated on the catalogue being measured. *@
     @if (Identity is { } identity)
     {
         @((MarkupString)$"<script type=\"application/ld+json\">{identity}</script>")
@@ -134,11 +132,9 @@
     /// The querystring this page should be indexed under, where the bare path is not it.
     /// </summary>
     /// <remarks>
-    /// Empty for almost every page, and that is the default the canonical rule wants: a query
-    /// string is the facet panel's state, and indexing every combination of it is what
-    /// <see cref="SiteUrls.CanonicalOf"/> exists to prevent. The exception is a listing filtered to
-    /// exactly one category (see <see cref="IndexableFacet"/>), which is a different question with a
-    /// different set of rows and had been declaring itself a duplicate of <c>/games</c>.
+    /// Empty for almost every page — a querystring is the facet panel's state, which is what
+    /// <see cref="SiteUrls.CanonicalOf"/> drops. The exception is a listing filtered to one category
+    /// (<see cref="IndexableFacet"/>), which is a different question over a different set of rows.
     /// </remarks>
     [Parameter]
     public string? CanonicalQuery { get; set; }
@@ -169,9 +165,8 @@
     /// The site's own identity graph, on every page.
     /// </summary>
     /// <remarks>
-    /// Null only under a headless render, which has no request to take an origin from. Deliberately
-    /// unconditional on <c>Catalogue.IsMeasured</c>: this says who publishes the site, not what was
-    /// measured, and it is equally true either way.
+    /// Unconditional on <c>Catalogue.IsMeasured</c>: this says who publishes the site, not what was
+    /// measured. Null only under a headless render, which has no request to take an origin from.
     /// </remarks>
     private string? Identity => Http is null
         ? null

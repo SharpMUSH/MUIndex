@@ -2196,6 +2196,69 @@
   <data name="preview.cardAlt.named" xml:space="preserve">
     <value>{site}の{title}</value>
   </data>
+  <data name="preview.title.category.codebase" xml:space="preserve">
+    <value>{value} のゲーム</value>
+  </data>
+  <data name="preview.title.category.lineage" xml:space="preserve">
+    <value>{value} 系のゲーム</value>
+  </data>
+  <data name="preview.title.category.genre" xml:space="preserve">
+    <value>ジャンルが {value} の MU* ゲーム</value>
+  </data>
+  <data name="preview.title.category.language" xml:space="preserve">
+    <value>{value} で遊べる MU* ゲーム</value>
+  </data>
+  <data name="preview.title.category.protocol" xml:space="preserve">
+    <value>{value} を提供するゲーム</value>
+  </data>
+  <data name="preview.desc.category.codebase" xml:space="preserve">
+    <value>{value} で動いている、到達できたすべてのゲーム。接続数・プロトコル・到達可能性はいずれも当サイトの実測で、それぞれ最後に確認した時点を伴う。</value>
+  </data>
+  <data name="preview.desc.category.lineage" xml:space="preserve">
+    <value>{value} 系として到達できたすべてのゲーム。系統は当サイトによる分類であり、ゲーム側の申告ではない。隣に並ぶ接続数・プロトコル・到達可能性は実測で、時点を伴う。</value>
+  </data>
+  <data name="preview.desc.category.genre" xml:space="preserve">
+    <value>自らを {value} と説明しているゲーム。ジャンルはゲーム自身の申告。隣に並ぶ接続数・プロトコル・到達可能性は当サイトの実測で、時点を伴う。</value>
+  </data>
+  <data name="preview.desc.category.language" xml:space="preserve">
+    <value>{value} で遊ばれていると自ら述べているゲーム。言語はゲーム自身の申告。隣に並ぶ接続数・プロトコル・到達可能性は当サイトの実測で、時点を伴う。</value>
+  </data>
+  <data name="preview.desc.category.protocol" xml:space="preserve">
+    <value>ハンドシェイクで {value} を提供しているのを確認したゲーム。回線上で観測したものであり、ゲーム自身の申告から読み取ったものではない。各行に最後に確認した時点を記す。</value>
+  </data>
+  <data name="games.heading.codebase" xml:space="preserve">
+    <value>{value} のゲーム</value>
+  </data>
+  <data name="games.heading.lineage" xml:space="preserve">
+    <value>{value} 系のゲーム</value>
+  </data>
+  <data name="games.heading.genre" xml:space="preserve">
+    <value>ジャンルが {value} のゲーム</value>
+  </data>
+  <data name="games.heading.language" xml:space="preserve">
+    <value>{value} で遊べるゲーム</value>
+  </data>
+  <data name="games.heading.protocol" xml:space="preserve">
+    <value>{value} を提供するゲーム</value>
+  </data>
+  <data name="preview.title.crawler" xml:space="preserve">
+    <value>クローラーの現在の動き</value>
+  </data>
+  <data name="preview.desc.crawler" xml:space="preserve">
+    <value>進行中のクロール — 直近のサイクルが終わった時点、変わった内容、次に予定されているアドレス、そして消えたゲームと戻ってきたゲーム。当サイトの数値すべての出所。</value>
+  </data>
+  <data name="preview.desc.find" xml:space="preserve">
+    <value>六つの質問 — 今遊んでいる人、ジャンル、ゲームの種類、言語、クライアントに必要なもの — を実測データに突き合わせ、回答ごとに該当件数を示す。</value>
+  </data>
+  <data name="preview.title.game" xml:space="preserve">
+    <value>{game}：接続方法と、当サイトの実測結果</value>
+  </data>
+  <data name="game.badge.summary" xml:space="preserve">
+    <value>このゲームの接続数を自分のサイトに載せる</value>
+  </data>
+  <data name="game.badge.note" xml:space="preserve">
+    <value>バッジは当サイトが描いて配信する画像。接続数とそれを実測した時点を示し、数えられなかった場合は 0 ではなくそう述べる。アカウントは不要で、この掲載が所有者により申請済みかどうかに関わらず使える。</value>
+  </data>
   <data name="preview.title.home" xml:space="preserve">
     <value>MUSH・MUD・MUCK・MOO のディレクトリ</value>
   </data>

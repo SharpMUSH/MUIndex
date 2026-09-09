@@ -11,14 +11,10 @@
     listing. Tone stays dimmed, not "dead" — a catalogue entry, not an obituary.
 *@
 
-@* Above the plain switch, as the game page has always done it: ?plain=1 is the same document
-   (spec §9), so it takes the same title and the same canonical URL. Left inside the graphical
-   branch, as it was, every page had a title-less twin at ?plain=1 naming no canonical. *@
+@* Above the plain switch: ?plain=1 is the same document (spec §9) and takes the same head. *@
 <SitePreview Title="@PreviewCopy.Titles.Archive(Tag)" Description="@PreviewCopy.Pages.Archive(Tag)"
              Card="PreviewCard.Archive"
-             Graph="@(origin => ListingStructuredData.For(
-                 [.. Entries.Select(e => e.Summary)], origin, "/archive",
-                 PreviewCopy.Titles.Archive(Tag), PreviewCopy.Pages.Archive(Tag)))" />
+             Graph="ArchiveGraph" />
 
 @if (Plain)
 {
@@ -100,6 +96,21 @@ else
     private DateTimeOffset Now => Clock.GetUtcNow();
 
     private IReadOnlyList<ArchiveEntry> Entries = [];
+
+    /// <summary>
+    /// The archive as a collection of games, or nothing while a search is narrowing it.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Entries"/> is the <c>q</c>-filtered set, and the graph names <c>/archive</c> —
+    /// which is also what the canonical link says, since a search is not a page of its own. Emitting
+    /// the two together would describe one reader's search results as the archive: at
+    /// <c>?q=no-match</c>, an empty <c>ItemList</c> claiming to be the whole of it.
+    /// </remarks>
+    private Func<Uri, string>? ArchiveGraph => string.IsNullOrWhiteSpace(Query)
+        ? origin => ListingStructuredData.For(
+            [.. Entries.Select(e => e.Summary)], origin, "/archive",
+            PreviewCopy.Titles.Archive(Tag), PreviewCopy.Pages.Archive(Tag))
+        : null;
 
     protected override async Task OnParametersSetAsync()
     {

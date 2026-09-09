@@ -45,9 +45,8 @@ public static class SiteIndex
                     http.RequestAborted)
                 : [];
 
-            // The category listings, taken from the same facet pass the panel draws, so a URL here
-            // is one the site itself links to and one that returns rows. Over the fixture there are
-            // no real categories to submit, same rule as the games above.
+            // From the same facet pass the panel draws, so a URL here is one the site links to.
+            // Nothing over the fixture, same rule as the games above.
             var categories = catalogue.IsMeasured
                 ? Categories(await queries.SearchAsync(Listing, http.RequestAborted))
                 : [];
@@ -69,22 +68,15 @@ public static class SiteIndex
     }
 
     /// <summary>The filter a bare <c>/games</c> uses, whose facets are the categories worth submitting.</summary>
-    /// <remarks>
-    /// <see cref="GameFilter.IncludeAdult"/> written the listing surface's way rather than the
-    /// record's, the same as <see cref="IndexableFacet"/>'s baseline — a sitemap must not advertise
-    /// a category whose page would come back with different rows.
-    /// </remarks>
+    /// <remarks>Matches <see cref="IndexableFacet"/>'s baseline, or the sitemap would advertise a
+    /// category whose page comes back with different rows.</remarks>
     private static readonly GameFilter Listing = new() { IncludeAdult = false };
 
     /// <summary>
     /// Every faceted listing that has a page of its own and something on it.
     /// </summary>
-    /// <remarks>
-    /// A value nothing matches is skipped — the panel keeps a selected value visible at zero so it
-    /// can be undone, and submitting that would be advertising an empty page. So is the unknown
-    /// token: "games whose codebase we could not read" is a real question and not a category
-    /// anybody searches for by name.
-    /// </remarks>
+    /// <remarks>A value nothing matches is skipped: the panel keeps a selected value visible at zero
+    /// so it can be undone, and submitting that advertises an empty page.</remarks>
     private static IReadOnlyList<string> Categories(GameListing listing) =>
     [
         .. IndexableFacet.Dimensions
@@ -115,10 +107,8 @@ public static class SiteIndex
         text.AppendLine("Disallow: /mcp");
         text.AppendLine("Disallow: /metrics");
 
-        // A claim page is the ceremony for one game's operator, not a page about the game: signed
-        // out it is the same short "you need an account first" under every one of a few thousand
-        // slugs. Excluded on the same ground as /account — it belongs to whoever is signed in —
-        // rather than as a crawl-budget trim. The game's own page is unaffected.
+        // Signed out, the same short "you need an account first" under a few thousand slugs.
+        // Excluded on the same ground as /account: it belongs to whoever is signed in.
         text.AppendLine("Disallow: /g/*/claim");
 
         text.AppendLine("Allow: /");
@@ -132,24 +122,13 @@ public static class SiteIndex
     /// Where an agent should read this site instead of scraping its pages.
     /// </summary>
     /// <remarks>
+    /// <b>Not a ranking signal and not published as one</b> — Google has said no Search system reads
+    /// it, and the evidence for citation lift is absent. It is here because what it points at is true
+    /// independently: a text rendering of every page, and a documented, versioned API.
     /// <para>
-    /// <b>This is not a ranking signal and is not published as one.</b> Google has said no Search
-    /// system reads <c>llms.txt</c>, and no major model provider documents it as a citation input;
-    /// an analysis of 137k sites in 2026 found almost none of these files were fetched at all. It is
-    /// here because the thing it is *for* is true of this site independently: there is a plain-text
-    /// rendering of every page and a documented, versioned JSON API, and an agent that finds either
-    /// gets better answers with less of somebody's bandwidth than one parsing the HTML. If the
-    /// convention dies, this file was still the shortest honest description of how to read the site.
-    /// </para>
-    /// <para>
-    /// <b>English, deliberately.</b> Every other surface localizes; this one addresses a program, in
-    /// the language the field's own conventions are written in, and a translated copy at one fixed
-    /// address would have to pick a language anyway.
-    /// </para>
-    /// <para>
-    /// The licence is read from configuration rather than restated, so this cannot claim terms the
-    /// dump does not go out under. Over the fixture it says so in the first line, for the same
-    /// reason the preview metadata does: this file is read where no banner reaches.
+    /// English, since it addresses a program. The licence comes from configuration so this cannot
+    /// claim terms the dump does not go out under, and over the fixture it says so in the first line
+    /// — no banner reaches this file.
     /// </para>
     /// </remarks>
     private static string Llms(HttpContext http, bool measured, DatasetLicenceOptions licence)
@@ -259,9 +238,8 @@ public static class SiteIndex
                 Entry(xml, SiteUrls.Absolute(http, document.Path), modified: null);
             }
 
-            // The category listings. No lastmod: the page is a query over the whole catalogue, so
-            // the honest answer is "whenever any of these games was last reached", which is a
-            // different date from any one row's and not one this loop holds.
+            // No lastmod: a category is a query over the catalogue, and this loop holds no date for
+            // "whenever any of these was last reached".
             foreach (var category in categories)
             {
                 Entry(xml, SiteUrls.Absolute(http, category), modified: null);

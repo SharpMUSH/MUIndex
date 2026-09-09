@@ -8,29 +8,14 @@ namespace MUI.Web.Components;
 /// Who runs this site, as schema.org — the one graph that is not about the catalogue.
 /// </summary>
 /// <remarks>
+/// <b>Not gated on <c>CatalogueSource.IsMeasured</c>, unlike every other graph here.</b>
+/// <see cref="GameStructuredData"/> is suppressed over the fixture because its subject is invented;
+/// this graph's subject is the site's own name, address and languages, as true over the fixture as
+/// over a crawl.
 /// <para>
-/// <b>Not gated on <c>CatalogueSource.IsMeasured</c>, and that is the difference from every other
-/// graph here.</b> <see cref="GameStructuredData"/> is suppressed over the fixture because its
-/// subject is invented and the vocabulary has no field meaning "unmeasured". This graph's subject is
-/// the site itself — its name, its address, its logo, the languages it answers in — and every one of
-/// those is as true over the fixture as over a live crawl. Suppressing it would withhold a true
-/// statement, not withhold a false one.
-/// </para>
-/// <para>
-/// <b>No <c>SearchAction</c>.</b> The sitelinks searchbox it fed was deprecated in October 2024 and
-/// retired that November; the markup now describes a feature that no longer renders. The rest of
-/// <c>WebSite</c> is still read, which is why the node stays.
-/// </para>
-/// <para>
-/// <b><c>sameAs</c> is configured and defaults to empty.</b> It is the claim "this site and that
-/// profile are the same entity", and a compiled-in default would have every fork of this software
-/// assert it about somebody else's repository from its first deploy — the shape of mistake
-/// <c>ContactedMaintainer</c> already made once. A deployment that owns such a profile names it.
-/// </para>
-/// <para>
-/// Addresses are built from the request's own origin for the reason <see cref="SiteUrls"/> gives:
-/// nothing here knows the site's public hostname, and a configured one would be wrong on every
-/// mirror and preview environment.
+/// No <c>SearchAction</c>: the sitelinks searchbox it fed was retired in November 2024.
+/// <c>sameAs</c> comes from <see cref="SiteIdentityOptions"/> and defaults to empty. Addresses are
+/// built from the request's origin, for the reason <see cref="SiteUrls"/> gives.
 /// </para>
 /// </remarks>
 public static class SiteStructuredData
@@ -82,8 +67,7 @@ public static class SiteStructuredData
             ["url"] = home,
             ["publisher"] = new JsonObject { ["@id"] = root + OrganizationId },
 
-            // The languages the site actually answers in, which is what the hreflang alternates in
-            // the same head already say. A planned locale is not one of them.
+            // Offered, not All: a planned locale is not one the site answers in.
             ["inLanguage"] = new JsonArray(
                 [.. Locales.Offered.Select(locale => (JsonNode)JsonValue.Create(locale.Tag)!)]),
         };

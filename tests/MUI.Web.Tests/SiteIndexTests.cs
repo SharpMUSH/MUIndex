@@ -159,7 +159,12 @@ public class SiteIndexTests
         var robots = await site.Client.GetStringAsync("/robots.txt");
 
         await Assert.That(robots).Contains("Disallow: /g/*/claim");
-        await Assert.That(robots).DoesNotContain("Disallow: /g/\n");
+
+        // Compared as parsed lines: AppendLine writes Environment.NewLine, so a literal "\n" in the
+        // needle makes this assertion vacuous on Windows, where the line ends "\r\n".
+        var directives = robots.Split('\n').Select(line => line.Trim()).ToList();
+
+        await Assert.That(directives).DoesNotContain("Disallow: /g/");
     }
 
     [Test]

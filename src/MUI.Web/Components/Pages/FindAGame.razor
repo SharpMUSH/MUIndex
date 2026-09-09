@@ -24,7 +24,9 @@
     group with a real <h2>, which the handoff explicitly allows as the substitution.
 *@
 
-<PageTitle>@Say("find.title") — mu*index</PageTitle>
+@* Through SitePreview like every other page, rather than a bare PageTitle: this page was in the
+   sitemap and named no canonical URL, so its ?plain=1 twin and its own address were two. *@
+<SitePreview Title="@Say("find.title")" Description="@PreviewCopy.Pages.Find(Tag)" />
 
 @if (Plain)
 {

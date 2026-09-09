@@ -148,7 +148,7 @@ else
                        loaded. *@
                     <details class="publish">
                         <summary class="faint">@L("account.badge.summary")</summary>
-                        <pre class="mono">&lt;a href="@Origin/g/@game.Slug"&gt;&lt;img src="@Origin/g/@game.Slug/badge.svg" alt="@game.Name on mu*index"&gt;&lt;/a&gt;</pre>
+                        <pre class="mono">&lt;a href="@Origin/g/@game.Slug"&gt;&lt;img src="@Origin/g/@game.Slug/badge.svg" alt="@System.Net.WebUtility.HtmlEncode(game.Name) on mu*index"&gt;&lt;/a&gt;</pre>
                         @* Three sentences rather than one with emphasis inside a clause a translator
                            cannot move. The badge words are the image's OWN bytes, placed as
                            arguments rather than translated. *@

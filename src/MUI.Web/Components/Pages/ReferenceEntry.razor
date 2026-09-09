@@ -20,12 +20,9 @@
     resolved for this locale and rendered whole.
 *@
 
-@* Above the plain switch, as the game page has always done it: ?plain=1 is the same document
-   (spec §9), so it takes the same title and the same canonical URL. Left inside the graphical
-   branch, as it was, every page had a title-less twin at ?plain=1 naming no canonical.
-
-   Guarded on the document existing: a slug that resolves to nothing is answered by the framework's
-   own 404, and metadata for a page that is not there would name it as one. *@
+@* Above the plain switch: ?plain=1 is the same document (spec §9) and takes the same head. *@
+@* Guarded on the document existing: a slug resolving to nothing is answered by the framework's own
+   404, and metadata there would name a page that is not. *@
 @if (Document is not null)
 {
     <SitePreview Title="@Document.Title" Description="@Document.Summary"

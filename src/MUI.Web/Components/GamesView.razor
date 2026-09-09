@@ -1,9 +1,6 @@
 @using Microsoft.AspNetCore.WebUtilities
 @using MUI.Web.Api
 
-@* Above the plain switch, as the game page has always done it: ?plain=1 is the same document
-   (spec §9), so it takes the same title and the same canonical URL. Left inside the graphical
-   branch, as it was, every page had a title-less twin at ?plain=1 naming no canonical. *@
 @* A listing filtered to one category is its own page — its own title, description, canonical
    URL and heading. Everything else is /games with the panel touched, and says so. *@
 @if (Category is { } category)
@@ -159,23 +156,15 @@ else
     /// </summary>
     /// <remarks>
     /// Null whenever the filter failed to bind: <see cref="Filter"/> is then the default rather than
-    /// what was asked for, and a page showing a parse error must not also claim to be a category —
-    /// it would name a canonical URL that returns a different set of games.
-    /// The value is respelled as the catalogue publishes it, so a hand-typed <c>?codebase=pennmush</c>
-    /// canonicalizes onto the same URL the panel links to rather than beside it.
+    /// what was asked for, and a canonical URL built from it would return different games.
     /// </remarks>
     private IndexableFacet.Category? Category => Error is null && IndexableFacet.Of(Filter) is { } found
         ? IndexableFacet.AsPublished(found, Listing.Facets)
         : null;
 
-    /// <summary>
-    /// This listing as a collection of games, for the readers that are programs.
-    /// </summary>
-    /// <remarks>
-    /// The path is <c>/games</c> plus whatever the canonical link already says, so the graph names
-    /// the same address the head declares rather than the one the reader happens to be on — a
-    /// refined listing points its collection at <c>/games</c>, exactly as its canonical does.
-    /// </remarks>
+    /// <summary>This listing as a collection of games.</summary>
+    /// <remarks>The path is what the canonical link says, not what the reader asked for, so the two
+    /// cannot name different addresses.</remarks>
     private string Collection(Uri origin, string query, string name, string description) =>
         ListingStructuredData.For(Listing.Games, origin, "/games" + query, name, description);
 
