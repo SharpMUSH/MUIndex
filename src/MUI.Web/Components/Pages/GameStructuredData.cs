@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -96,6 +97,11 @@ public static class GameStructuredData
             }
         }
 
+        if (Server(page) is { } server)
+        {
+            game["gameServer"] = server;
+        }
+
         game["identifier"] = summary.Id.ToString("D");
         game["subjectOf"] = new JsonObject
         {
@@ -119,6 +125,32 @@ public static class GameStructuredData
         };
 
         return document.ToJsonString(Options);
+    }
+
+    /// <summary>
+    /// Where you connect. <c>telnet://</c> is a registered URI scheme (RFC 4248).
+    /// </summary>
+    /// <remarks>
+    /// <b>No <c>serverStatus</c> and no <c>playersOnline</c>.</b> Both are values with nowhere to say
+    /// "as of when" — the same gap that puts the count on an <c>InteractionCounter</c> with an
+    /// <c>endTime</c>. An undated "Offline" would also state our vantage point as a fact about
+    /// somebody's game: a game we cannot route to is unreachable and perfectly alive (rule 5).
+    /// <c>dateModified</c> already carries when we last got in.
+    /// </remarks>
+    private static JsonObject? Server(GamePage page)
+    {
+        var endpoint = page.Endpoints.FirstOrDefault(e => e.IsCurrent) ?? page.Endpoints.FirstOrDefault();
+
+        if (endpoint is null)
+        {
+            return null;
+        }
+
+        return new JsonObject
+        {
+            ["@type"] = "GameServer",
+            ["url"] = $"telnet://{endpoint.Host}:{endpoint.Port.ToString(CultureInfo.InvariantCulture)}",
+        };
     }
 
     /// <summary>

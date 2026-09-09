@@ -14,14 +14,16 @@
     which would shadow a page class of that name inside its own code block.
 *@
 
+@* Above the plain switch: ?plain=1 is the same document (spec §9) and takes the same head. *@
+<SitePreview Title="@PreviewCopy.Titles.Rankings(Tag)" Description="@PreviewCopy.Pages.Rankings(Tag)"
+             Card="PreviewCard.Rankings" />
+
 @if (Plain)
 {
     <pre class="mono plain">@PlainText.RenderRankings(Table, Now, Tag)</pre>
 }
 else
 {
-    <SitePreview Title="@PreviewCopy.Titles.Rankings(Tag)" Description="@PreviewCopy.Pages.Rankings(Tag)"
-                 Card="PreviewCard.Rankings" />
 
     <h1>@L("rankings.title")</h1>
     <p class="dim">@EcosystemCopy.NoVote(Tag)</p>

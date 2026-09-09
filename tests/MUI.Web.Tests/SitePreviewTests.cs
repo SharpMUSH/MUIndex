@@ -109,14 +109,89 @@ public class SitePreviewTests
     }
 
     [Test]
-    public async Task NoStructuredDataIsPublishedOverTheFixture()
+    public async Task NoCatalogueStructuredDataIsPublishedOverTheFixture()
     {
-        // JSON-LD is read by machines that won't read the disclaimer beside it, so absent is the only honest answer over invented data.
+        // JSON-LD is read by machines that won't read the disclaimer beside it, so absent is the
+        // only honest answer over invented data. The site's own identity graph is still published
+        // (see the test below) — this asserts that nothing about the *game* is.
         await using var site = await SiteHost.StartAsync();
 
         var body = await site.Client.GetStringAsync("/g/m-u-s-h");
 
-        await Assert.That(Head.StructuredData(body)).IsEmpty();
+        foreach (var block in Head.StructuredData(body))
+        {
+            await Assert.That(block).DoesNotContain("VideoGame");
+            await Assert.That(block).DoesNotContain("M*U*S*H");
+            await Assert.That(block).DoesNotContain("InteractionCounter");
+        }
+    }
+
+    [Test]
+    public async Task TheSiteSaysWhoPublishesItEvenOverTheFixture()
+    {
+        // Who runs the site is as true over the fixture as over a crawl — the rule that suppresses
+        // the game graph is about invented measurements, and withholding a true statement is not
+        // what it asks for.
+        await using var site = await SiteHost.StartAsync();
+
+        var blocks = Head.StructuredData(await site.Client.GetStringAsync("/g/m-u-s-h"));
+
+        await Assert.That(blocks.Any(b => b.Contains("Organization", StringComparison.Ordinal)))
+            .IsTrue()
+            .Because("the fixture still knows who publishes it");
+    }
+
+    [Test]
+    public async Task TheIdentityGraphClaimsNoProfileNobodyConfiguredOne()
+    {
+        // sameAs is the claim "that account over there is us". Shipped empty on purpose: a default
+        // would have every fork assert it about somebody else's repository.
+        await using var site = await SiteHost.StartAsync();
+
+        var blocks = Head.StructuredData(await site.Client.GetStringAsync("/"));
+
+        foreach (var block in blocks)
+        {
+            await Assert.That(block).DoesNotContain("sameAs");
+        }
+    }
+
+    [Test]
+    public async Task ADeploymentThatNamesAProfileClaimsItAndOneThatLeavesItBlankDoesNot()
+    {
+        // compose.yaml forwards Site__SameAs__0 as an empty string when the operator sets nothing,
+        // which is how every forwarded setting behaves — so "unset" and "set to nothing" both have
+        // to mean the claim is not made, or the default deployment asserts sameAs: "".
+        await using var named = await SiteHost.StartAsync(
+            new Dictionary<string, string?> { ["Site:SameAs:0"] = "https://example.org/muindex" });
+
+        await using var blank = await SiteHost.StartAsync(
+            new Dictionary<string, string?> { ["Site:SameAs:0"] = string.Empty });
+
+        var claimed = Head.StructuredData(await named.Client.GetStringAsync("/"));
+
+        await Assert.That(claimed.Any(b => b.Contains("https://example.org/muindex", StringComparison.Ordinal)))
+            .IsTrue();
+
+        foreach (var block in Head.StructuredData(await blank.Client.GetStringAsync("/")))
+        {
+            await Assert.That(block).DoesNotContain("sameAs");
+        }
+    }
+
+    [Test]
+    public async Task TheIdentityGraphDoesNotMarkUpASearchboxGoogleRetired()
+    {
+        // The sitelinks searchbox SearchAction fed was deprecated in Oct 2024 and retired that
+        // November; markup for it now describes a feature that cannot render.
+        await using var site = await SiteHost.StartAsync();
+
+        var blocks = Head.StructuredData(await site.Client.GetStringAsync("/"));
+
+        foreach (var block in blocks)
+        {
+            await Assert.That(block).DoesNotContain("SearchAction");
+        }
     }
 
     [Test]
@@ -128,8 +203,8 @@ public class SitePreviewTests
         var blocks = Head.StructuredData(body);
 
         await Assert.That(blocks).IsNotEmpty();
-        await Assert.That(blocks[0]).Contains("VideoGame");
-        await Assert.That(blocks[0]).Contains("M*U*S*H");
+        await Assert.That(blocks.Any(b => b.Contains("VideoGame", StringComparison.Ordinal))).IsTrue();
+        await Assert.That(blocks.Any(b => b.Contains("M*U*S*H", StringComparison.Ordinal))).IsTrue();
     }
 
     [Test]
@@ -189,6 +264,32 @@ public class SitePreviewTests
             await Assert.That(response.IsSuccessStatusCode)
                 .IsTrue()
                 .Because($"the manifest names {src}");
+        }
+    }
+
+    [Test]
+    public async Task TheTextMirrorIsTheSameDocumentAndSaysSo()
+    {
+        // The plain surface is the same document at the same address (spec §9), but only the game
+        // page rendered its metadata above the plain/graphical switch. Everywhere else the mirror
+        // came back with no title and no canonical link — an untitled duplicate of every page on the
+        // site, which is what the audit's own crawl found first when it listed "/?plain=1".
+        await using var site = await SiteHost.StartAsync();
+
+        string[] paths = ["/", "/games", "/archive", "/rankings", "/ecosystem", "/reference", "/about", "/crawler"];
+
+        foreach (var path in paths)
+        {
+            var body = await site.Client.GetStringAsync(path + "?plain=1");
+            var canonical = Head.Link(body, "canonical");
+
+            await Assert.That(canonical).IsNotNull().Because($"{path}?plain=1 names its canonical URL");
+            await Assert.That(canonical!).DoesNotContain("plain").Because($"{path} is one document, not two");
+            await Assert.That(canonical).EndsWith(path == "/" ? "/" : path);
+
+            await Assert.That(Head.Meta(body, "description"))
+                .IsNotNull()
+                .Because($"{path}?plain=1 describes itself");
         }
     }
 

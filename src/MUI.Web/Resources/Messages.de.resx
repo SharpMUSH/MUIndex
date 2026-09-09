@@ -3,9 +3,10 @@
   <!--
     Deutsch, machine-translated and not reviewed by a person.
 
-    Every page served in this locale carries the ◆ notice saying so, and the locale is reachable but
-    never offered: nothing sends a reader here. Promotion to LocaleStatus.Shipped is a person reading
-    the locked strings against Glossary.cs, not an edit to a status enum.
+    The locale is offered: Locales.cs marks it LocaleStatus.Shipped, so it is in the switcher and a
+    reader can be sent here. What a test holds is that Glossary.cs's locked strings exist in it —
+    provenance words like "measured", "declared" and "unreachable" are distinct claims, and a
+    translation engine otherwise treats them as synonyms for "unavailable".
 
     The values are ICU MessageFormat. Argument names in braces are code.
   -->
@@ -439,7 +440,7 @@
     <value>zufällig</value>
   </data>
   <data name="listing.columns" xml:space="preserve">
-    <value>Verbindungen · erreicht</value>
+    <value>Verbindungen · Tendenz · erreicht</value>
   </data>
   <data name="listing.fromHere" xml:space="preserve">
     <value>von hier aus</value>
@@ -525,6 +526,48 @@
   <data name="facet.moreValues" xml:space="preserve">
     <value>{count, plural, one {# weiterer} other {# weitere}}</value>
   </data>
+  <data name="home.trending.empty" xml:space="preserve">
+    <value>Derzeit steigt kein Spiel.</value>
+  </data>
+  <data name="home.trending.title" xml:space="preserve">
+    <value>Tendenz</value>
+  </data>
+  <data name="sort.unranked.discovered" xml:space="preserve">
+    <value>wann wir diese Adresse zuerst sahen, ist nicht verzeichnet</value>
+  </data>
+  <data name="sort.discovered" xml:space="preserve">
+    <value>zuletzt entdeckt</value>
+  </data>
+  <data name="switch.discovered" xml:space="preserve">
+    <value>entdeckt</value>
+  </data>
+  <data name="listing.row.discovered" xml:space="preserve">
+    <value>entdeckt</value>
+  </data>
+  <data name="listing.columns.discovered" xml:space="preserve">
+    <value>Verbindungen · Tendenz · entdeckt</value>
+  </data>
+  <data name="facet.trending.down" xml:space="preserve">
+    <value>fallend</value>
+  </data>
+  <data name="facet.trending.steady" xml:space="preserve">
+    <value>gleichbleibend</value>
+  </data>
+  <data name="facet.trending.up" xml:space="preserve">
+    <value>steigend</value>
+  </data>
+  <data name="facet.unknown.trending" xml:space="preserve">
+    <value>noch nicht genug gemessen</value>
+  </data>
+  <data name="facet.known.trending" xml:space="preserve">
+    <value>genug Tage gemessen</value>
+  </data>
+  <data name="facet.group.trending" xml:space="preserve">
+    <value>Tendenz</value>
+  </data>
+  <data name="facet.fewerValues" xml:space="preserve">
+    <value>weniger anzeigen</value>
+  </data>
   <data name="facet.alsoShow" xml:space="preserve">
     <value>zusätzlich zeigen</value>
   </data>
@@ -601,10 +644,16 @@
     <value>diese Woche aktiv</value>
   </data>
   <data name="facet.band.quiet" xml:space="preserve">
-    <value>ruhig — nie mehr als 0 gezählt</value>
+    <value>ruhig</value>
   </data>
   <data name="facet.band.dark" xml:space="preserve">
-    <value>verstummt — seit einem Monat nicht erreicht</value>
+    <value>verstummt</value>
+  </data>
+  <data name="facet.band.quiet.meaning" xml:space="preserve">
+    <value>nie mehr als 0 gezählt</value>
+  </data>
+  <data name="facet.band.dark.meaning" xml:space="preserve">
+    <value>seit einem Monat nicht erreicht</value>
   </data>
   <data name="facet.band.archived" xml:space="preserve">
     <value>archiviert</value>
@@ -2195,6 +2244,99 @@
   </data>
   <data name="preview.cardAlt.named" xml:space="preserve">
     <value>{title} auf {site}</value>
+  </data>
+  <data name="preview.title.category.codebase" xml:space="preserve">
+    <value>{value}-Spiele</value>
+  </data>
+  <data name="preview.title.category.lineage" xml:space="preserve">
+    <value>{value}-Spiele</value>
+  </data>
+  <data name="preview.title.category.genre" xml:space="preserve">
+    <value>MU*-Spiele im Genre {value}</value>
+  </data>
+  <data name="preview.title.category.language" xml:space="preserve">
+    <value>MU*-Spiele auf {value}</value>
+  </data>
+  <data name="preview.title.category.protocol" xml:space="preserve">
+    <value>Spiele, die {value} anbieten</value>
+  </data>
+  <data name="preview.desc.category.codebase" xml:space="preserve">
+    <value>Jedes von uns erreichte {value}-Spiel, mit den Spielerzahlen, Protokollen und der Erreichbarkeit, die wir für jedes gemessen haben.</value>
+  </data>
+  <data name="preview.desc.category.lineage" xml:space="preserve">
+    <value>Jedes von uns erreichte Spiel der Abstammung {value} — eine Einordnung von uns, keine Angabe dieser Spiele.</value>
+  </data>
+  <data name="preview.desc.category.genre" xml:space="preserve">
+    <value>Spiele, die sich selbst als {value} beschreiben. Das Genre ist ihre Angabe; die Zahlen und Protokolle daneben sind unsere, gemessen.</value>
+  </data>
+  <data name="preview.desc.category.language" xml:space="preserve">
+    <value>Spiele, die angeben, auf {value} gespielt zu werden. Die Sprache ist ihre Angabe; die Zahlen und Protokolle daneben sind unsere, gemessen.</value>
+  </data>
+  <data name="preview.desc.category.protocol" xml:space="preserve">
+    <value>Spiele, die wir im Handshake {value} anbieten sahen — auf der Leitung beobachtet, nicht aus der Selbstauskunft eines Spiels gelesen.</value>
+  </data>
+  <data name="games.heading.codebase" xml:space="preserve">
+    <value>{value}-Spiele</value>
+  </data>
+  <data name="games.heading.lineage" xml:space="preserve">
+    <value>{value}-Spiele</value>
+  </data>
+  <data name="games.heading.genre" xml:space="preserve">
+    <value>{value}-Spiele</value>
+  </data>
+  <data name="games.heading.language" xml:space="preserve">
+    <value>Spiele auf {value}</value>
+  </data>
+  <data name="games.heading.protocol" xml:space="preserve">
+    <value>Spiele, die {value} anbieten</value>
+  </data>
+  <data name="games.heading.band.playersNow" xml:space="preserve">
+    <value>Spiele mit jemandem verbunden</value>
+  </data>
+  <data name="games.heading.band.activeThisWeek" xml:space="preserve">
+    <value>Diese Woche aktive Spiele</value>
+  </data>
+  <data name="games.heading.band.quiet" xml:space="preserve">
+    <value>Ruhige Spiele</value>
+  </data>
+  <data name="games.heading.band.dark" xml:space="preserve">
+    <value>Verstummte Spiele</value>
+  </data>
+  <data name="games.heading.band.archived" xml:space="preserve">
+    <value>Archivierte Spiele</value>
+  </data>
+  <data name="games.heading.charset" xml:space="preserve">
+    <value>Spiele mit der Kodierung {value}</value>
+  </data>
+  <data name="games.heading.tls" xml:space="preserve">
+    <value>Spiele, die wir über TLS erreicht haben</value>
+  </data>
+  <data name="preview.desc.category.charset" xml:space="preserve">
+    <value>Spiele, deren Kodierungsaushandlung wir auf {value} einigen sahen — was CHARSET vereinbart hat, nicht was ein Spiel angibt.</value>
+  </data>
+  <data name="preview.desc.category.tls" xml:space="preserve">
+    <value>Spiele, mit denen wir einen TLS-Handshake abgeschlossen haben — durch Verbinden gemessen, nicht aus einer SSL-Zeile im Bericht gelesen.</value>
+  </data>
+  <data name="preview.title.category.charset" xml:space="preserve">
+    <value>MU*-Spiele mit der Kodierung {value}</value>
+  </data>
+  <data name="preview.title.category.tls" xml:space="preserve">
+    <value>MU*-Spiele, die wir über TLS erreicht haben</value>
+  </data>
+  <data name="preview.title.crawler" xml:space="preserve">
+    <value>Was der Crawler gerade tut</value>
+  </data>
+  <data name="preview.desc.crawler" xml:space="preserve">
+    <value>Der Crawl im Lauf: wann der letzte Durchgang endete, was er geändert hat, welche Adressen als Nächstes fällig sind und welche Spiele verstummt oder zurückgekehrt sind. Die Herkunft jeder Zahl auf dieser Website.</value>
+  </data>
+  <data name="preview.desc.find" xml:space="preserve">
+    <value>Sechs Fragen — wer gerade spielt, welches Genre, welche Art Spiel, welche Sprache, was Ihr Client braucht — abgeglichen mit gemessenen Daten, mit der Trefferzahl nach jeder Antwort.</value>
+  </data>
+  <data name="preview.title.game" xml:space="preserve">
+    <value>{game}: wie man sich verbindet und was wir gemessen haben</value>
+  </data>
+  <data name="preview.title.home" xml:space="preserve">
+    <value>Verzeichnis von MUSHes, MUDs, MUCKs und MOOs</value>
   </data>
   <data name="preview.title.games" xml:space="preserve">
     <value>Spiele</value>

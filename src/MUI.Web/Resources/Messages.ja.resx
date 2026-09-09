@@ -3,9 +3,10 @@
   <!--
     日本語, machine-translated and not reviewed by a person.
 
-    Every page served in this locale carries the ◆ notice saying so, and the locale is reachable but
-    never offered: nothing sends a reader here. Promotion to LocaleStatus.Shipped is a person reading
-    the locked strings against Glossary.cs, not an edit to a status enum.
+    The locale is offered: Locales.cs marks it LocaleStatus.Shipped, so it is in the switcher and a
+    reader can be sent here. What a test holds is that Glossary.cs's locked strings exist in it —
+    provenance words like "measured", "declared" and "unreachable" are distinct claims, and a
+    translation engine otherwise treats them as synonyms for "unavailable".
 
     The values are ICU MessageFormat. Argument names in braces are code.
   -->
@@ -439,7 +440,7 @@
     <value>ランダム</value>
   </data>
   <data name="listing.columns" xml:space="preserve">
-    <value>接続数 · 到達</value>
+    <value>接続数 · 傾向 · 到達</value>
   </data>
   <data name="listing.fromHere" xml:space="preserve">
     <value>ここから</value>
@@ -525,6 +526,48 @@
   <data name="facet.moreValues" xml:space="preserve">
     <value>{count, plural, other {他#件}}</value>
   </data>
+  <data name="home.trending.empty" xml:space="preserve">
+    <value>現在、増加傾向のゲームはない。</value>
+  </data>
+  <data name="home.trending.title" xml:space="preserve">
+    <value>傾向</value>
+  </data>
+  <data name="sort.unranked.discovered" xml:space="preserve">
+    <value>このアドレスを最初に見た時期は記録にない</value>
+  </data>
+  <data name="sort.discovered" xml:space="preserve">
+    <value>発見が新しい順</value>
+  </data>
+  <data name="switch.discovered" xml:space="preserve">
+    <value>発見</value>
+  </data>
+  <data name="listing.row.discovered" xml:space="preserve">
+    <value>発見</value>
+  </data>
+  <data name="listing.columns.discovered" xml:space="preserve">
+    <value>接続数 · 傾向 · 発見</value>
+  </data>
+  <data name="facet.trending.down" xml:space="preserve">
+    <value>減少傾向</value>
+  </data>
+  <data name="facet.trending.steady" xml:space="preserve">
+    <value>横ばい</value>
+  </data>
+  <data name="facet.trending.up" xml:space="preserve">
+    <value>増加傾向</value>
+  </data>
+  <data name="facet.unknown.trending" xml:space="preserve">
+    <value>計測がまだ足りない</value>
+  </data>
+  <data name="facet.known.trending" xml:space="preserve">
+    <value>十分な日数を計測済み</value>
+  </data>
+  <data name="facet.group.trending" xml:space="preserve">
+    <value>傾向</value>
+  </data>
+  <data name="facet.fewerValues" xml:space="preserve">
+    <value>表示を減らす</value>
+  </data>
   <data name="facet.alsoShow" xml:space="preserve">
     <value>追加で表示</value>
   </data>
@@ -601,10 +644,16 @@
     <value>今週アクティブ</value>
   </data>
   <data name="facet.band.quiet" xml:space="preserve">
-    <value>閑散 — 計数は0を超えず</value>
+    <value>閑散</value>
   </data>
   <data name="facet.band.dark" xml:space="preserve">
-    <value>消息不明 — 1か月間到達なし</value>
+    <value>消息不明</value>
+  </data>
+  <data name="facet.band.quiet.meaning" xml:space="preserve">
+    <value>計数は0を超えず</value>
+  </data>
+  <data name="facet.band.dark.meaning" xml:space="preserve">
+    <value>1か月間到達なし</value>
   </data>
   <data name="facet.band.archived" xml:space="preserve">
     <value>アーカイブ済み</value>
@@ -2195,6 +2244,99 @@
   </data>
   <data name="preview.cardAlt.named" xml:space="preserve">
     <value>{site}の{title}</value>
+  </data>
+  <data name="preview.title.category.codebase" xml:space="preserve">
+    <value>{value} のゲーム</value>
+  </data>
+  <data name="preview.title.category.lineage" xml:space="preserve">
+    <value>{value} 系のゲーム</value>
+  </data>
+  <data name="preview.title.category.genre" xml:space="preserve">
+    <value>ジャンルが {value} の MU* ゲーム</value>
+  </data>
+  <data name="preview.title.category.language" xml:space="preserve">
+    <value>{value} で遊べる MU* ゲーム</value>
+  </data>
+  <data name="preview.title.category.protocol" xml:space="preserve">
+    <value>{value} を提供するゲーム</value>
+  </data>
+  <data name="preview.desc.category.codebase" xml:space="preserve">
+    <value>到達できた {value} のゲームすべて。接続数・プロトコル・到達可能性はいずれも当サイトの実測。</value>
+  </data>
+  <data name="preview.desc.category.lineage" xml:space="preserve">
+    <value>{value} 系として到達できたゲームすべて。系統は当サイトによる分類であり、ゲーム側の申告ではない。</value>
+  </data>
+  <data name="preview.desc.category.genre" xml:space="preserve">
+    <value>自らを {value} と説明しているゲーム。ジャンルはゲーム側の申告、隣の接続数とプロトコルは当サイトの実測。</value>
+  </data>
+  <data name="preview.desc.category.language" xml:space="preserve">
+    <value>{value} で遊ばれていると自ら述べているゲーム。言語はゲーム側の申告、隣の接続数とプロトコルは当サイトの実測。</value>
+  </data>
+  <data name="preview.desc.category.protocol" xml:space="preserve">
+    <value>ハンドシェイクで {value} を提供しているのを確認したゲーム。回線上での観測であり、ゲーム自身の申告ではない。</value>
+  </data>
+  <data name="games.heading.codebase" xml:space="preserve">
+    <value>{value} のゲーム</value>
+  </data>
+  <data name="games.heading.lineage" xml:space="preserve">
+    <value>{value} 系のゲーム</value>
+  </data>
+  <data name="games.heading.genre" xml:space="preserve">
+    <value>ジャンルが {value} のゲーム</value>
+  </data>
+  <data name="games.heading.language" xml:space="preserve">
+    <value>{value} で遊べるゲーム</value>
+  </data>
+  <data name="games.heading.protocol" xml:space="preserve">
+    <value>{value} を提供するゲーム</value>
+  </data>
+  <data name="games.heading.band.playersNow" xml:space="preserve">
+    <value>現在接続のあるゲーム</value>
+  </data>
+  <data name="games.heading.band.activeThisWeek" xml:space="preserve">
+    <value>今週アクティブなゲーム</value>
+  </data>
+  <data name="games.heading.band.quiet" xml:space="preserve">
+    <value>閑散としたゲーム</value>
+  </data>
+  <data name="games.heading.band.dark" xml:space="preserve">
+    <value>消息不明のゲーム</value>
+  </data>
+  <data name="games.heading.band.archived" xml:space="preserve">
+    <value>アーカイブ済みのゲーム</value>
+  </data>
+  <data name="games.heading.charset" xml:space="preserve">
+    <value>{value} でエンコードされたゲーム</value>
+  </data>
+  <data name="games.heading.tls" xml:space="preserve">
+    <value>TLS で到達できたゲーム</value>
+  </data>
+  <data name="preview.desc.category.charset" xml:space="preserve">
+    <value>エンコーディング交渉が {value} に落ち着くのを確認したゲーム。CHARSET が合意した内容であり、ゲーム側の申告ではない。</value>
+  </data>
+  <data name="preview.desc.category.tls" xml:space="preserve">
+    <value>TLS ハンドシェイクを完了できたゲーム。接続して実測したものであり、レポートの SSL 行から読み取ったものではない。</value>
+  </data>
+  <data name="preview.title.category.charset" xml:space="preserve">
+    <value>{value} でエンコードされた MU* ゲーム</value>
+  </data>
+  <data name="preview.title.category.tls" xml:space="preserve">
+    <value>TLS で到達できた MU* ゲーム</value>
+  </data>
+  <data name="preview.title.crawler" xml:space="preserve">
+    <value>クローラーの現在の動き</value>
+  </data>
+  <data name="preview.desc.crawler" xml:space="preserve">
+    <value>進行中のクロール — 直近のサイクルが終わった時点、変わった内容、次に予定されているアドレス、そして消えたゲームと戻ってきたゲーム。当サイトの数値すべての出所。</value>
+  </data>
+  <data name="preview.desc.find" xml:space="preserve">
+    <value>六つの質問 — 今遊んでいる人、ジャンル、ゲームの種類、言語、クライアントに必要なもの — を実測データに突き合わせ、回答ごとに該当件数を示す。</value>
+  </data>
+  <data name="preview.title.game" xml:space="preserve">
+    <value>{game}：接続方法と、当サイトの実測結果</value>
+  </data>
+  <data name="preview.title.home" xml:space="preserve">
+    <value>MUSH・MUD・MUCK・MOO のディレクトリ</value>
   </data>
   <data name="preview.title.games" xml:space="preserve">
     <value>ゲーム</value>

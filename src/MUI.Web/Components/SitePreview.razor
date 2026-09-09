@@ -1,7 +1,9 @@
 @using MUI.Catalog
 @using MUI.Web.Data
 @using MUI.Web.Localization
+@using Microsoft.Extensions.Options
 @inject CatalogueSource Catalogue
+@inject IOptions<SiteIdentityOptions> SiteProfiles
 
 @*
     Everything a program reads about this page, and nothing a reader sees.
@@ -50,6 +52,11 @@
     <meta name="twitter:title" content="@Heading" />
     <meta name="twitter:description" content="@Text" />
     <meta name="twitter:image" content="@Image" />
+
+    @if (Identity is { } identity)
+    {
+        @((MarkupString)$"<script type=\"application/ld+json\">{identity}</script>")
+    }
 
     @if (StructuredData is { } graph)
     {
@@ -121,9 +128,20 @@
         ? PreviewCopy.Demo(Tag, Said)
         : Said;
 
+    /// <summary>
+    /// The querystring this page should be indexed under, where the bare path is not it.
+    /// </summary>
+    /// <remarks>
+    /// Empty for almost every page — a querystring is the facet panel's state, which is what
+    /// <see cref="SiteUrls.CanonicalOf"/> drops. The exception is a listing filtered to one category
+    /// (<see cref="IndexableFacet"/>), which is a different question over a different set of rows.
+    /// </remarks>
+    [Parameter]
+    public string? CanonicalQuery { get; set; }
+
     private string Canonical => Http is null
         ? "/"
-        : SiteUrls.CanonicalOf(Http);
+        : SiteUrls.CanonicalOf(Http) + CanonicalQuery;
 
     private string Image => Http is null
         ? CardPath
@@ -142,4 +160,15 @@
     private string? StructuredData => Catalogue.IsMeasured && Graph is not null && Http is not null
         ? Graph(SiteUrls.OriginOf(Http))
         : null;
+
+    /// <summary>
+    /// The site's own identity graph, on every page.
+    /// </summary>
+    /// <remarks>
+    /// Unconditional on <c>Catalogue.IsMeasured</c>: this says who publishes the site, not what was
+    /// measured. Null only under a headless render, which has no request to take an origin from.
+    /// </remarks>
+    private string? Identity => Http is null
+        ? null
+        : SiteStructuredData.For(SiteUrls.OriginOf(Http), Tag, SiteProfiles.Value.Profiles());
 }

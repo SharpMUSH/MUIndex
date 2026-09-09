@@ -56,6 +56,10 @@ public static class PreviewCopy
 
         public static string Reference(string tag) => Messages.For(tag, "preview.desc.reference");
 
+        public static string Crawler(string tag) => Messages.For(tag, "preview.desc.crawler");
+
+        public static string Find(string tag) => Messages.For(tag, "preview.desc.find");
+
         public static string About(string tag) => Messages.For(tag, "preview.desc.about");
 
         public static string NotFound(string tag) => Messages.For(tag, "preview.desc.notFound");
@@ -75,6 +79,15 @@ public static class PreviewCopy
     /// </remarks>
     public static class Titles
     {
+        /// <summary>
+        /// The front page's own title.
+        /// </summary>
+        /// <remarks>
+        /// It had none, so <see cref="Title"/> answered the bare wordmark — the one page on the site
+        /// whose search result said only what it was called and nothing about what it was.
+        /// </remarks>
+        public static string Home(string tag) => Messages.For(tag, "preview.title.home");
+
         public static string Games(string tag) => Messages.For(tag, "preview.title.games");
 
         public static string Archive(string tag) => Messages.For(tag, "preview.title.archive");
@@ -84,6 +97,8 @@ public static class PreviewCopy
         public static string Ecosystem(string tag) => Messages.For(tag, "preview.title.ecosystem");
 
         public static string Reference(string tag) => Messages.For(tag, "preview.title.reference");
+
+        public static string Crawler(string tag) => Messages.For(tag, "preview.title.crawler");
 
         public static string About(string tag) => Messages.For(tag, "preview.title.about");
 
@@ -96,6 +111,18 @@ public static class PreviewCopy
         /// <summary>A claim page names its game, which is the game's own bytes and not ours.</summary>
         public static string Claim(string tag, string game) =>
             Messages.For(tag, "preview.title.claim", Args(("game", game)));
+
+        /// <summary>
+        /// A game page: the game's name, and what the page under it holds.
+        /// </summary>
+        /// <remarks>
+        /// The name alone made a nineteen-character title on a few thousand pages. The clause after
+        /// it describes <em>this page</em> rather than making any claim about the game, so it stays
+        /// true of an archived game and of one we hold no count for; the name comes first so a
+        /// truncated title keeps the half that identifies it.
+        /// </remarks>
+        public static string Game(string tag, string name) =>
+            Messages.For(tag, "preview.title.game", Args(("game", name)));
     }
 
     /// <summary>

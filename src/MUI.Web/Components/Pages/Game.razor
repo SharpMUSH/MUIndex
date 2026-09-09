@@ -12,7 +12,7 @@
 {
     @* Above the plain switch: ?plain=1 is the same document and gets the same metadata, with a
        canonical URL that drops the query so one game isn't indexed as two. *@
-    <SitePreview Title="@Page.Summary.Name"
+    <SitePreview Title="@PreviewCopy.Titles.Game(Http.LocaleOf().Tag, Page.Summary.Name)"
                  Description="@PreviewCopy.ForGame(Http.LocaleOf().Tag, Page, Now)"
                  Card="PreviewCard.Game"
                  Graph="GraphFor" />

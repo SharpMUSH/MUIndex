@@ -817,12 +817,18 @@
     <comment>facet values</comment>
   </data>
   <data name="facet.band.quiet" xml:space="preserve">
-    <value>quiet — no count above 0</value>
+    <value>quiet</value>
     <comment>facet values</comment>
   </data>
   <data name="facet.band.dark" xml:space="preserve">
-    <value>dark — not reached in a month</value>
+    <value>dark</value>
     <comment>facet values</comment>
+  </data>
+  <data name="facet.band.quiet.meaning" xml:space="preserve">
+    <value>no count above 0</value>
+  </data>
+  <data name="facet.band.dark.meaning" xml:space="preserve">
+    <value>not reached in a month</value>
   </data>
   <data name="facet.band.archived" xml:space="preserve">
     <value>archived</value>
@@ -3132,6 +3138,22 @@
     <value>{title} on {site}</value>
     <comment>what this site says about itself where it is not this site</comment>
   </data>
+  <data name="preview.title.crawler" xml:space="preserve">
+    <value>What the crawler is doing</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.desc.crawler" xml:space="preserve">
+    <value>The crawl as it runs: when the last cycle finished, what it changed, which addresses are due next, and which games went dark or came back. The provenance of every figure elsewhere on this site.</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.desc.find" xml:space="preserve">
+    <value>Six questions — who is playing, what genre, what kind of game, which language, what your client needs — narrowed against measured data, with the count of matches after each answer.</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.title.home" xml:space="preserve">
+    <value>Directory of MUSHes, MUDs, MUCKs and MOOs</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
   <data name="preview.title.games" xml:space="preserve">
     <value>Games</value>
     <comment>what this site says about itself where it is not this site</comment>
@@ -3170,6 +3192,10 @@
   </data>
   <data name="preview.title.claim" xml:space="preserve">
     <value>Claim {game}</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.title.game" xml:space="preserve">
+    <value>{game}: how to connect, and what we measured</value>
     <comment>what this site says about itself where it is not this site</comment>
   </data>
   <data name="preview.desc.games" xml:space="preserve">
@@ -3211,6 +3237,99 @@
   <data name="preview.desc.claim" xml:space="preserve">
     <value>Prove you run this game by publishing a token where only its operator could put it.</value>
     <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.title.category.codebase" xml:space="preserve">
+    <value>{value} games</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="preview.title.category.lineage" xml:space="preserve">
+    <value>{value} games</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="preview.title.category.genre" xml:space="preserve">
+    <value>{value} MU* games</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="preview.title.category.language" xml:space="preserve">
+    <value>MU* games in {value}</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="preview.title.category.protocol" xml:space="preserve">
+    <value>Games offering {value}</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="preview.desc.category.codebase" xml:space="preserve">
+    <value>Every {value} game we have reached, with the players, protocols and reachability we measured for each.</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="preview.desc.category.lineage" xml:space="preserve">
+    <value>Every game we have reached in the {value} lineage — a classification of ours, not a claim any of these games made.</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="preview.desc.category.genre" xml:space="preserve">
+    <value>Games that describe themselves as {value}. The genre is their claim; the counts and protocols beside it are ours, measured.</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="preview.desc.category.language" xml:space="preserve">
+    <value>Games that say they are played in {value}. The language is their claim; the counts and protocols beside it are ours, measured.</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="preview.desc.category.protocol" xml:space="preserve">
+    <value>Games we watched offer {value} in the handshake — observed on the wire, not read off what a game says about itself.</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="games.heading.codebase" xml:space="preserve">
+    <value>{value} games</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="games.heading.lineage" xml:space="preserve">
+    <value>{value} games</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="games.heading.genre" xml:space="preserve">
+    <value>{value} games</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="games.heading.language" xml:space="preserve">
+    <value>Games in {value}</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="games.heading.protocol" xml:space="preserve">
+    <value>Games offering {value}</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="games.heading.band.playersNow" xml:space="preserve">
+    <value>Games with someone connected now</value>
+  </data>
+  <data name="games.heading.band.activeThisWeek" xml:space="preserve">
+    <value>Games active this week</value>
+  </data>
+  <data name="games.heading.band.quiet" xml:space="preserve">
+    <value>Quiet games</value>
+  </data>
+  <data name="games.heading.band.dark" xml:space="preserve">
+    <value>Games that have gone dark</value>
+  </data>
+  <data name="games.heading.band.archived" xml:space="preserve">
+    <value>Archived games</value>
+  </data>
+  <data name="games.heading.charset" xml:space="preserve">
+    <value>Games encoded in {value}</value>
+  </data>
+  <data name="games.heading.tls" xml:space="preserve">
+    <value>Games we reached over TLS</value>
+  </data>
+  <data name="preview.desc.category.charset" xml:space="preserve">
+    <value>Games whose encoding negotiation we watched settle on {value} — what CHARSET agreed, not what a game claimed.</value>
+  </data>
+  <data name="preview.desc.category.tls" xml:space="preserve">
+    <value>Games we completed a TLS handshake with — measured by connecting, not read off an SSL line in a game's own report.</value>
+  </data>
+  <data name="preview.title.category.charset" xml:space="preserve">
+    <value>MU* games encoded in {value}</value>
+  </data>
+  <data name="preview.title.category.tls" xml:space="preserve">
+    <value>MU* games we reached over TLS</value>
   </data>
   <data name="preview.game.archived" xml:space="preserve">
     <value>Archived — last reachable {age}, and still probed</value>

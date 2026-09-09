@@ -3,9 +3,10 @@
   <!--
     Nederlands, machine-translated and not reviewed by a person.
 
-    Every page served in this locale carries the ◆ notice saying so, and the locale is reachable but
-    never offered: nothing sends a reader here. Promotion to LocaleStatus.Shipped is a person reading
-    the locked strings against Glossary.cs, not an edit to a status enum.
+    The locale is offered: Locales.cs marks it LocaleStatus.Shipped, so it is in the switcher and a
+    reader can be sent here. What a test holds is that Glossary.cs's locked strings exist in it —
+    provenance words like "measured", "declared" and "unreachable" are distinct claims, and a
+    translation engine otherwise treats them as synonyms for "unavailable".
 
     The values are ICU MessageFormat. Argument names in braces are code.
   -->
@@ -439,7 +440,7 @@
     <value>willekeurig</value>
   </data>
   <data name="listing.columns" xml:space="preserve">
-    <value>verbonden · bereikt</value>
+    <value>verbonden · tendens · bereikt</value>
   </data>
   <data name="listing.fromHere" xml:space="preserve">
     <value>van hieruit</value>
@@ -525,6 +526,48 @@
   <data name="facet.moreValues" xml:space="preserve">
     <value>{count, plural, one {# meer} other {# meer}}</value>
   </data>
+  <data name="home.trending.empty" xml:space="preserve">
+    <value>Op dit moment stijgt geen enkel spel.</value>
+  </data>
+  <data name="home.trending.title" xml:space="preserve">
+    <value>tendens</value>
+  </data>
+  <data name="sort.unranked.discovered" xml:space="preserve">
+    <value>wanneer we dit adres voor het eerst zagen, is niet vastgelegd</value>
+  </data>
+  <data name="sort.discovered" xml:space="preserve">
+    <value>laatst ontdekt</value>
+  </data>
+  <data name="switch.discovered" xml:space="preserve">
+    <value>ontdekt</value>
+  </data>
+  <data name="listing.row.discovered" xml:space="preserve">
+    <value>ontdekt</value>
+  </data>
+  <data name="listing.columns.discovered" xml:space="preserve">
+    <value>verbonden · tendens · ontdekt</value>
+  </data>
+  <data name="facet.trending.down" xml:space="preserve">
+    <value>dalend</value>
+  </data>
+  <data name="facet.trending.steady" xml:space="preserve">
+    <value>gelijkmatig</value>
+  </data>
+  <data name="facet.trending.up" xml:space="preserve">
+    <value>stijgend</value>
+  </data>
+  <data name="facet.unknown.trending" xml:space="preserve">
+    <value>nog niet genoeg gemeten</value>
+  </data>
+  <data name="facet.known.trending" xml:space="preserve">
+    <value>genoeg dagen gemeten</value>
+  </data>
+  <data name="facet.group.trending" xml:space="preserve">
+    <value>tendens</value>
+  </data>
+  <data name="facet.fewerValues" xml:space="preserve">
+    <value>minder tonen</value>
+  </data>
   <data name="facet.alsoShow" xml:space="preserve">
     <value>ook tonen</value>
   </data>
@@ -601,10 +644,16 @@
     <value>actief deze week</value>
   </data>
   <data name="facet.band.quiet" xml:space="preserve">
-    <value>rustig — nooit boven 0 geteld</value>
+    <value>rustig</value>
   </data>
   <data name="facet.band.dark" xml:space="preserve">
-    <value>stil — een maand niet bereikt</value>
+    <value>stil</value>
+  </data>
+  <data name="facet.band.quiet.meaning" xml:space="preserve">
+    <value>nooit boven 0 geteld</value>
+  </data>
+  <data name="facet.band.dark.meaning" xml:space="preserve">
+    <value>een maand niet bereikt</value>
   </data>
   <data name="facet.band.archived" xml:space="preserve">
     <value>gearchiveerd</value>
@@ -2195,6 +2244,99 @@
   </data>
   <data name="preview.cardAlt.named" xml:space="preserve">
     <value>{title} op {site}</value>
+  </data>
+  <data name="preview.title.category.codebase" xml:space="preserve">
+    <value>{value}-spellen</value>
+  </data>
+  <data name="preview.title.category.lineage" xml:space="preserve">
+    <value>{value}-spellen</value>
+  </data>
+  <data name="preview.title.category.genre" xml:space="preserve">
+    <value>MU*-spellen in het genre {value}</value>
+  </data>
+  <data name="preview.title.category.language" xml:space="preserve">
+    <value>MU*-spellen in {value}</value>
+  </data>
+  <data name="preview.title.category.protocol" xml:space="preserve">
+    <value>Spellen die {value} aanbieden</value>
+  </data>
+  <data name="preview.desc.category.codebase" xml:space="preserve">
+    <value>Elk door ons bereikt {value}-spel, met de spelersaantallen, protocollen en bereikbaarheid die we voor elk gemeten hebben.</value>
+  </data>
+  <data name="preview.desc.category.lineage" xml:space="preserve">
+    <value>Elk door ons bereikt spel in de afstamming {value} — een indeling van ons, geen opgave van deze spellen.</value>
+  </data>
+  <data name="preview.desc.category.genre" xml:space="preserve">
+    <value>Spellen die zichzelf als {value} omschrijven. Het genre is hun opgave; de aantallen en protocollen ernaast zijn van ons, gemeten.</value>
+  </data>
+  <data name="preview.desc.category.language" xml:space="preserve">
+    <value>Spellen die zeggen dat ze in {value} gespeeld worden. De taal is hun opgave; de aantallen en protocollen ernaast zijn van ons, gemeten.</value>
+  </data>
+  <data name="preview.desc.category.protocol" xml:space="preserve">
+    <value>Spellen die we in de handshake {value} zagen aanbieden — waargenomen op de lijn, niet afgelezen uit wat een spel over zichzelf opgeeft.</value>
+  </data>
+  <data name="games.heading.codebase" xml:space="preserve">
+    <value>{value}-spellen</value>
+  </data>
+  <data name="games.heading.lineage" xml:space="preserve">
+    <value>{value}-spellen</value>
+  </data>
+  <data name="games.heading.genre" xml:space="preserve">
+    <value>{value}-spellen</value>
+  </data>
+  <data name="games.heading.language" xml:space="preserve">
+    <value>Spellen in {value}</value>
+  </data>
+  <data name="games.heading.protocol" xml:space="preserve">
+    <value>Spellen die {value} aanbieden</value>
+  </data>
+  <data name="games.heading.band.playersNow" xml:space="preserve">
+    <value>Spellen waar nu iemand verbonden is</value>
+  </data>
+  <data name="games.heading.band.activeThisWeek" xml:space="preserve">
+    <value>Deze week actieve spellen</value>
+  </data>
+  <data name="games.heading.band.quiet" xml:space="preserve">
+    <value>Rustige spellen</value>
+  </data>
+  <data name="games.heading.band.dark" xml:space="preserve">
+    <value>Stilgevallen spellen</value>
+  </data>
+  <data name="games.heading.band.archived" xml:space="preserve">
+    <value>Gearchiveerde spellen</value>
+  </data>
+  <data name="games.heading.charset" xml:space="preserve">
+    <value>Spellen met de codering {value}</value>
+  </data>
+  <data name="games.heading.tls" xml:space="preserve">
+    <value>Spellen die we via TLS bereikt hebben</value>
+  </data>
+  <data name="preview.desc.category.charset" xml:space="preserve">
+    <value>Spellen waarvan we de coderingsonderhandeling op {value} zagen uitkomen — wat CHARSET afsprak, niet wat een spel opgeeft.</value>
+  </data>
+  <data name="preview.desc.category.tls" xml:space="preserve">
+    <value>Spellen waarmee we een TLS-handshake voltooiden — gemeten door verbinding te maken, niet afgelezen uit een SSL-regel in het rapport.</value>
+  </data>
+  <data name="preview.title.category.charset" xml:space="preserve">
+    <value>MU*-spellen met de codering {value}</value>
+  </data>
+  <data name="preview.title.category.tls" xml:space="preserve">
+    <value>MU*-spellen die we via TLS bereikt hebben</value>
+  </data>
+  <data name="preview.title.crawler" xml:space="preserve">
+    <value>Wat de crawler aan het doen is</value>
+  </data>
+  <data name="preview.desc.crawler" xml:space="preserve">
+    <value>De crawl terwijl hij loopt: wanneer de laatste ronde eindigde, wat er veranderde, welke adressen als volgende aan de beurt zijn en welke spellen stilvielen of terugkwamen. De herkomst van elk cijfer elders op deze site.</value>
+  </data>
+  <data name="preview.desc.find" xml:space="preserve">
+    <value>Zes vragen — wie er nu speelt, welk genre, wat voor spel, welke taal, wat je client nodig heeft — afgezet tegen gemeten gegevens, met na elk antwoord het aantal treffers.</value>
+  </data>
+  <data name="preview.title.game" xml:space="preserve">
+    <value>{game}: hoe je verbinding maakt, en wat wij gemeten hebben</value>
+  </data>
+  <data name="preview.title.home" xml:space="preserve">
+    <value>Gids voor MUSHes, MUDs, MUCKs en MOOs</value>
   </data>
   <data name="preview.title.games" xml:space="preserve">
     <value>Spellen</value>

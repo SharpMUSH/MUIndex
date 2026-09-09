@@ -3,9 +3,10 @@
   <!--
     中文, machine-translated and not reviewed by a person.
 
-    Every page served in this locale carries the ◆ notice saying so, and the locale is reachable but
-    never offered: nothing sends a reader here. Promotion to LocaleStatus.Shipped is a person reading
-    the locked strings against Glossary.cs, not an edit to a status enum.
+    The locale is offered: Locales.cs marks it LocaleStatus.Shipped, so it is in the switcher and a
+    reader can be sent here. What a test holds is that Glossary.cs's locked strings exist in it —
+    provenance words like "measured", "declared" and "unreachable" are distinct claims, and a
+    translation engine otherwise treats them as synonyms for "unavailable".
 
     The values are ICU MessageFormat. Argument names in braces are code.
   -->
@@ -439,7 +440,7 @@
     <value>随机</value>
   </data>
   <data name="listing.columns" xml:space="preserve">
-    <value>连接数 · 连通</value>
+    <value>连接数 · 趋势 · 连通</value>
   </data>
   <data name="listing.fromHere" xml:space="preserve">
     <value>自本站</value>
@@ -525,6 +526,48 @@
   <data name="facet.moreValues" xml:space="preserve">
     <value>{count, plural, other {另有#项}}</value>
   </data>
+  <data name="home.trending.empty" xml:space="preserve">
+    <value>目前没有游戏在上升。</value>
+  </data>
+  <data name="home.trending.title" xml:space="preserve">
+    <value>趋势</value>
+  </data>
+  <data name="sort.unranked.discovered" xml:space="preserve">
+    <value>我们最初见到这个地址的时间没有记录</value>
+  </data>
+  <data name="sort.discovered" xml:space="preserve">
+    <value>最近发现</value>
+  </data>
+  <data name="switch.discovered" xml:space="preserve">
+    <value>发现</value>
+  </data>
+  <data name="listing.row.discovered" xml:space="preserve">
+    <value>发现</value>
+  </data>
+  <data name="listing.columns.discovered" xml:space="preserve">
+    <value>连接数 · 趋势 · 发现</value>
+  </data>
+  <data name="facet.trending.down" xml:space="preserve">
+    <value>下降</value>
+  </data>
+  <data name="facet.trending.steady" xml:space="preserve">
+    <value>平稳</value>
+  </data>
+  <data name="facet.trending.up" xml:space="preserve">
+    <value>上升</value>
+  </data>
+  <data name="facet.unknown.trending" xml:space="preserve">
+    <value>测量还不够</value>
+  </data>
+  <data name="facet.known.trending" xml:space="preserve">
+    <value>已测得足够天数</value>
+  </data>
+  <data name="facet.group.trending" xml:space="preserve">
+    <value>趋势</value>
+  </data>
+  <data name="facet.fewerValues" xml:space="preserve">
+    <value>显示更少</value>
+  </data>
   <data name="facet.alsoShow" xml:space="preserve">
     <value>同时显示</value>
   </data>
@@ -601,10 +644,16 @@
     <value>本周活跃</value>
   </data>
   <data name="facet.band.quiet" xml:space="preserve">
-    <value>冷清——没有高于 0 的计数</value>
+    <value>冷清</value>
   </data>
   <data name="facet.band.dark" xml:space="preserve">
-    <value>失联——一个月未连通</value>
+    <value>失联</value>
+  </data>
+  <data name="facet.band.quiet.meaning" xml:space="preserve">
+    <value>没有高于 0 的计数</value>
+  </data>
+  <data name="facet.band.dark.meaning" xml:space="preserve">
+    <value>一个月未连通</value>
   </data>
   <data name="facet.band.archived" xml:space="preserve">
     <value>已归档</value>
@@ -2195,6 +2244,99 @@
   </data>
   <data name="preview.cardAlt.named" xml:space="preserve">
     <value>{site} 上的 {title}</value>
+  </data>
+  <data name="preview.title.category.codebase" xml:space="preserve">
+    <value>{value} 游戏</value>
+  </data>
+  <data name="preview.title.category.lineage" xml:space="preserve">
+    <value>{value} 谱系的游戏</value>
+  </data>
+  <data name="preview.title.category.genre" xml:space="preserve">
+    <value>{value} 题材的 MU* 游戏</value>
+  </data>
+  <data name="preview.title.category.language" xml:space="preserve">
+    <value>{value} 语的 MU* 游戏</value>
+  </data>
+  <data name="preview.title.category.protocol" xml:space="preserve">
+    <value>提供 {value} 的游戏</value>
+  </data>
+  <data name="preview.desc.category.codebase" xml:space="preserve">
+    <value>我们连通过的全部 {value} 游戏，附我们为每个实测的连接数、协议与可连通性。</value>
+  </data>
+  <data name="preview.desc.category.lineage" xml:space="preserve">
+    <value>我们连通过的、属于 {value} 谱系的全部游戏——这是我们的归类，并非这些游戏自己的说法。</value>
+  </data>
+  <data name="preview.desc.category.genre" xml:space="preserve">
+    <value>自述为 {value} 的游戏。题材是它们的说法；旁边的连接数与协议是我们实测的。</value>
+  </data>
+  <data name="preview.desc.category.language" xml:space="preserve">
+    <value>自述以 {value} 进行的游戏。语言是它们的说法；旁边的连接数与协议是我们实测的。</value>
+  </data>
+  <data name="preview.desc.category.protocol" xml:space="preserve">
+    <value>我们在握手中观察到提供 {value} 的游戏——在连接上实测，而非取自游戏对自己的说法。</value>
+  </data>
+  <data name="games.heading.codebase" xml:space="preserve">
+    <value>{value} 游戏</value>
+  </data>
+  <data name="games.heading.lineage" xml:space="preserve">
+    <value>{value} 谱系的游戏</value>
+  </data>
+  <data name="games.heading.genre" xml:space="preserve">
+    <value>{value} 题材的游戏</value>
+  </data>
+  <data name="games.heading.language" xml:space="preserve">
+    <value>{value} 语的游戏</value>
+  </data>
+  <data name="games.heading.protocol" xml:space="preserve">
+    <value>提供 {value} 的游戏</value>
+  </data>
+  <data name="games.heading.band.playersNow" xml:space="preserve">
+    <value>当前有连接的游戏</value>
+  </data>
+  <data name="games.heading.band.activeThisWeek" xml:space="preserve">
+    <value>本周活跃的游戏</value>
+  </data>
+  <data name="games.heading.band.quiet" xml:space="preserve">
+    <value>冷清的游戏</value>
+  </data>
+  <data name="games.heading.band.dark" xml:space="preserve">
+    <value>已失联的游戏</value>
+  </data>
+  <data name="games.heading.band.archived" xml:space="preserve">
+    <value>已归档的游戏</value>
+  </data>
+  <data name="games.heading.charset" xml:space="preserve">
+    <value>{value} 编码的游戏</value>
+  </data>
+  <data name="games.heading.tls" xml:space="preserve">
+    <value>通过 TLS 连通的游戏</value>
+  </data>
+  <data name="preview.desc.category.charset" xml:space="preserve">
+    <value>我们观察到编码协商最终定为 {value} 的游戏——这是 CHARSET 协商的结果，而非游戏自己的说法。</value>
+  </data>
+  <data name="preview.desc.category.tls" xml:space="preserve">
+    <value>我们完成了 TLS 握手的游戏——通过连接实测，而非取自报告里的 SSL 一行。</value>
+  </data>
+  <data name="preview.title.category.charset" xml:space="preserve">
+    <value>{value} 编码的 MU* 游戏</value>
+  </data>
+  <data name="preview.title.category.tls" xml:space="preserve">
+    <value>通过 TLS 连通的 MU* 游戏</value>
+  </data>
+  <data name="preview.title.crawler" xml:space="preserve">
+    <value>抓取器正在做什么</value>
+  </data>
+  <data name="preview.desc.crawler" xml:space="preserve">
+    <value>正在进行的抓取：上一轮何时结束、改动了什么、接下来轮到哪些地址，以及哪些游戏静默或恢复。本站每一个数字的来源。</value>
+  </data>
+  <data name="preview.desc.find" xml:space="preserve">
+    <value>六个问题——现在谁在玩、什么题材、哪类游戏、哪种语言、你的客户端需要什么——与实测数据比对，每答一题给出匹配数量。</value>
+  </data>
+  <data name="preview.title.game" xml:space="preserve">
+    <value>{game}：如何连接，以及我们测得的数据</value>
+  </data>
+  <data name="preview.title.home" xml:space="preserve">
+    <value>MUSH、MUD、MUCK、MOO 游戏目录</value>
   </data>
   <data name="preview.title.games" xml:space="preserve">
     <value>游戏</value>

@@ -306,6 +306,17 @@ public static partial class Messages
         // One id per page, title and description apart: a title is a noun phrase and a description
         // is a sentence, and a language that declines the first differently from the second has
         // nowhere to stand if they share an id.
+        // The front page had no title of its own, so its <title> was the bare wordmark: eight
+        // characters, telling a search result nothing about what the site is. The wordmark is
+        // appended to this the same way it is to every other page.
+        ["preview.title.home"] = "Directory of MUSHes, MUDs, MUCKs and MOOs",
+        // /crawler carried no title and no description of its own: it was in the header nav and
+        // in no metadata, so a search result for it showed the wordmark and whatever text the
+        // status board happened to begin with.
+        ["preview.title.crawler"] = "What the crawler is doing",
+        ["preview.desc.crawler"] = "The crawl as it runs: when the last cycle finished, what it "
+            + "changed, which addresses are due next, and which games went dark or came back. The "
+            + "provenance of every figure elsewhere on this site.",
         ["preview.title.games"] = "Games",
         ["preview.title.archive"] = "The archive",
         ["preview.title.rankings"] = "Rankings",
@@ -316,7 +327,14 @@ public static partial class Messages
         ["preview.title.random"] = "Random game",
         ["preview.title.account"] = "Your games",
         ["preview.title.claim"] = "Claim {game}",
+        // Describes the page, not the game — see PreviewCopy.Titles.Game, including why a locale
+        // without its own translation of this keeps the bare name instead of falling back.
+        ["preview.title.game"] = "{game}: how to connect, and what we measured",
 
+
+        ["preview.desc.find"] = "Six questions — who is playing, what genre, what kind of game, "
+            + "which language, what your client needs — narrowed against measured data, with the "
+            + "count of matches after each answer.",
         ["preview.desc.games"] = "Every MU* we have reached, faceted on what we measured: codebase, "
             + "the protocols a server offered in the handshake, TLS, charset, language, and when we "
             + "last got in.",
@@ -337,6 +355,45 @@ public static partial class Messages
         ["preview.desc.account"] = "The listings you have claimed, and what a claim lets you change.",
         ["preview.desc.claim"] = "Prove you run this game by publishing a token where only its "
             + "operator could put it.",
+
+        // ── one faceted listing, once it is a page of its own ─────────────────────────────────
+        // See IndexableFacet for which listings reach this and which stay consolidated onto
+        // /games. {value} is the facet value — a codebase name, a protocol acronym, a genre a game
+        // typed into its own config — and is machine voice, passed through rather than translated.
+        //
+        // Each description names the kind of statement its facet reads, because they are not the
+        // same kind: a protocol was watched on the wire, a genre and a language are the game's own
+        // claims, and a lineage is a classification of ours. One sentence covering all five would
+        // report a measurement for the three that never made one (rule 1, rule 5).
+        ["preview.title.category.codebase"] = "{value} games",
+        ["preview.title.category.lineage"] = "{value} games",
+        ["preview.title.category.genre"] = "{value} MU* games",
+        ["preview.title.category.language"] = "MU* games in {value}",
+        ["preview.title.category.protocol"] = "Games offering {value}",
+
+        ["preview.desc.category.codebase"] = "Every {value} game we have reached, with the players, protocols and reachability we measured for each.",
+        ["preview.desc.category.lineage"] = "Every game we have reached in the {value} lineage — a classification of ours, not a claim any of these games made.",
+        ["preview.desc.category.genre"] = "Games that describe themselves as {value}. The genre is their claim; the counts and protocols beside it are ours, measured.",
+        ["preview.desc.category.language"] = "Games that say they are played in {value}. The language is their claim; the counts and protocols beside it are ours, measured.",
+        ["preview.desc.category.protocol"] = "Games we watched offer {value} in the handshake — observed on the wire, not read off what a game says about itself.",
+
+        // Headings, apart from the titles above for the reason stated there.
+        ["games.heading.codebase"] = "{value} games",
+        ["games.heading.lineage"] = "{value} games",
+        ["games.heading.genre"] = "{value} games",
+        ["games.heading.language"] = "Games in {value}",
+        ["games.heading.protocol"] = "Games offering {value}",
+        ["games.heading.band.playersNow"] = "Games with someone connected now",
+        ["games.heading.band.activeThisWeek"] = "Games active this week",
+        ["games.heading.band.quiet"] = "Quiet games",
+        ["games.heading.band.dark"] = "Games that have gone dark",
+        ["games.heading.band.archived"] = "Archived games",
+        ["games.heading.charset"] = "Games encoded in {value}",
+        ["games.heading.tls"] = "Games we reached over TLS",
+        ["preview.desc.category.charset"] = "Games whose encoding negotiation we watched settle on {value} — what CHARSET agreed, not what a game claimed.",
+        ["preview.desc.category.tls"] = "Games we completed a TLS handshake with — measured by connecting, not read off an SSL line in a game's own report.",
+        ["preview.title.category.charset"] = "MU* games encoded in {value}",
+        ["preview.title.category.tls"] = "MU* games we reached over TLS",
 
         // Unknown count is a sentence, never a zero (rule 4).
         ["preview.game.archived"] = "Archived — last reachable {age}, and still probed",

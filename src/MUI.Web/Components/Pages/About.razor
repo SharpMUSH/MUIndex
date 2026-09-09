@@ -9,13 +9,15 @@
     contradict the argument that provenance beats presentation.
 *@
 
+@* Above the plain switch: ?plain=1 is the same document (spec §9) and takes the same head. *@
+<SitePreview Title="@PreviewCopy.Titles.About(Tag)" Description="@PreviewCopy.Pages.About(Tag)" />
+
 @if (Plain)
 {
     <pre class="mono plain">@PlainText.RenderAbout(Page, Tag)</pre>
 }
 else
 {
-    <SitePreview Title="@PreviewCopy.Titles.About(Tag)" Description="@PreviewCopy.Pages.About(Tag)" />
 
     <h1>@L("about.title")</h1>
     <p class="summary">@Page.Lede</p>

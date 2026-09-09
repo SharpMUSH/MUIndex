@@ -175,6 +175,7 @@ public static partial class Messages
         ["home.trending.title"] = "trending",
         ["home.trending.empty"] = "No game is trending up right now.",
 
+
         // ── the listing ───────────────────────────────────────────────────────────────────────
         ["games.title"] = "Games",
         ["listing.sortedBy"] = "sorted by {order}",
@@ -247,8 +248,13 @@ public static partial class Messages
         ["facet.band.activeThisWeek"] = "active this week",
         // Not "uncounted" — this band mixes a measured-zero week with an unreadable-count week
         // (rules 2/4), so it names the threshold rather than a cause.
-        ["facet.band.quiet"] = "quiet — no count above 0",
-        ["facet.band.dark"] = "dark — not reached in a month",
+        ["facet.band.quiet"] = "quiet",
+        ["facet.band.dark"] = "dark",
+
+        // What the two coined words mean, kept out of the label and shown on hover instead: the row
+        // is a filter, not a definition, and the panel was ellipsis-truncating the longer of them.
+        ["facet.band.quiet.meaning"] = "no count above 0",
+        ["facet.band.dark.meaning"] = "not reached in a month",
         ["facet.band.archived"] = "archived",
         ["facet.seen.day"] = "in the last 24 hours",
         ["facet.seen.week"] = "in the last 7 days",

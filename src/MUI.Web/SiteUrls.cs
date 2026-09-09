@@ -24,6 +24,22 @@ public static class SiteUrls
         return new Uri($"{request.Scheme}://{request.Host}{request.PathBase}");
     }
 
+    /// <summary>
+    /// Scheme and authority as text, or the empty string where this request cannot supply them.
+    /// </summary>
+    /// <remarks>
+    /// For the markup this site emits to be pasted somewhere else — the badge snippet, on the game
+    /// page and the owner dashboard — where a rooted path would name the <em>other</em> server.
+    /// <b>Answers empty rather than throwing.</b> A headless component render is handed an
+    /// <see cref="HttpContext"/> with no <c>Host</c>, and <see cref="OriginOf"/> builds a
+    /// <see cref="Uri"/> from <c>"://"</c> and throws; a snippet that comes out relative in a test
+    /// harness is the right degradation, an exception during render is not.
+    /// </remarks>
+    public static string OriginTextOf(HttpContext? context) =>
+        context is { Request.Host.HasValue: true }
+            ? OriginOf(context).ToString().TrimEnd('/')
+            : string.Empty;
+
     /// <summary>An absolute URL for a rooted path on this site.</summary>
     /// <remarks>
     /// Concatenated rather than resolved through <see cref="Uri"/>'s relative-reference rules, which

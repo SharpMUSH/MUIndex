@@ -323,6 +323,53 @@ public class LocalizationTests
     }
 
     [Test]
+    public async Task EveryOfferedLocaleHasItsOwnWordsForTheSurfacesAddedWithTheCategoryPages()
+    {
+        // These reach a reader as a <title>, an <h1> or a search result, and the site already fixed
+        // the bug where those came back in English on a German page. Named by prefix rather than
+        // asserting the whole bundle, because the wider untranslated backlog is real and tracked
+        // separately (docs/2026-08-17-untranslated-sweep.md).
+        string[] prefixes =
+        [
+            "preview.title.category.",
+            "preview.desc.category.",
+            "games.heading.",
+            "preview.title.crawler",
+            "preview.desc.crawler",
+            "preview.desc.find",
+            "preview.title.home",
+            "preview.title.game",
+
+            // The listing surface entire — the facet panel, its filter bar, the sort and window
+            // switches. The trending facet reached English and no locale for long enough that a
+            // German reader saw "trending up" under a heading reading "Tendenz"; this is what stops
+            // that happening again to the page a category link lands on.
+            "facet.",
+            "filters.",
+            "listing.",
+            "switch.",
+            "window.",
+            "sort.",
+        ];
+
+        var covered = Messages.Ids
+            .Where(id => prefixes.Any(p => id.StartsWith(p, StringComparison.Ordinal)))
+            .ToList();
+
+        await Assert.That(covered.Count).IsGreaterThanOrEqualTo(140);
+
+        foreach (var locale in Locales.Offered.Where(l => l.Tag != Locales.SourceTag))
+        {
+            foreach (var id in covered)
+            {
+                await Assert.That(Messages.HasOwn(locale.Tag, id))
+                    .IsTrue()
+                    .Because($"{locale.Tag} has no words of its own for {id}");
+            }
+        }
+    }
+
+    [Test]
     public async Task NoLocaleIsOfferedBeforeItsLockedStringsAreTranslated()
     {
         // Stops somebody moving a status enum and shipping a mostly-English page under a Chinese flag.

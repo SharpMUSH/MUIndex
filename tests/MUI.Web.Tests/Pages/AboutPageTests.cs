@@ -324,6 +324,10 @@ public class AboutPageTests
         // Fixture mode, matching the rest of this harness.
         services.AddSingleton(new MUI.Web.Data.CatalogueSource(IsMeasured: false));
 
+        // The head's identity graph, unconfigured — the shipped default, in which the deployment
+        // claims no profile elsewhere.
+        services.AddOptions<MUI.Web.SiteIdentityOptions>();
+
         await using var provider = services.BuildServiceProvider();
         await using var renderer = new HtmlRenderer(provider, NullLoggerFactory.Instance);
 

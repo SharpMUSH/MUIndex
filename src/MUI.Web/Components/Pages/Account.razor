@@ -140,10 +140,15 @@ else
                        interactive content in a control, which no browser owes a sane answer for. *@
                     @* The two addresses here carry no locale prefix, deliberately: the snippet is
                        markup an owner pastes on *their* site, and the badge answers the same bytes
-                       to everybody — like /api/… and robots.txt. *@
+                       to everybody — like /api/… and robots.txt.
+
+                       They are absolute for the other half of that reason, which this had wrong: a
+                       rooted path pasted on somebody else's server names *their* origin, so the
+                       link went to a page of theirs that does not exist and the image never
+                       loaded. *@
                     <details class="publish">
                         <summary class="faint">@L("account.badge.summary")</summary>
-                        <pre class="mono">&lt;a href="/g/@game.Slug"&gt;&lt;img src="/g/@game.Slug/badge.svg" alt="@game.Name on mu*index"&gt;&lt;/a&gt;</pre>
+                        <pre class="mono">&lt;a href="@Origin/g/@game.Slug"&gt;&lt;img src="@Origin/g/@game.Slug/badge.svg" alt="@System.Net.WebUtility.HtmlEncode(game.Name) on mu*index"&gt;&lt;/a&gt;</pre>
                         @* Three sentences rather than one with emphasis inside a clause a translator
                            cannot move. The badge words are the image's OWN bytes, placed as
                            arguments rather than translated. *@
@@ -351,6 +356,12 @@ else
     private HttpContext? HttpContext { get; set; }
 
     private string Tag => HttpContext.LocaleOf().Tag;
+
+    /// <summary>
+    /// This site's absolute origin, for the badge snippet — the one markup here that leaves the site.
+    /// </summary>
+    /// <remarks>See the comment beside the snippet: a rooted path pasted elsewhere names the other server.</remarks>
+    private string Origin => SiteUrls.OriginTextOf(HttpContext);
 
     private string L(string id) => Messages.For(Tag, id);
 

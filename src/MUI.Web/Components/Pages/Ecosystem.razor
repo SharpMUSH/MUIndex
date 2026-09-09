@@ -12,13 +12,15 @@
     completed"), never as a bare percentage.
 *@
 
+@* Above the plain switch: ?plain=1 is the same document (spec §9) and takes the same head. *@
+<SitePreview Title="@PreviewCopy.Titles.Ecosystem(Tag)" Description="@PreviewCopy.Pages.Ecosystem(Tag)" />
+
 @if (Plain)
 {
     <pre class="mono plain">@PlainText.RenderEcosystem(Dashboard, Now, Tag)</pre>
 }
 else
 {
-    <SitePreview Title="@PreviewCopy.Titles.Ecosystem(Tag)" Description="@PreviewCopy.Pages.Ecosystem(Tag)" />
 
     <h1>@L("ecosystem.title")</h1>
     <p class="dim">@EcosystemCopy.NoTotals(Tag)</p>

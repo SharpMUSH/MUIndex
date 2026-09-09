@@ -9,14 +9,16 @@
     never decides what language they're in.
 *@
 
+@* Above the plain switch: ?plain=1 is the same document (spec §9) and takes the same head. *@
+<SitePreview Title="@PreviewCopy.Titles.Reference(Tag)" Description="@PreviewCopy.Pages.Reference(Tag)"
+             Card="PreviewCard.Reference" />
+
 @if (Plain)
 {
     <pre class="mono plain">@ReferencePlainText.RenderIndex(Tag, Library)</pre>
 }
 else
 {
-    <SitePreview Title="@PreviewCopy.Titles.Reference(Tag)" Description="@PreviewCopy.Pages.Reference(Tag)"
-                 Card="PreviewCard.Reference" />
 
     <h1>@Messages.For(Tag, "reference.title")</h1>
     <p class="dim">

@@ -11,14 +11,17 @@
     listing. Tone stays dimmed, not "dead" — a catalogue entry, not an obituary.
 *@
 
+@* Above the plain switch: ?plain=1 is the same document (spec §9) and takes the same head. *@
+<SitePreview Title="@PreviewCopy.Titles.Archive(Tag)" Description="@PreviewCopy.Pages.Archive(Tag)"
+             Card="PreviewCard.Archive"
+             Graph="ArchiveGraph" />
+
 @if (Plain)
 {
     <pre class="mono plain">@PlainText.RenderArchive(Entries, Query, Now, Tag)</pre>
 }
 else
 {
-    <SitePreview Title="@PreviewCopy.Titles.Archive(Tag)" Description="@PreviewCopy.Pages.Archive(Tag)"
-                 Card="PreviewCard.Archive" />
 
     <h1>@L("archive.title")</h1>
     @* One message stating all three facts (stopped answering / nothing deleted / one probe restores)
@@ -93,6 +96,21 @@ else
     private DateTimeOffset Now => Clock.GetUtcNow();
 
     private IReadOnlyList<ArchiveEntry> Entries = [];
+
+    /// <summary>
+    /// The archive as a collection of games, or nothing while a search is narrowing it.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Entries"/> is the <c>q</c>-filtered set, and the graph names <c>/archive</c> —
+    /// which is also what the canonical link says, since a search is not a page of its own. Emitting
+    /// the two together would describe one reader's search results as the archive: at
+    /// <c>?q=no-match</c>, an empty <c>ItemList</c> claiming to be the whole of it.
+    /// </remarks>
+    private Func<Uri, string>? ArchiveGraph => string.IsNullOrWhiteSpace(Query)
+        ? origin => ListingStructuredData.For(
+            [.. Entries.Select(e => e.Summary)], origin, "/archive",
+            PreviewCopy.Titles.Archive(Tag), PreviewCopy.Pages.Archive(Tag))
+        : null;
 
     protected override async Task OnParametersSetAsync()
     {

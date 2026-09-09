@@ -1,19 +1,38 @@
 @using Microsoft.AspNetCore.WebUtilities
 @using MUI.Web.Api
 
+@* A listing filtered to one facet is about that facet, and is named and described after it.
+   Whether it is also a page of its own in a search index is the narrower question IsStable
+   answers: a listing of what is busy right now holds different games by the time a crawler
+   comes back, so it takes /games's canonical URL and keeps its own heading. *@
+@if (Category is { } category)
+{
+    <SitePreview Title="@CategoryCopy.Title(Tag, category)"
+                 Description="@CategoryCopy.Description(Tag, category)"
+                 CanonicalQuery="@Indexed(category)"
+                 Graph="@Collection(Indexed(category))" />
+}
+else
+{
+    <SitePreview Title="@PreviewCopy.Titles.Games(Tag)" Description="@PreviewCopy.Pages.Games(Tag)"
+                 Graph="@Collection(IndexableFacet.IsUnfiltered(Filter) && Error is null ? string.Empty : null)" />
+}
+
 @if (Plain)
 {
     <pre class="mono plain">@PlainText.RenderListing(Listing, Filter, Now, Tag)</pre>
 }
 else
 {
-    <SitePreview Title="@PreviewCopy.Titles.Games(Tag)" Description="@PreviewCopy.Pages.Games(Tag)" />
-
     <div class="card-page">
 
-    <header class="listing-head">
-        <h1>@Messages.For(Tag, "games.title")</h1>
-    </header>
+    @*
+        The heading and nothing else. Amazon filters by brand and puts no "About Computers" above
+        the grid: the heading names the category, the chips say what is filtered and the columns say
+        what was measured, so anything restating those is padding. The description a search result
+        needs lives in <meta>.
+    *@
+    <h1 class="sr-only">@(Category is { } heading ? CategoryCopy.Heading(Tag, heading) : Messages.For(Tag, "games.title"))</h1>
 
     @if (Error is { } problem)
     {
@@ -28,14 +47,6 @@ else
         <FacetPanel Facets="Listing.Facets" Filter="Filter" Query="@Query" />
 
         <div class="listing-side">
-
-        @if (Filter.Codebase is { Exclude: false, Value: { } family })
-        {
-
-            <p class="kicker">
-                <a href="@Http.Link($"/reference/codebases/{family.ToLowerInvariant()}")">@Messages.For(Tag, "listing.aboutCodebase", new Dictionary<string, object?> { ["codebase"] = family })</a>
-            </p>
-        }
 
         <div class="listing-bar">
             <p class="listing-order">
@@ -133,6 +144,52 @@ else
     [Parameter] public string? Error { get; set; }
 
     [Parameter] public string Query { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The one category this listing is, or null where it is the catalogue with the panel touched.
+    /// </summary>
+    /// <remarks>
+    /// Null whenever the filter failed to bind: <see cref="Filter"/> is then the default rather than
+    /// what was asked for, and a canonical URL built from it would return different games.
+    /// </remarks>
+    private IndexableFacet.Category? Category => Error is null && IndexableFacet.Of(Filter) is { } found
+        ? IndexableFacet.AsPublished(found, Listing.Facets)
+        : null;
+
+    /// <summary>
+    /// The querystring this category should be indexed under, or null where it should not be.
+    /// </summary>
+    /// <remarks>
+    /// Null leaves the canonical URL as <c>/games</c>, which is what an unstable facet wants: the
+    /// page is still named after what it is filtered to, and still not offered as a separate entry
+    /// in an index that would be stale before it was read.
+    /// </remarks>
+    private static string? Indexed(IndexableFacet.Category category) =>
+        category.IsStable ? IndexableFacet.Query(category) : null;
+
+    /// <summary>
+    /// This listing as a collection of games, or nothing where the rows are not that collection.
+    /// </summary>
+    /// <remarks>
+    /// The graph names an address and then lists what is at it, so it may only be published where the
+    /// two agree. They do on a category with a canonical URL of its own, and on the bare listing. They
+    /// do not on anything that consolidates onto <c>/games</c> while drawing a subset of it — a
+    /// refinement, a search, a chosen sort, or a category too volatile to index — and the mismatch is
+    /// not visible to a reader, which is what makes it worth a guard rather than a comment. Same rule
+    /// the archive follows while a search is narrowing it.
+    /// </remarks>
+    /// <param name="query">The canonical querystring, empty for the bare listing, null to publish nothing.</param>
+    private Func<Uri, string>? Collection(string? query) => query is null
+        ? null
+        : origin => ListingStructuredData.For(
+            Listing.Games, origin, "/games" + query, Name(), Description());
+
+    /// <summary>What the head calls this page, so the graph cannot name it something else.</summary>
+    private string Name() =>
+        Category is { } category ? CategoryCopy.Title(Tag, category) : PreviewCopy.Titles.Games(Tag);
+
+    private string Description() =>
+        Category is { } category ? CategoryCopy.Description(Tag, category) : PreviewCopy.Pages.Games(Tag);
 
     private bool Plain => Truthy.Is(
         QueryHelpers.ParseQuery(Query).TryGetValue("plain", out var flag) ? flag.ToString() : null);
