@@ -310,6 +310,13 @@ public static partial class Messages
         // characters, telling a search result nothing about what the site is. The wordmark is
         // appended to this the same way it is to every other page.
         ["preview.title.home"] = "Directory of MUSHes, MUDs, MUCKs and MOOs",
+        // /crawler carried no title and no description of its own: it was in the header nav and
+        // in no metadata, so a search result for it showed the wordmark and whatever text the
+        // status board happened to begin with.
+        ["preview.title.crawler"] = "What the crawler is doing",
+        ["preview.desc.crawler"] = "The crawl as it runs: when the last cycle finished, what it "
+            + "changed, which addresses are due next, and which games went dark or came back. The "
+            + "provenance of every figure elsewhere on this site.",
         ["preview.title.games"] = "Games",
         ["preview.title.archive"] = "The archive",
         ["preview.title.rankings"] = "Rankings",
@@ -320,6 +327,17 @@ public static partial class Messages
         ["preview.title.random"] = "Random game",
         ["preview.title.account"] = "Your games",
         ["preview.title.claim"] = "Claim {game}",
+        // Describes the page, not the game — see PreviewCopy.Titles.Game, including why a locale
+        // without its own translation of this keeps the bare name instead of falling back.
+        ["preview.title.game"] = "{game}: how to connect, and what we measured",
+
+        // The badge, offered on the public game page as well as the owner dashboard — an operator
+        // deciding whether this catalogue is worth linking to is reading that page, not an account
+        // they have not made yet.
+        ["game.badge.summary"] = "put this game's player count on your own site",
+        ["game.badge.note"] = "The badge is an image we draw and serve. It carries the count and "
+            + "when we measured it, says so rather than nought where we could not count, needs no "
+            + "account, and works whether or not anybody has claimed this listing.",
 
         ["preview.desc.games"] = "Every MU* we have reached, faceted on what we measured: codebase, "
             + "the protocols a server offered in the handshake, TLS, charset, language, and when we "

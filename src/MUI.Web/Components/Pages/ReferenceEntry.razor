@@ -20,6 +20,18 @@
     resolved for this locale and rendered whole.
 *@
 
+@* Above the plain switch, as the game page has always done it: ?plain=1 is the same document
+   (spec §9), so it takes the same title and the same canonical URL. Left inside the graphical
+   branch, as it was, every page had a title-less twin at ?plain=1 naming no canonical.
+
+   Guarded on the document existing: a slug that resolves to nothing is answered by the framework's
+   own 404, and metadata for a page that is not there would name it as one. *@
+@if (Document is not null)
+{
+    <SitePreview Title="@Document.Title" Description="@Document.Summary"
+                 Card="PreviewCard.Reference" />
+}
+
 @if (Document is null)
 {
     <h1>@Messages.For(Tag, "reference.notFound.title")</h1>
@@ -43,9 +55,6 @@ else if (Plain)
 }
 else
 {
-    <SitePreview Title="@Document.Title" Description="@Document.Summary"
-                 Card="PreviewCard.Reference" />
-
     <article class="reference">
         <header>
             <p class="kicker">@ReferencePlainText.Kind(Tag, Document.Kind)</p>

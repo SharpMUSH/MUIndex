@@ -89,12 +89,6 @@ public static class Render
             // Whether a database is configured, which several surfaces switch on: claiming and
             // submitting are absent over the fixture rather than present and unable to do anything.
             services.AddSingleton(new CatalogueSource(measured));
-
-            // The head's identity graph reads what this deployment says it also is. Unconfigured
-            // here, which is the shipped default and the state every assertion in this suite wants:
-            // an empty list means the claim is simply not made.
-            services.AddOptions<SiteIdentityOptions>();
-
             services.AddSingleton<NavigationManager>(new StubNavigation(query));
             services.AddSingleton<AntiforgeryStateProvider, StubAntiforgery>();
 
@@ -277,6 +271,15 @@ public static class Render
         // and calling CreateLogger itself) needs the generic closed over its own type resolvable —
         // ILoggerFactory alone does not make that resolution happen.
         services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
+
+        // What every page's head needs, registered on the overload every component render goes
+        // through rather than beside the fixture — SitePreview is on all of them now, including the
+        // ones whose tests build their own container. Both are defaults, placed before `configure`
+        // so a caller with something of its own to say still wins: no database, matching the demo
+        // path this harness renders, and no profile claimed elsewhere, which is what ships.
+        services.AddSingleton(new CatalogueSource(IsMeasured: false));
+        services.AddOptions<SiteIdentityOptions>();
+
         configure?.Invoke(services);
         await using var provider = services.BuildServiceProvider();
 

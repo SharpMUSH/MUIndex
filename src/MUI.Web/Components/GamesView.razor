@@ -1,25 +1,34 @@
 @using Microsoft.AspNetCore.WebUtilities
 @using MUI.Web.Api
 
+@* Above the plain switch, as the game page has always done it: ?plain=1 is the same document
+   (spec §9), so it takes the same title and the same canonical URL. Left inside the graphical
+   branch, as it was, every page had a title-less twin at ?plain=1 naming no canonical. *@
+@* A listing filtered to one category is its own page — its own title, description, canonical
+   URL and heading. Everything else is /games with the panel touched, and says so. *@
+@if (Category is { } category)
+{
+    <SitePreview Title="@CategoryCopy.Title(Tag, category)"
+                 Description="@CategoryCopy.Description(Tag, category)"
+                 CanonicalQuery="@IndexableFacet.Query(category)"
+                 Graph="@(origin => Collection(origin, IndexableFacet.Query(category),
+                                              CategoryCopy.Title(Tag, category),
+                                              CategoryCopy.Description(Tag, category)))" />
+}
+else
+{
+    <SitePreview Title="@PreviewCopy.Titles.Games(Tag)" Description="@PreviewCopy.Pages.Games(Tag)"
+                 Graph="@(origin => Collection(origin, string.Empty,
+                                              PreviewCopy.Titles.Games(Tag),
+                                              PreviewCopy.Pages.Games(Tag)))" />
+}
+
 @if (Plain)
 {
     <pre class="mono plain">@PlainText.RenderListing(Listing, Filter, Now, Tag)</pre>
 }
 else
 {
-    @* A listing filtered to one category is its own page — its own title, description, canonical
-       URL and heading. Everything else is /games with the panel touched, and says so. *@
-    @if (Category is { } category)
-    {
-        <SitePreview Title="@CategoryCopy.Title(Tag, category)"
-                     Description="@CategoryCopy.Description(Tag, category)"
-                     CanonicalQuery="@IndexableFacet.Query(category)" />
-    }
-    else
-    {
-        <SitePreview Title="@PreviewCopy.Titles.Games(Tag)" Description="@PreviewCopy.Pages.Games(Tag)" />
-    }
-
     <div class="card-page">
 
     <header class="listing-head">
@@ -158,6 +167,17 @@ else
     private IndexableFacet.Category? Category => Error is null && IndexableFacet.Of(Filter) is { } found
         ? IndexableFacet.AsPublished(found, Listing.Facets)
         : null;
+
+    /// <summary>
+    /// This listing as a collection of games, for the readers that are programs.
+    /// </summary>
+    /// <remarks>
+    /// The path is <c>/games</c> plus whatever the canonical link already says, so the graph names
+    /// the same address the head declares rather than the one the reader happens to be on — a
+    /// refined listing points its collection at <c>/games</c>, exactly as its canonical does.
+    /// </remarks>
+    private string Collection(Uri origin, string query, string name, string description) =>
+        ListingStructuredData.For(Listing.Games, origin, "/games" + query, name, description);
 
     private bool Plain => Truthy.Is(
         QueryHelpers.ParseQuery(Query).TryGetValue("plain", out var flag) ? flag.ToString() : null);

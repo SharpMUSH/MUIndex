@@ -11,14 +11,21 @@
     listing. Tone stays dimmed, not "dead" — a catalogue entry, not an obituary.
 *@
 
+@* Above the plain switch, as the game page has always done it: ?plain=1 is the same document
+   (spec §9), so it takes the same title and the same canonical URL. Left inside the graphical
+   branch, as it was, every page had a title-less twin at ?plain=1 naming no canonical. *@
+<SitePreview Title="@PreviewCopy.Titles.Archive(Tag)" Description="@PreviewCopy.Pages.Archive(Tag)"
+             Card="PreviewCard.Archive"
+             Graph="@(origin => ListingStructuredData.For(
+                 [.. Entries.Select(e => e.Summary)], origin, "/archive",
+                 PreviewCopy.Titles.Archive(Tag), PreviewCopy.Pages.Archive(Tag)))" />
+
 @if (Plain)
 {
     <pre class="mono plain">@PlainText.RenderArchive(Entries, Query, Now, Tag)</pre>
 }
 else
 {
-    <SitePreview Title="@PreviewCopy.Titles.Archive(Tag)" Description="@PreviewCopy.Pages.Archive(Tag)"
-                 Card="PreviewCard.Archive" />
 
     <h1>@L("archive.title")</h1>
     @* One message stating all three facts (stopped answering / nothing deleted / one probe restores)

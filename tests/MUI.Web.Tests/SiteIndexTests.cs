@@ -148,9 +148,134 @@ public class SiteIndexTests
         await Assert.That(XDocument.Load(parsed).Root!.Name.LocalName).IsEqualTo("urlset");
     }
 
+    [Test]
+    public async Task RobotsKeepsCrawlersOffTheClaimCeremonyButNotTheGamePage()
+    {
+        // A claim page is the same short "you need an account first" under a few thousand slugs, and
+        // belongs to whoever is signed in — the same ground /account is excluded on. The game's own
+        // page is the record and stays crawlable.
+        await using var site = await SiteHost.StartAsync();
+
+        var robots = await site.Client.GetStringAsync("/robots.txt");
+
+        await Assert.That(robots).Contains("Disallow: /g/*/claim");
+        await Assert.That(robots).DoesNotContain("Disallow: /g/\n");
+    }
+
+    [Test]
+    public async Task TheSitemapCarriesEveryLinkedPageAndNotTheOnesThatAreNotDocuments()
+    {
+        // /find and /crawler are in the header, in the front page's own start list, and were in no
+        // sitemap — findable only by following a link from a page a crawler had to reach first.
+        await using var site = await SiteHost.StartAsync();
+
+        var document = XDocument.Parse(await site.Client.GetStringAsync("/sitemap.xml"));
+        var paths = Paths(document);
+
+        await Assert.That(paths).Contains("/find");
+        await Assert.That(paths).Contains("/crawler");
+
+        // The counterpart: a route that answers differently every time is not a document.
+        await Assert.That(paths).DoesNotContain("/games/random");
+        await Assert.That(paths).DoesNotContain("/account");
+    }
+
+    [Test]
+    public async Task TheSitemapSubmitsTheCategoryListings()
+    {
+        // These are the pages IndexableFacet made indexable. Without them here they are reachable
+        // only by crawling the facet panel, which is the thing a sitemap exists to avoid relying on.
+        await using var site = await SiteHost.StartAsync(measured: true);
+
+        var document = XDocument.Parse(await site.Client.GetStringAsync("/sitemap.xml"));
+        var addresses = Addresses(document);
+
+        await Assert.That(addresses.Any(a => a.Contains("/games?codebase=", StringComparison.Ordinal)))
+            .IsTrue()
+            .Because("the codebase facet has values in the fixture");
+
+        // Every submitted category is a page that says it is that category — i.e. it is
+        // self-canonical rather than pointing back at /games, which would make submitting it a
+        // contradiction.
+        foreach (var address in addresses.Where(a => a.Contains('?', StringComparison.Ordinal)))
+        {
+            var canonical = Head.Link(await site.Client.GetStringAsync(address), "canonical");
+
+            await Assert.That(canonical).IsNotNull();
+            await Assert.That(canonical!).EndsWith(address).Because($"{address} is submitted as its own page");
+        }
+    }
+
+    [Test]
+    public async Task TheFixtureSubmitsNoCategoryEitherBecauseItHasNoRealOnes()
+    {
+        // Same rule as the game URLs above: a sitemap has no field for "these are made up".
+        await using var site = await SiteHost.StartAsync();
+
+        var document = XDocument.Parse(await site.Client.GetStringAsync("/sitemap.xml"));
+
+        await Assert.That(Addresses(document).Any(a => a.Contains('?', StringComparison.Ordinal))).IsFalse();
+    }
+
+    [Test]
+    public async Task LlmsTxtSendsAnAgentToTheApiAndTheTextMirrorRatherThanTheMarkup()
+    {
+        await using var site = await SiteHost.StartAsync();
+
+        var text = await site.Client.GetStringAsync("/llms.txt");
+
+        await Assert.That(text).StartsWith("# mu*index");
+        await Assert.That(text).Contains("/api/openapi.json");
+        await Assert.That(text).Contains("/api/dump/games.ndjson");
+        await Assert.That(text).Contains("?plain=1");
+    }
+
+    [Test]
+    public async Task LlmsTxtStatesTheRulesForReadingAValueAndTheLicenceItGoesOutUnder()
+    {
+        // An agent reading this is exactly the reader most likely to report a declared count as a
+        // measured one, or an unreadable player list as nobody playing.
+        await using var site = await SiteHost.StartAsync();
+
+        var text = await site.Client.GetStringAsync("/llms.txt");
+
+        await Assert.That(text).Contains("Declared");
+        await Assert.That(text).Contains("Reachable, never uptime");
+        await Assert.That(text).Contains("three states");
+
+        // Read from configuration, so it cannot claim terms the dump does not go out under.
+        await Assert.That(text).Contains("CC-BY-4.0");
+    }
+
+    [Test]
+    public async Task LlmsTxtConfessesOverTheFixtureAndDoesNotWhenMeasured()
+    {
+        // No banner reaches this file, same argument as the preview metadata.
+        await using var fixture = await SiteHost.StartAsync();
+        await using var measured = await SiteHost.StartAsync(measured: true);
+
+        await Assert.That(await fixture.Client.GetStringAsync("/llms.txt")).Contains("DEMO DATA");
+        await Assert.That(await measured.Client.GetStringAsync("/llms.txt")).DoesNotContain("DEMO DATA");
+    }
+
+    [Test]
+    public async Task LlmsTxtIsServedAsText()
+    {
+        await using var site = await SiteHost.StartAsync();
+
+        var response = await site.Client.GetAsync("/llms.txt");
+
+        await Assert.That(response.IsSuccessStatusCode).IsTrue();
+        await Assert.That(response.Content.Headers.ContentType?.MediaType).IsEqualTo("text/plain");
+    }
+
     private static IReadOnlyList<string> Locations(XDocument document) =>
         [.. document.Descendants(Sitemap + "loc").Select(l => l.Value)];
 
     private static IReadOnlyList<string> Paths(XDocument document) =>
         [.. Locations(document).Select(l => new Uri(l).AbsolutePath)];
+
+    /// <summary>Path and query — what <see cref="Paths"/> drops, and what a category listing is.</summary>
+    private static IReadOnlyList<string> Addresses(XDocument document) =>
+        [.. Locations(document).Select(l => new Uri(l).PathAndQuery)];
 }

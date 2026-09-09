@@ -127,7 +127,16 @@ public class GameStructuredDataTests
         using var document = JsonDocument.Parse(GameStructuredData.For(page, Origin));
         var game = document.RootElement.GetProperty("@graph")[0];
 
-        await Assert.That(game.TryGetProperty("gameServer", out _)).IsFalse();
+        // gameServer once held the codebase string, which is neither what the property means nor a
+        // valid value for it. It now holds what it is for — the address you connect to — so the
+        // guard is that the codebase is in runtimePlatform and this is an object, not that the
+        // property is missing.
+        var server = game.GetProperty("gameServer");
+
+        await Assert.That(server.GetProperty("@type").GetString()).IsEqualTo("GameServer");
+        await Assert.That(server.GetProperty("url").GetString()).IsEqualTo("telnet://mush.example.org:4201");
+        await Assert.That(server.ValueKind).IsEqualTo(JsonValueKind.Object);
+
         await Assert.That(game.GetProperty("runtimePlatform").GetString()).IsEqualTo("PennMUSH 1.8.8p0");
         await Assert.That(game.GetProperty("genre").GetString()).IsEqualTo("Science fiction");
         await Assert.That(game.GetProperty("inLanguage").GetString()).IsEqualTo("English");

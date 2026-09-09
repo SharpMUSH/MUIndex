@@ -12,13 +12,17 @@
     completed"), never as a bare percentage.
 *@
 
+@* Above the plain switch, as the game page has always done it: ?plain=1 is the same document
+   (spec §9), so it takes the same title and the same canonical URL. Left inside the graphical
+   branch, as it was, every page had a title-less twin at ?plain=1 naming no canonical. *@
+<SitePreview Title="@PreviewCopy.Titles.Ecosystem(Tag)" Description="@PreviewCopy.Pages.Ecosystem(Tag)" />
+
 @if (Plain)
 {
     <pre class="mono plain">@PlainText.RenderEcosystem(Dashboard, Now, Tag)</pre>
 }
 else
 {
-    <SitePreview Title="@PreviewCopy.Titles.Ecosystem(Tag)" Description="@PreviewCopy.Pages.Ecosystem(Tag)" />
 
     <h1>@L("ecosystem.title")</h1>
     <p class="dim">@EcosystemCopy.NoTotals(Tag)</p>

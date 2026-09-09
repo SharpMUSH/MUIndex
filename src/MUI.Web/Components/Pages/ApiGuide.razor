@@ -1,8 +1,14 @@
 @page "/about/api"
 @using MUI.Web.Api
 @using MUI.Web.Localization
+@using Microsoft.Extensions.Options
+@inject IOptions<DatasetLicenceOptions> Licence
 
-<SitePreview Title="Public API and data" Description="Search and reuse MUIndex's text-based game catalogue: public JSON API, OpenAPI contract, bulk exports, and source-labelled observations." />
+@* This page is the documentation for a published dataset, so it says so in the vocabulary a dataset
+   index reads — see DatasetStructuredData for what is deliberately absent from that graph. *@
+<SitePreview Title="Public API and data"
+             Description="Search and reuse MUIndex's text-based game catalogue: public JSON API, OpenAPI contract, bulk exports, and source-labelled observations."
+             Graph="@(origin => DatasetStructuredData.For(origin, Licence.Value))" />
 
 <article class="api-guide" lang="en">
     <h1>Public API and data</h1>

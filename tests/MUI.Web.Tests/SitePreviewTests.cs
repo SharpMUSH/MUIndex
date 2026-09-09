@@ -245,6 +245,32 @@ public class SitePreviewTests
     }
 
     [Test]
+    public async Task TheTextMirrorIsTheSameDocumentAndSaysSo()
+    {
+        // The plain surface is the same document at the same address (spec §9), but only the game
+        // page rendered its metadata above the plain/graphical switch. Everywhere else the mirror
+        // came back with no title and no canonical link — an untitled duplicate of every page on the
+        // site, which is what the audit's own crawl found first when it listed "/?plain=1".
+        await using var site = await SiteHost.StartAsync();
+
+        string[] paths = ["/", "/games", "/archive", "/rankings", "/ecosystem", "/reference", "/about", "/crawler"];
+
+        foreach (var path in paths)
+        {
+            var body = await site.Client.GetStringAsync(path + "?plain=1");
+            var canonical = Head.Link(body, "canonical");
+
+            await Assert.That(canonical).IsNotNull().Because($"{path}?plain=1 names its canonical URL");
+            await Assert.That(canonical!).DoesNotContain("plain").Because($"{path} is one document, not two");
+            await Assert.That(canonical).EndsWith(path == "/" ? "/" : path);
+
+            await Assert.That(Head.Meta(body, "description"))
+                .IsNotNull()
+                .Because($"{path}?plain=1 describes itself");
+        }
+    }
+
+    [Test]
     public async Task EveryPageHasADescriptionOfItsOwn()
     {
         // A repeated description is one a search engine discards.

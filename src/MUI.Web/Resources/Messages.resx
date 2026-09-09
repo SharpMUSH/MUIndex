@@ -3208,6 +3208,14 @@
     <value>{title} on {site}</value>
     <comment>what this site says about itself where it is not this site</comment>
   </data>
+  <data name="preview.title.crawler" xml:space="preserve">
+    <value>What the crawler is doing</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.desc.crawler" xml:space="preserve">
+    <value>The crawl as it runs: when the last cycle finished, what it changed, which addresses are due next, and which games went dark or came back. The provenance of every figure elsewhere on this site.</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
   <data name="preview.title.home" xml:space="preserve">
     <value>Directory of MUSHes, MUDs, MUCKs and MOOs</value>
     <comment>what this site says about itself where it is not this site</comment>
@@ -3251,6 +3259,18 @@
   <data name="preview.title.claim" xml:space="preserve">
     <value>Claim {game}</value>
     <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.title.game" xml:space="preserve">
+    <value>{game}: how to connect, and what we measured</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="game.badge.summary" xml:space="preserve">
+    <value>put this game's player count on your own site</value>
+    <comment>the badge, on the public game page</comment>
+  </data>
+  <data name="game.badge.note" xml:space="preserve">
+    <value>The badge is an image we draw and serve. It carries the count and when we measured it, says so rather than nought where we could not count, needs no account, and works whether or not anybody has claimed this listing.</value>
+    <comment>the badge, on the public game page</comment>
   </data>
   <data name="preview.desc.games" xml:space="preserve">
     <value>Every MU* we have reached, faceted on what we measured: codebase, the protocols a server offered in the handshake, TLS, charset, language, and when we last got in.</value>

@@ -18,14 +18,19 @@
     two as the front page's second signal.
 *@
 
+@* Above the plain switch, as the game page has always done it: ?plain=1 is the same document
+   (spec §9), so it takes the same title and the same canonical URL. Left inside the graphical
+   branch, as it was, every page had a title-less twin at ?plain=1 that named no canonical — a
+   duplicate of itself for anything that indexes URLs. *@
+<SitePreview Title="@PreviewCopy.Titles.Home(Http.LocaleOf().Tag)"
+             Description="@PreviewCopy.Site(Http.LocaleOf().Tag)" />
+
 @if (Plain)
 {
     <pre class="mono plain">@PlainText.RenderHome(Http.LocaleOf().Tag, Counts, Feeds, Trending, Pulse, Now)</pre>
 }
 else
 {
-    <SitePreview Title="@PreviewCopy.Titles.Home(Http.LocaleOf().Tag)"
-                 Description="@PreviewCopy.Site(Http.LocaleOf().Tag)" />
 
     @* One column, one rhythm: blocks are spaced by the column's own gap rather than a margin on
        each, because a margin on a block that renders nothing (the crawler strip with no pulse)
