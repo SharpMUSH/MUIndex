@@ -339,13 +339,24 @@ public class LocalizationTests
             "preview.desc.find",
             "preview.title.home",
             "preview.title.game",
+
+            // The listing surface entire — the facet panel, its filter bar, the sort and window
+            // switches. The trending facet reached English and no locale for long enough that a
+            // German reader saw "trending up" under a heading reading "Tendenz"; this is what stops
+            // that happening again to the page a category link lands on.
+            "facet.",
+            "filters.",
+            "listing.",
+            "switch.",
+            "window.",
+            "sort.",
         ];
 
         var covered = Messages.Ids
             .Where(id => prefixes.Any(p => id.StartsWith(p, StringComparison.Ordinal)))
             .ToList();
 
-        await Assert.That(covered.Count).IsGreaterThanOrEqualTo(19);
+        await Assert.That(covered.Count).IsGreaterThanOrEqualTo(140);
 
         foreach (var locale in Locales.Offered.Where(l => l.Tag != Locales.SourceTag))
         {

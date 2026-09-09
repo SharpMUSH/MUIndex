@@ -439,7 +439,7 @@
     <value>ランダム</value>
   </data>
   <data name="listing.columns" xml:space="preserve">
-    <value>接続数 · 到達</value>
+    <value>接続数 · 傾向 · 到達</value>
   </data>
   <data name="listing.fromHere" xml:space="preserve">
     <value>ここから</value>
@@ -524,6 +524,48 @@
   </data>
   <data name="facet.moreValues" xml:space="preserve">
     <value>{count, plural, other {他#件}}</value>
+  </data>
+  <data name="home.trending.empty" xml:space="preserve">
+    <value>現在、増加傾向のゲームはない。</value>
+  </data>
+  <data name="home.trending.title" xml:space="preserve">
+    <value>傾向</value>
+  </data>
+  <data name="sort.unranked.discovered" xml:space="preserve">
+    <value>このアドレスを最初に見た時期は記録にない</value>
+  </data>
+  <data name="sort.discovered" xml:space="preserve">
+    <value>発見が新しい順</value>
+  </data>
+  <data name="switch.discovered" xml:space="preserve">
+    <value>発見</value>
+  </data>
+  <data name="listing.row.discovered" xml:space="preserve">
+    <value>発見</value>
+  </data>
+  <data name="listing.columns.discovered" xml:space="preserve">
+    <value>接続数 · 傾向 · 発見</value>
+  </data>
+  <data name="facet.trending.down" xml:space="preserve">
+    <value>減少傾向</value>
+  </data>
+  <data name="facet.trending.steady" xml:space="preserve">
+    <value>横ばい</value>
+  </data>
+  <data name="facet.trending.up" xml:space="preserve">
+    <value>増加傾向</value>
+  </data>
+  <data name="facet.unknown.trending" xml:space="preserve">
+    <value>計測がまだ足りない</value>
+  </data>
+  <data name="facet.known.trending" xml:space="preserve">
+    <value>十分な日数を計測済み</value>
+  </data>
+  <data name="facet.group.trending" xml:space="preserve">
+    <value>傾向</value>
+  </data>
+  <data name="facet.fewerValues" xml:space="preserve">
+    <value>表示を減らす</value>
   </data>
   <data name="facet.alsoShow" xml:space="preserve">
     <value>追加で表示</value>

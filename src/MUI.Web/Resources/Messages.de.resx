@@ -439,7 +439,7 @@
     <value>zufällig</value>
   </data>
   <data name="listing.columns" xml:space="preserve">
-    <value>Verbindungen · erreicht</value>
+    <value>Verbindungen · Tendenz · erreicht</value>
   </data>
   <data name="listing.fromHere" xml:space="preserve">
     <value>von hier aus</value>
@@ -524,6 +524,48 @@
   </data>
   <data name="facet.moreValues" xml:space="preserve">
     <value>{count, plural, one {# weiterer} other {# weitere}}</value>
+  </data>
+  <data name="home.trending.empty" xml:space="preserve">
+    <value>Derzeit steigt kein Spiel.</value>
+  </data>
+  <data name="home.trending.title" xml:space="preserve">
+    <value>Tendenz</value>
+  </data>
+  <data name="sort.unranked.discovered" xml:space="preserve">
+    <value>wann wir diese Adresse zuerst sahen, ist nicht verzeichnet</value>
+  </data>
+  <data name="sort.discovered" xml:space="preserve">
+    <value>zuletzt entdeckt</value>
+  </data>
+  <data name="switch.discovered" xml:space="preserve">
+    <value>entdeckt</value>
+  </data>
+  <data name="listing.row.discovered" xml:space="preserve">
+    <value>entdeckt</value>
+  </data>
+  <data name="listing.columns.discovered" xml:space="preserve">
+    <value>Verbindungen · Tendenz · entdeckt</value>
+  </data>
+  <data name="facet.trending.down" xml:space="preserve">
+    <value>fallend</value>
+  </data>
+  <data name="facet.trending.steady" xml:space="preserve">
+    <value>gleichbleibend</value>
+  </data>
+  <data name="facet.trending.up" xml:space="preserve">
+    <value>steigend</value>
+  </data>
+  <data name="facet.unknown.trending" xml:space="preserve">
+    <value>noch nicht genug gemessen</value>
+  </data>
+  <data name="facet.known.trending" xml:space="preserve">
+    <value>genug Tage gemessen</value>
+  </data>
+  <data name="facet.group.trending" xml:space="preserve">
+    <value>Tendenz</value>
+  </data>
+  <data name="facet.fewerValues" xml:space="preserve">
+    <value>weniger anzeigen</value>
   </data>
   <data name="facet.alsoShow" xml:space="preserve">
     <value>zusätzlich zeigen</value>

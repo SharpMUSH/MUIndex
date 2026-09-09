@@ -439,7 +439,7 @@
     <value>随机</value>
   </data>
   <data name="listing.columns" xml:space="preserve">
-    <value>连接数 · 连通</value>
+    <value>连接数 · 趋势 · 连通</value>
   </data>
   <data name="listing.fromHere" xml:space="preserve">
     <value>自本站</value>
@@ -524,6 +524,48 @@
   </data>
   <data name="facet.moreValues" xml:space="preserve">
     <value>{count, plural, other {另有#项}}</value>
+  </data>
+  <data name="home.trending.empty" xml:space="preserve">
+    <value>目前没有游戏在上升。</value>
+  </data>
+  <data name="home.trending.title" xml:space="preserve">
+    <value>趋势</value>
+  </data>
+  <data name="sort.unranked.discovered" xml:space="preserve">
+    <value>我们最初见到这个地址的时间没有记录</value>
+  </data>
+  <data name="sort.discovered" xml:space="preserve">
+    <value>最近发现</value>
+  </data>
+  <data name="switch.discovered" xml:space="preserve">
+    <value>发现</value>
+  </data>
+  <data name="listing.row.discovered" xml:space="preserve">
+    <value>发现</value>
+  </data>
+  <data name="listing.columns.discovered" xml:space="preserve">
+    <value>连接数 · 趋势 · 发现</value>
+  </data>
+  <data name="facet.trending.down" xml:space="preserve">
+    <value>下降</value>
+  </data>
+  <data name="facet.trending.steady" xml:space="preserve">
+    <value>平稳</value>
+  </data>
+  <data name="facet.trending.up" xml:space="preserve">
+    <value>上升</value>
+  </data>
+  <data name="facet.unknown.trending" xml:space="preserve">
+    <value>测量还不够</value>
+  </data>
+  <data name="facet.known.trending" xml:space="preserve">
+    <value>已测得足够天数</value>
+  </data>
+  <data name="facet.group.trending" xml:space="preserve">
+    <value>趋势</value>
+  </data>
+  <data name="facet.fewerValues" xml:space="preserve">
+    <value>显示更少</value>
   </data>
   <data name="facet.alsoShow" xml:space="preserve">
     <value>同时显示</value>
