@@ -79,7 +79,7 @@ public static class SiteIndex
     /// so it can be undone, and submitting that advertises an empty page.</remarks>
     private static IReadOnlyList<string> Categories(GameListing listing) =>
     [
-        .. IndexableFacet.Dimensions
+        .. IndexableFacet.Indexable
             .SelectMany(key => listing.Facets
                 .Where(group => string.Equals(group.Key, key, StringComparison.Ordinal))
                 .SelectMany(group => group.Values

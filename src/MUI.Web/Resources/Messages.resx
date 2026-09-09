@@ -817,11 +817,11 @@
     <comment>facet values</comment>
   </data>
   <data name="facet.band.quiet" xml:space="preserve">
-    <value>quiet — no count above 0</value>
+    <value>quiet</value>
     <comment>facet values</comment>
   </data>
   <data name="facet.band.dark" xml:space="preserve">
-    <value>dark — not reached in a month</value>
+    <value>dark</value>
     <comment>facet values</comment>
   </data>
   <data name="facet.band.archived" xml:space="preserve">
@@ -3291,6 +3291,39 @@
   <data name="games.heading.protocol" xml:space="preserve">
     <value>Games offering {value}</value>
     <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="games.heading.band.playersNow" xml:space="preserve">
+    <value>Games with someone connected now</value>
+  </data>
+  <data name="games.heading.band.activeThisWeek" xml:space="preserve">
+    <value>Games active this week</value>
+  </data>
+  <data name="games.heading.band.quiet" xml:space="preserve">
+    <value>Quiet games</value>
+  </data>
+  <data name="games.heading.band.dark" xml:space="preserve">
+    <value>Games that have gone dark</value>
+  </data>
+  <data name="games.heading.band.archived" xml:space="preserve">
+    <value>Archived games</value>
+  </data>
+  <data name="games.heading.charset" xml:space="preserve">
+    <value>Games encoded in {value}</value>
+  </data>
+  <data name="games.heading.tls" xml:space="preserve">
+    <value>Games we reached over TLS</value>
+  </data>
+  <data name="preview.desc.category.charset" xml:space="preserve">
+    <value>Games whose encoding negotiation we watched settle on {value} — what CHARSET agreed, not what a game claimed.</value>
+  </data>
+  <data name="preview.desc.category.tls" xml:space="preserve">
+    <value>Games we completed a TLS handshake with — measured by connecting, not read off an SSL line in a game's own report.</value>
+  </data>
+  <data name="preview.title.category.charset" xml:space="preserve">
+    <value>MU* games encoded in {value}</value>
+  </data>
+  <data name="preview.title.category.tls" xml:space="preserve">
+    <value>MU* games we reached over TLS</value>
   </data>
   <data name="preview.game.archived" xml:space="preserve">
     <value>Archived — last reachable {age}, and still probed</value>

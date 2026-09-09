@@ -601,10 +601,10 @@
     <value>actief deze week</value>
   </data>
   <data name="facet.band.quiet" xml:space="preserve">
-    <value>rustig — nooit boven 0 geteld</value>
+    <value>rustig</value>
   </data>
   <data name="facet.band.dark" xml:space="preserve">
-    <value>stil — een maand niet bereikt</value>
+    <value>stil</value>
   </data>
   <data name="facet.band.archived" xml:space="preserve">
     <value>gearchiveerd</value>
@@ -2240,6 +2240,39 @@
   </data>
   <data name="games.heading.protocol" xml:space="preserve">
     <value>Spellen die {value} aanbieden</value>
+  </data>
+  <data name="games.heading.band.playersNow" xml:space="preserve">
+    <value>Spellen waar nu iemand verbonden is</value>
+  </data>
+  <data name="games.heading.band.activeThisWeek" xml:space="preserve">
+    <value>Deze week actieve spellen</value>
+  </data>
+  <data name="games.heading.band.quiet" xml:space="preserve">
+    <value>Rustige spellen</value>
+  </data>
+  <data name="games.heading.band.dark" xml:space="preserve">
+    <value>Stilgevallen spellen</value>
+  </data>
+  <data name="games.heading.band.archived" xml:space="preserve">
+    <value>Gearchiveerde spellen</value>
+  </data>
+  <data name="games.heading.charset" xml:space="preserve">
+    <value>Spellen met de codering {value}</value>
+  </data>
+  <data name="games.heading.tls" xml:space="preserve">
+    <value>Spellen die we via TLS bereikt hebben</value>
+  </data>
+  <data name="preview.desc.category.charset" xml:space="preserve">
+    <value>Spellen waarvan we de coderingsonderhandeling op {value} zagen uitkomen — wat CHARSET afsprak, niet wat een spel opgeeft.</value>
+  </data>
+  <data name="preview.desc.category.tls" xml:space="preserve">
+    <value>Spellen waarmee we een TLS-handshake voltooiden — gemeten door verbinding te maken, niet afgelezen uit een SSL-regel in het rapport.</value>
+  </data>
+  <data name="preview.title.category.charset" xml:space="preserve">
+    <value>MU*-spellen met de codering {value}</value>
+  </data>
+  <data name="preview.title.category.tls" xml:space="preserve">
+    <value>MU*-spellen die we via TLS bereikt hebben</value>
   </data>
   <data name="preview.title.crawler" xml:space="preserve">
     <value>Wat de crawler aan het doen is</value>

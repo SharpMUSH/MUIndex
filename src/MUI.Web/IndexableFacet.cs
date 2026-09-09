@@ -16,23 +16,34 @@ namespace MUI.Web;
 /// exclusion, the unknown token, a chosen sort or free text are refinements and stay consolidated —
 /// which keeps the indexable set at the sum of the dimensions' values rather than their product.
 /// </para>
+/// <para>
+/// <b>Being a category and being indexable are two different questions.</b> Naming the page is free
+/// and right for any single facet: a reader who filtered to one thing should see that thing in the
+/// heading. Putting it in a search index is a claim that the page is worth returning next week, and
+/// a facet reading a measurement that moves — <see cref="FacetKeys.Band"/> — holds a different set of
+/// games by then. Those get the heading and no canonical URL of their own.
+/// </para>
 /// </remarks>
 public static class IndexableFacet
 {
-    /// <summary>One indexable listing: the dimension asked about, and the value asked for.</summary>
+    /// <summary>One listing that is about something: the dimension asked about, and the value.</summary>
     /// <param name="Key">The querystring spelling of the dimension, from <see cref="FacetKeys"/>.</param>
     /// <param name="Value">The value, in the spelling the catalogue itself publishes.</param>
-    public sealed record Category(string Key, string Value);
+    public sealed record Category(string Key, string Value)
+    {
+        /// <summary>Whether this category still holds the same games next week, and so may be indexed.</summary>
+        public bool IsStable => Indexable.Contains(Key);
+    }
 
     /// <summary>
-    /// The dimensions whose values get a page of their own, in the order a sitemap lists them.
+    /// The dimensions a listing can be about, and so be named after.
     /// </summary>
     /// <remarks>
-    /// Each is a durable property somebody types into a search engine. <see cref="FacetKeys.Band"/>,
-    /// <see cref="FacetKeys.LastSeen"/>, <see cref="FacetKeys.Trending"/> and the two measurement
-    /// switches are absent because they read a measurement that moves — the page behind such a URL
-    /// holds a different set of games next week. <see cref="FacetKeys.CodebaseVersion"/> is absent
-    /// because one page per patchlevel is hundreds of near-identical listings.
+    /// <see cref="FacetKeys.CodebaseVersion"/> is absent because one page per patchlevel is hundreds
+    /// of near-identical listings, and <see cref="FacetKeys.Family"/> because it would draw a second
+    /// heading over nearly the same games as <see cref="FacetKeys.Lineage"/>. The rest of what is
+    /// missing — last seen, trending, the two measurement switches — has no heading anybody would
+    /// want to read.
     /// </remarks>
     public static IReadOnlyList<string> Dimensions { get; } =
     [
@@ -41,6 +52,22 @@ public static class IndexableFacet
         FacetKeys.Genre,
         FacetKeys.Language,
         FacetKeys.Protocol,
+        FacetKeys.Charset,
+        FacetKeys.Tls,
+        FacetKeys.Band,
+    ];
+
+    /// <summary>
+    /// The dimensions durable enough to be a page in a search index, in the order a sitemap lists them.
+    /// </summary>
+    /// <remarks>
+    /// Everything in <see cref="Dimensions"/> except <see cref="FacetKeys.Band"/>, which reads how
+    /// busy a game is right now: a URL for it names a set that has already changed by the time a
+    /// crawler returns to it.
+    /// </remarks>
+    public static IReadOnlyList<string> Indexable { get; } =
+    [
+        .. Dimensions.Where(key => key != FacetKeys.Band),
     ];
 
     /// <summary>
@@ -58,12 +85,9 @@ public static class IndexableFacet
         if (filter.Text is not null
             || filter.IncludeArchived
             || filter.IncludeAdult
-            || filter.Tls
-            || filter.Band is not null
             || filter.LastSeen is not null
             || filter.Uncounted is not null
             || filter.Unreachable is not null
-            || filter.Charset is not null
             || filter.CodebaseVersion is not null
             || filter.Family is not null
             || filter.Trending is not null
@@ -139,8 +163,18 @@ public static class IndexableFacet
         yield return Included(FacetKeys.Genre, filter.Genre);
         yield return Included(FacetKeys.Language, filter.Language);
 
+        yield return Included(FacetKeys.Charset, filter.Charset);
+
         yield return filter.MeasuredProtocols.Count == 1
             ? new Category(FacetKeys.Protocol, filter.MeasuredProtocols[0])
+            : null;
+
+        // Both are switches rather than open-ended values: the querystring spelling is the one the
+        // panel links, so a category built from either round-trips to the same filter.
+        yield return filter.Tls ? new Category(FacetKeys.Tls, FacetTokens.Yes) : null;
+
+        yield return filter.Band is { } band
+            ? new Category(FacetKeys.Band, FacetTokens.Of(band))
             : null;
     }
 

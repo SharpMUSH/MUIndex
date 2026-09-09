@@ -601,10 +601,10 @@
     <value>今週アクティブ</value>
   </data>
   <data name="facet.band.quiet" xml:space="preserve">
-    <value>閑散 — 計数は0を超えず</value>
+    <value>閑散</value>
   </data>
   <data name="facet.band.dark" xml:space="preserve">
-    <value>消息不明 — 1か月間到達なし</value>
+    <value>消息不明</value>
   </data>
   <data name="facet.band.archived" xml:space="preserve">
     <value>アーカイブ済み</value>
@@ -2240,6 +2240,39 @@
   </data>
   <data name="games.heading.protocol" xml:space="preserve">
     <value>{value} を提供するゲーム</value>
+  </data>
+  <data name="games.heading.band.playersNow" xml:space="preserve">
+    <value>現在接続のあるゲーム</value>
+  </data>
+  <data name="games.heading.band.activeThisWeek" xml:space="preserve">
+    <value>今週アクティブなゲーム</value>
+  </data>
+  <data name="games.heading.band.quiet" xml:space="preserve">
+    <value>閑散としたゲーム</value>
+  </data>
+  <data name="games.heading.band.dark" xml:space="preserve">
+    <value>消息不明のゲーム</value>
+  </data>
+  <data name="games.heading.band.archived" xml:space="preserve">
+    <value>アーカイブ済みのゲーム</value>
+  </data>
+  <data name="games.heading.charset" xml:space="preserve">
+    <value>{value} でエンコードされたゲーム</value>
+  </data>
+  <data name="games.heading.tls" xml:space="preserve">
+    <value>TLS で到達できたゲーム</value>
+  </data>
+  <data name="preview.desc.category.charset" xml:space="preserve">
+    <value>エンコーディング交渉が {value} に落ち着くのを確認したゲーム。CHARSET が合意した内容であり、ゲーム側の申告ではない。</value>
+  </data>
+  <data name="preview.desc.category.tls" xml:space="preserve">
+    <value>TLS ハンドシェイクを完了できたゲーム。接続して実測したものであり、レポートの SSL 行から読み取ったものではない。</value>
+  </data>
+  <data name="preview.title.category.charset" xml:space="preserve">
+    <value>{value} でエンコードされた MU* ゲーム</value>
+  </data>
+  <data name="preview.title.category.tls" xml:space="preserve">
+    <value>TLS で到達できた MU* ゲーム</value>
   </data>
   <data name="preview.title.crawler" xml:space="preserve">
     <value>クローラーの現在の動き</value>

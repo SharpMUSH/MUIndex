@@ -248,8 +248,8 @@ public static partial class Messages
         ["facet.band.activeThisWeek"] = "active this week",
         // Not "uncounted" — this band mixes a measured-zero week with an unreadable-count week
         // (rules 2/4), so it names the threshold rather than a cause.
-        ["facet.band.quiet"] = "quiet — no count above 0",
-        ["facet.band.dark"] = "dark — not reached in a month",
+        ["facet.band.quiet"] = "quiet",
+        ["facet.band.dark"] = "dark",
         ["facet.band.archived"] = "archived",
         ["facet.seen.day"] = "in the last 24 hours",
         ["facet.seen.week"] = "in the last 7 days",

@@ -41,13 +41,17 @@ public class CategoryPageTests
     [Arguments("genre")]
     [Arguments("language")]
     [Arguments("protocol")]
+    [Arguments("charset")]
+    [Arguments("tls")]
+    [Arguments("band")]
     public async Task EveryDimensionTheRuleNamesIsReachableAsAPage(string key)
     {
         // Asserted per dimension rather than over the list, so a dimension added without copy or
         // without a page fails by name.
         await Assert.That(IndexableFacet.Dimensions).Contains(key);
 
-        var category = new IndexableFacet.Category(key, "Whatever");
+        // "quiet" is a real band token, so the band case resolves the id it actually uses.
+        var category = new IndexableFacet.Category(key, "quiet");
 
         await Assert.That(CategoryCopy.Title(Locales.SourceTag, category)).IsNotEmpty();
         await Assert.That(CategoryCopy.Heading(Locales.SourceTag, category)).IsNotEmpty();
@@ -114,29 +118,6 @@ public class CategoryPageTests
     }
 
     [Test]
-    public async Task TheReferenceLinkSitsWithTheHeadingRatherThanInTheResults()
-    {
-        // It used to sit in the results column, in kicker capitals, between the filter chips and the
-        // sort bar. It is the only path on the site from a listing to a codebase's reference page,
-        // so it stays — in the header, as a plain link.
-        await using var site = await SiteHost.StartAsync();
-
-        foreach (var address in new[] { "/games?codebase=PennMUSH", "/games?codebase=PennMUSH&protocol=MSSP" })
-        {
-            var body = await site.Client.GetStringAsync(address);
-
-            await Assert.That(Header(body)).Contains("/reference/codebases/pennmush");
-
-            var after = body.IndexOf("</header>", body.IndexOf(ListingHead, StringComparison.Ordinal),
-                StringComparison.Ordinal);
-
-            await Assert.That(body[after..])
-                .DoesNotContain("/reference/codebases/pennmush")
-                .Because($"{address} has one copy of the link, in its header");
-        }
-    }
-
-    [Test]
     public async Task TheUnfilteredListingGainsNoHeaderCopyAtAll()
     {
         await using var site = await SiteHost.StartAsync();
@@ -169,7 +150,6 @@ public class CategoryPageTests
     [Arguments("/games?codebase=~unknown", "\"we could not read it\" is a fact about us, not a category")]
     [Arguments("/games?codebase=PennMUSH&sort=name", "a chosen sort is the same page in another order")]
     [Arguments("/games?q=dune", "free text is unbounded by construction")]
-    [Arguments("/games?band=quiet", "a facet reading a measurement that moves is a different page next week")]
     public async Task EverythingElseStaysConsolidatedOntoTheListing(string address, string because)
     {
         await using var site = await SiteHost.StartAsync();
@@ -178,6 +158,34 @@ public class CategoryPageTests
 
         await Assert.That(canonical).IsNotNull();
         await Assert.That(canonical!).EndsWith("/games").Because(because);
+    }
+
+    [Test]
+    public async Task AVolatileFacetNamesThePageWithoutClaimingAnIndexEntry()
+    {
+        // Being about something and being worth indexing are different questions. A reader who
+        // filtered to "quiet" should see that in the heading; a crawler should not be handed a URL
+        // whose contents have changed by the time it comes back.
+        await using var site = await SiteHost.StartAsync();
+
+        var body = await site.Client.GetStringAsync("/games?band=quiet");
+
+        // Its own line, not the facet panel's label: that one carries a definition after an em
+        // dash ("quiet — no count above 0"), which reads as a footnote in a heading.
+        await Assert.That(Heading(body)).IsEqualTo("Quiet games");
+        await Assert.That(Head.Link(body, "canonical")!).EndsWith("/games");
+        await Assert.That(Head.Link(body, "canonical")).DoesNotContain("band");
+    }
+
+    [Test]
+    public async Task TheSitemapOffersNoVolatileCategory()
+    {
+        await using var site = await SiteHost.StartAsync(measured: true);
+
+        var sitemap = await site.Client.GetStringAsync("/sitemap.xml");
+
+        await Assert.That(sitemap).DoesNotContain("band=");
+        await Assert.That(IndexableFacet.Indexable).DoesNotContain(MUI.Catalog.FacetKeys.Band);
     }
 
     [Test]

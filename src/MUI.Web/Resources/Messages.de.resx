@@ -601,10 +601,10 @@
     <value>diese Woche aktiv</value>
   </data>
   <data name="facet.band.quiet" xml:space="preserve">
-    <value>ruhig — nie mehr als 0 gezählt</value>
+    <value>ruhig</value>
   </data>
   <data name="facet.band.dark" xml:space="preserve">
-    <value>verstummt — seit einem Monat nicht erreicht</value>
+    <value>verstummt</value>
   </data>
   <data name="facet.band.archived" xml:space="preserve">
     <value>archiviert</value>
@@ -2240,6 +2240,39 @@
   </data>
   <data name="games.heading.protocol" xml:space="preserve">
     <value>Spiele, die {value} anbieten</value>
+  </data>
+  <data name="games.heading.band.playersNow" xml:space="preserve">
+    <value>Spiele mit jemandem verbunden</value>
+  </data>
+  <data name="games.heading.band.activeThisWeek" xml:space="preserve">
+    <value>Diese Woche aktive Spiele</value>
+  </data>
+  <data name="games.heading.band.quiet" xml:space="preserve">
+    <value>Ruhige Spiele</value>
+  </data>
+  <data name="games.heading.band.dark" xml:space="preserve">
+    <value>Verstummte Spiele</value>
+  </data>
+  <data name="games.heading.band.archived" xml:space="preserve">
+    <value>Archivierte Spiele</value>
+  </data>
+  <data name="games.heading.charset" xml:space="preserve">
+    <value>Spiele mit der Kodierung {value}</value>
+  </data>
+  <data name="games.heading.tls" xml:space="preserve">
+    <value>Spiele, die wir über TLS erreicht haben</value>
+  </data>
+  <data name="preview.desc.category.charset" xml:space="preserve">
+    <value>Spiele, deren Kodierungsaushandlung wir auf {value} einigen sahen — was CHARSET vereinbart hat, nicht was ein Spiel angibt.</value>
+  </data>
+  <data name="preview.desc.category.tls" xml:space="preserve">
+    <value>Spiele, mit denen wir einen TLS-Handshake abgeschlossen haben — durch Verbinden gemessen, nicht aus einer SSL-Zeile im Bericht gelesen.</value>
+  </data>
+  <data name="preview.title.category.charset" xml:space="preserve">
+    <value>MU*-Spiele mit der Kodierung {value}</value>
+  </data>
+  <data name="preview.title.category.tls" xml:space="preserve">
+    <value>MU*-Spiele, die wir über TLS erreicht haben</value>
   </data>
   <data name="preview.title.crawler" xml:space="preserve">
     <value>Was der Crawler gerade tut</value>

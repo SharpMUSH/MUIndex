@@ -383,6 +383,17 @@ public static partial class Messages
         ["games.heading.genre"] = "{value} games",
         ["games.heading.language"] = "Games in {value}",
         ["games.heading.protocol"] = "Games offering {value}",
+        ["games.heading.band.playersNow"] = "Games with someone connected now",
+        ["games.heading.band.activeThisWeek"] = "Games active this week",
+        ["games.heading.band.quiet"] = "Quiet games",
+        ["games.heading.band.dark"] = "Games that have gone dark",
+        ["games.heading.band.archived"] = "Archived games",
+        ["games.heading.charset"] = "Games encoded in {value}",
+        ["games.heading.tls"] = "Games we reached over TLS",
+        ["preview.desc.category.charset"] = "Games whose encoding negotiation we watched settle on {value} — what CHARSET agreed, not what a game claimed.",
+        ["preview.desc.category.tls"] = "Games we completed a TLS handshake with — measured by connecting, not read off an SSL line in a game's own report.",
+        ["preview.title.category.charset"] = "MU* games encoded in {value}",
+        ["preview.title.category.tls"] = "MU* games we reached over TLS",
 
         // Unknown count is a sentence, never a zero (rule 4).
         ["preview.game.archived"] = "Archived — last reachable {age}, and still probed",

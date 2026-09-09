@@ -601,10 +601,10 @@
     <value>本周活跃</value>
   </data>
   <data name="facet.band.quiet" xml:space="preserve">
-    <value>冷清——没有高于 0 的计数</value>
+    <value>冷清</value>
   </data>
   <data name="facet.band.dark" xml:space="preserve">
-    <value>失联——一个月未连通</value>
+    <value>失联</value>
   </data>
   <data name="facet.band.archived" xml:space="preserve">
     <value>已归档</value>
@@ -2240,6 +2240,39 @@
   </data>
   <data name="games.heading.protocol" xml:space="preserve">
     <value>提供 {value} 的游戏</value>
+  </data>
+  <data name="games.heading.band.playersNow" xml:space="preserve">
+    <value>当前有连接的游戏</value>
+  </data>
+  <data name="games.heading.band.activeThisWeek" xml:space="preserve">
+    <value>本周活跃的游戏</value>
+  </data>
+  <data name="games.heading.band.quiet" xml:space="preserve">
+    <value>冷清的游戏</value>
+  </data>
+  <data name="games.heading.band.dark" xml:space="preserve">
+    <value>已失联的游戏</value>
+  </data>
+  <data name="games.heading.band.archived" xml:space="preserve">
+    <value>已归档的游戏</value>
+  </data>
+  <data name="games.heading.charset" xml:space="preserve">
+    <value>{value} 编码的游戏</value>
+  </data>
+  <data name="games.heading.tls" xml:space="preserve">
+    <value>通过 TLS 连通的游戏</value>
+  </data>
+  <data name="preview.desc.category.charset" xml:space="preserve">
+    <value>我们观察到编码协商最终定为 {value} 的游戏——这是 CHARSET 协商的结果，而非游戏自己的说法。</value>
+  </data>
+  <data name="preview.desc.category.tls" xml:space="preserve">
+    <value>我们完成了 TLS 握手的游戏——通过连接实测，而非取自报告里的 SSL 一行。</value>
+  </data>
+  <data name="preview.title.category.charset" xml:space="preserve">
+    <value>{value} 编码的 MU* 游戏</value>
+  </data>
+  <data name="preview.title.category.tls" xml:space="preserve">
+    <value>通过 TLS 连通的 MU* 游戏</value>
   </data>
   <data name="preview.title.crawler" xml:space="preserve">
     <value>抓取器正在做什么</value>

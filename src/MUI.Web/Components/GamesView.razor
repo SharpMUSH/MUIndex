@@ -1,14 +1,16 @@
 @using Microsoft.AspNetCore.WebUtilities
 @using MUI.Web.Api
 
-@* A listing filtered to one category is its own page — its own title, description, canonical
-   URL and heading. Everything else is /games with the panel touched, and says so. *@
+@* A listing filtered to one facet is about that facet, and is named and described after it.
+   Whether it is also a page of its own in a search index is the narrower question IsStable
+   answers: a listing of what is busy right now holds different games by the time a crawler
+   comes back, so it takes /games's canonical URL and keeps its own heading. *@
 @if (Category is { } category)
 {
     <SitePreview Title="@CategoryCopy.Title(Tag, category)"
                  Description="@CategoryCopy.Description(Tag, category)"
-                 CanonicalQuery="@IndexableFacet.Query(category)"
-                 Graph="@(origin => Collection(origin, IndexableFacet.Query(category),
+                 CanonicalQuery="@Indexed(category)"
+                 Graph="@(origin => Collection(origin, Indexed(category) ?? string.Empty,
                                               CategoryCopy.Title(Tag, category),
                                               CategoryCopy.Description(Tag, category)))" />
 }
@@ -29,22 +31,13 @@ else
     <div class="card-page">
 
     @*
-        The heading, and a link to the reference page where the filter names something we have
-        written one about. No description of the category: the heading names it, the chips say what
-        is filtered and the columns say what was measured, so a sentence restating those is the
-        filler every faceted listing on the web is padded with and Amazon is not. The description
-        lives in <meta>, where a search result needs one and a reader does not.
-
-        The link used to sit in the results column in kicker capitals, between the chips and the
-        sort bar, belonging to neither.
+        The heading and nothing else. Amazon filters by brand and puts no "About Computers" above
+        the grid: the heading names the category, the chips say what is filtered and the columns say
+        what was measured, so anything restating those is padding. The description a search result
+        needs lives in <meta>.
     *@
     <header class="listing-head">
         <h1>@(Category is { } heading ? CategoryCopy.Heading(Tag, heading) : Messages.For(Tag, "games.title"))</h1>
-
-        @if (Reference is { } about)
-        {
-            <p class="dim"><a href="@about.Href">@about.Label</a></p>
-        }
     </header>
 
     @if (Error is { } problem)
@@ -170,16 +163,15 @@ else
         : null;
 
     /// <summary>
-    /// The hand-written page about the thing this listing is filtered to, where one exists.
+    /// The querystring this category should be indexed under, or null where it should not be.
     /// </summary>
     /// <remarks>
-    /// Keyed on the codebase filter rather than on <see cref="Category"/>, so a listing narrowed
-    /// past one facet keeps the link it has today.
+    /// Null leaves the canonical URL as <c>/games</c>, which is what an unstable facet wants: the
+    /// page is still named after what it is filtered to, and still not offered as a separate entry
+    /// in an index that would be stale before it was read.
     /// </remarks>
-    private (string Href, string Label)? Reference => Filter.Codebase is { Exclude: false, Value: { } family }
-        ? (Http.Link($"/reference/codebases/{family.ToLowerInvariant()}"),
-           Messages.For(Tag, "listing.aboutCodebase", new Dictionary<string, object?> { ["codebase"] = family }))
-        : null;
+    private static string? Indexed(IndexableFacet.Category category) =>
+        category.IsStable ? IndexableFacet.Query(category) : null;
 
     /// <summary>This listing as a collection of games.</summary>
     /// <remarks>The path is what the canonical link says, not what the reader asked for, so the two
