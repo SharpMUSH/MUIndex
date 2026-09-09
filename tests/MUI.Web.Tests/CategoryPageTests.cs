@@ -82,6 +82,55 @@ public class CategoryPageTests
     }
 
     [Test]
+    public async Task ACategoryPageIntroducesItselfBetweenItsHeadingAndItsResults()
+    {
+        // Heading, sentence, results — what the rest of this site does and what a category page is
+        // expected to look like. The reference link used to be the only thing here and sat in the
+        // results column, in kicker caps, between the filter chips and the sort bar.
+        await using var site = await SiteHost.StartAsync();
+
+        var body = await site.Client.GetStringAsync("/games?codebase=PennMUSH");
+        var header = Header(body);
+
+        await Assert.That(header).Contains("PennMUSH games");
+        await Assert.That(header).Contains("Every game we have reached that runs PennMUSH");
+        await Assert.That(header).Contains("/reference/codebases/pennmush");
+
+        // And nowhere else: the copy in the results column is what this replaced. Measured from the
+        // listing's own header rather than the first one in the document, which is the site banner.
+        var after = body.IndexOf("</header>", body.IndexOf(ListingHead, StringComparison.Ordinal),
+            StringComparison.Ordinal);
+
+        await Assert.That(body[after..]).DoesNotContain("/reference/codebases/pennmush");
+    }
+
+    [Test]
+    public async Task ARefinedListingKeepsTheReferenceLinkAndGainsNoDescriptionItCannotStandBehind()
+    {
+        // Two facets is not a category, so there is no sentence — "every game that runs PennMUSH"
+        // would be false of a page also filtered to MSSP. The link survives because the listing
+        // header is the only place on the site that reaches a codebase's reference page.
+        await using var site = await SiteHost.StartAsync();
+
+        var header = Header(await site.Client.GetStringAsync("/games?codebase=PennMUSH&protocol=MSSP"));
+
+        await Assert.That(header).Contains("/reference/codebases/pennmush");
+        await Assert.That(header).DoesNotContain("Every game we have reached that runs");
+    }
+
+    [Test]
+    public async Task TheUnfilteredListingGainsNoHeaderCopyAtAll()
+    {
+        await using var site = await SiteHost.StartAsync();
+
+        var header = Header(await site.Client.GetStringAsync("/games"));
+
+        await Assert.That(header).Contains("Games");
+        await Assert.That(header).DoesNotContain("/reference/codebases/");
+        await Assert.That(header).DoesNotContain("<p");
+    }
+
+    [Test]
     public async Task ASpellingNobodyLinksToCanonicalizesOntoTheOneEverybodyLinksTo()
     {
         // Otherwise a hand-typed URL is a second indexable page for the same set of games, which is
@@ -237,6 +286,17 @@ public class CategoryPageTests
         {
             await Assert.That(block).DoesNotContain("sort=name");
         }
+    }
+
+    private const string ListingHead = "<header class=\"listing-head\">";
+
+    /// <summary>The listing's own header block: heading, and whatever introduces it.</summary>
+    private static string Header(string body)
+    {
+        var open = body.IndexOf(ListingHead, StringComparison.Ordinal);
+        var close = body.IndexOf("</header>", open, StringComparison.Ordinal);
+
+        return System.Net.WebUtility.HtmlDecode(body[open..close]);
     }
 
     /// <summary>The document's first heading, which is what a category page renames.</summary>

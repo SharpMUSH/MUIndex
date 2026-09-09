@@ -331,13 +331,6 @@ public static partial class Messages
         // without its own translation of this keeps the bare name instead of falling back.
         ["preview.title.game"] = "{game}: how to connect, and what we measured",
 
-        // The badge, offered on the public game page as well as the owner dashboard — an operator
-        // deciding whether this catalogue is worth linking to is reading that page, not an account
-        // they have not made yet.
-        ["game.badge.summary"] = "put this game's player count on your own site",
-        ["game.badge.note"] = "The badge is an image we draw and serve. It carries the count and "
-            + "when we measured it, says so rather than nought where we could not count, needs no "
-            + "account, and works whether or not anybody has claimed this listing.",
 
         ["preview.desc.find"] = "Six questions — who is playing, what genre, what kind of game, "
             + "which language, what your client needs — narrowed against measured data, with the "

@@ -2253,12 +2253,6 @@
   <data name="preview.title.game" xml:space="preserve">
     <value>{game}：接続方法と、当サイトの実測結果</value>
   </data>
-  <data name="game.badge.summary" xml:space="preserve">
-    <value>このゲームの接続数を自分のサイトに載せる</value>
-  </data>
-  <data name="game.badge.note" xml:space="preserve">
-    <value>バッジは当サイトが描いて配信する画像。接続数とそれを実測した時点を示し、数えられなかった場合は 0 ではなくそう述べる。アカウントは不要で、この掲載が所有者により申請済みかどうかに関わらず使える。</value>
-  </data>
   <data name="preview.title.home" xml:space="preserve">
     <value>MUSH・MUD・MUCK・MOO のディレクトリ</value>
   </data>

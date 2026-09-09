@@ -350,28 +350,6 @@ else
                 }
             </section>
 
-            @*
-                The badge, on the public page rather than only on the owner dashboard.
-
-                It was reachable only after signing in and claiming, which is the wrong way round:
-                an operator deciding whether this catalogue is worth linking to is looking at this
-                page, not at an account they have not made. Folded shut, so it costs a reader
-                nothing, and offered for every listed game — the badge endpoint is public and
-                publishes nothing this page does not already show.
-
-                The two addresses inside the snippet carry no locale prefix, deliberately: it is
-                markup an operator pastes on *their* site, and the badge answers the same bytes to
-                everybody. Same rule as the owner dashboard's copy of it.
-            *@
-            @if (!Excluded && !Unlisted)
-            {
-                <details class="publish">
-                    <summary class="faint">@L("game.badge.summary")</summary>
-                    <pre class="mono">&lt;a href="@Origin/g/@Page.Summary.Slug"&gt;&lt;img src="@Origin/g/@Page.Summary.Slug/badge.svg" alt="@System.Net.WebUtility.HtmlEncode(Page.Summary.Name) on mu*index"&gt;&lt;/a&gt;</pre>
-                    <p class="faint">@L("game.badge.note")</p>
-                </details>
-            }
-
         </div>
     </article>
 }
@@ -474,17 +452,6 @@ else
     /// fixture — nothing reading a graph would see the banner saying the games are invented.
     /// </remarks>
     private string GraphFor(Uri origin) => GameStructuredData.For(Page!, origin);
-
-    /// <summary>
-    /// This site's absolute origin, for the one snippet on the page that leaves it.
-    /// </summary>
-    /// <remarks>
-    /// Absolute because the badge markup is pasted on somebody else's server, where a rooted path
-    /// names <em>their</em> origin and the link points at a page of theirs that does not exist.
-    /// Empty under a headless render, which has no request to take an origin from — the snippet is
-    /// then relative, which is the same thing the owner dashboard's copy renders in a test.
-    /// </remarks>
-    private string Origin => SiteUrls.OriginTextOf(Http);
 
     private bool Archived => Page?.Summary.State is LifecycleState.Archived;
 

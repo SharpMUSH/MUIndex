@@ -339,14 +339,13 @@ public class LocalizationTests
             "preview.desc.find",
             "preview.title.home",
             "preview.title.game",
-            "game.badge.",
         ];
 
         var covered = Messages.Ids
             .Where(id => prefixes.Any(p => id.StartsWith(p, StringComparison.Ordinal)))
             .ToList();
 
-        await Assert.That(covered.Count).IsGreaterThanOrEqualTo(21);
+        await Assert.That(covered.Count).IsGreaterThanOrEqualTo(19);
 
         foreach (var locale in Locales.Offered.Where(l => l.Tag != Locales.SourceTag))
         {

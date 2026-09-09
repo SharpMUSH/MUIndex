@@ -2253,12 +2253,6 @@
   <data name="preview.title.game" xml:space="preserve">
     <value>{game}：如何连接，以及我们测得的数据</value>
   </data>
-  <data name="game.badge.summary" xml:space="preserve">
-    <value>把这个游戏的连接数放到你自己的网站上</value>
-  </data>
-  <data name="game.badge.note" xml:space="preserve">
-    <value>徽标是我们绘制并提供的图片。它带上计数和我们实测它的时间；数不出来时会如实说明，而不是显示 0。无需账号，无论这条记录是否已有人认领都能使用。</value>
-  </data>
   <data name="preview.title.home" xml:space="preserve">
     <value>MUSH、MUD、MUCK、MOO 游戏目录</value>
   </data>

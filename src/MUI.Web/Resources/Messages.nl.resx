@@ -2253,12 +2253,6 @@
   <data name="preview.title.game" xml:space="preserve">
     <value>{game}: hoe je verbinding maakt, en wat wij gemeten hebben</value>
   </data>
-  <data name="game.badge.summary" xml:space="preserve">
-    <value>de spelerstelling van dit spel op je eigen site zetten</value>
-  </data>
-  <data name="game.badge.note" xml:space="preserve">
-    <value>De badge is een afbeelding die wij tekenen en serveren. Hij draagt de telling en wanneer we die gemeten hebben, zegt dat in plaats van nul waar we niet konden tellen, vereist geen account, en werkt of iemand deze vermelding nu geclaimd heeft of niet.</value>
-  </data>
   <data name="preview.title.home" xml:space="preserve">
     <value>Gids voor MUSHes, MUDs, MUCKs en MOOs</value>
   </data>

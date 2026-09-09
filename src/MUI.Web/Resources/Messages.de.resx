@@ -2253,12 +2253,6 @@
   <data name="preview.title.game" xml:space="preserve">
     <value>{game}: wie man sich verbindet und was wir gemessen haben</value>
   </data>
-  <data name="game.badge.summary" xml:space="preserve">
-    <value>die Spielerzahl dieses Spiels auf Ihrer eigenen Website zeigen</value>
-  </data>
-  <data name="game.badge.note" xml:space="preserve">
-    <value>Das Abzeichen ist ein Bild, das wir zeichnen und ausliefern. Es nennt die Zählung und wann wir sie gemessen haben, sagt das statt null, wo wir nicht zählen konnten, braucht kein Konto und funktioniert unabhängig davon, ob jemand diesen Eintrag beansprucht hat.</value>
-  </data>
   <data name="preview.title.home" xml:space="preserve">
     <value>Verzeichnis von MUSHes, MUDs, MUCKs und MOOs</value>
   </data>
