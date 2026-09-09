@@ -101,6 +101,13 @@ services:
 
       Passkeys__ServerDomain: ${MUI_PASSKEY_DOMAIN:-}
 
+      # One profile elsewhere that is this same site, emitted as schema.org sameAs. Empty here and
+      # empty by default: it is a claim that an account somewhere else is us, and no deployment
+      # should make it for another. Forwarded rather than left out for the reason
+      # tools/check-compose-settings.py exists — a variable an operator sets in .env that nothing
+      # passes through is a knob that silently does nothing, and this one is in docs/deploy.md.
+      Site__SameAs__0: ${MUI_SITE_SAMEAS:-}
+
       # The port /metrics answers on, and the switch that maps the route at all. Empty here, because
       # a local `compose up` has nothing scraping it and the endpoint should not exist unless it was
       # asked for. Forwarded rather than left out for the reason tools/check-compose-settings.py

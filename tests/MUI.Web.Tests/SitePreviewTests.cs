@@ -157,6 +157,29 @@ public class SitePreviewTests
     }
 
     [Test]
+    public async Task ADeploymentThatNamesAProfileClaimsItAndOneThatLeavesItBlankDoesNot()
+    {
+        // compose.yaml forwards Site__SameAs__0 as an empty string when the operator sets nothing,
+        // which is how every forwarded setting behaves — so "unset" and "set to nothing" both have
+        // to mean the claim is not made, or the default deployment asserts sameAs: "".
+        await using var named = await SiteHost.StartAsync(
+            new Dictionary<string, string?> { ["Site:SameAs:0"] = "https://example.org/muindex" });
+
+        await using var blank = await SiteHost.StartAsync(
+            new Dictionary<string, string?> { ["Site:SameAs:0"] = string.Empty });
+
+        var claimed = Head.StructuredData(await named.Client.GetStringAsync("/"));
+
+        await Assert.That(claimed.Any(b => b.Contains("https://example.org/muindex", StringComparison.Ordinal)))
+            .IsTrue();
+
+        foreach (var block in Head.StructuredData(await blank.Client.GetStringAsync("/")))
+        {
+            await Assert.That(block).DoesNotContain("sameAs");
+        }
+    }
+
+    [Test]
     public async Task TheIdentityGraphDoesNotMarkUpASearchboxGoogleRetired()
     {
         // The sitelinks searchbox SearchAction fed was deprecated in Oct 2024 and retired that
