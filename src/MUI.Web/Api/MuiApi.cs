@@ -28,6 +28,11 @@ public static class MuiApi
         services.Configure<DatasetLicenceOptions>(
             configuration.GetSection(DatasetLicenceOptions.Section));
 
+        // Read by the head's identity graph rather than by the API, but bound here with the other
+        // deployment-owned claims so there is one place a deployment states what it is.
+        services.Configure<SiteIdentityOptions>(
+            configuration.GetSection(SiteIdentityOptions.Section));
+
         // The section IS the map — SlugAliases:{former} = {current} — rather than a nested key.
         services.Configure<SlugAliasOptions>(
             options => configuration.GetSection(SlugAliasOptions.Section).Bind(options.Aliases));

@@ -1093,6 +1093,35 @@ p.crawler {
 }
 p.crawler .state-present { text-shadow: var(--glow); }
 
+/* ── the front page's prose ────────────────────────────────────────────────
+   Under the feeds, and set to read like a document rather than compete with them: one measure, the
+   paragraph colour the rest of the site uses for prose, and headings that step down instead of
+   restating the hero's size. A rule above it separates "what changed" from "what this is" without
+   drawing a box around either.                                                                  */
+
+.intro {
+    border-top: 1px solid var(--line-soft);
+    padding-top: 22px;
+    max-width: 68ch;
+}
+
+.intro h2 { font-size: var(--fs-lg); margin: 0 0 8px; }
+.intro h3 { font-size: var(--fs-md); margin: 22px 0 6px; }
+.intro p { margin: 0; color: var(--dim); line-height: 1.65; }
+
+/* Name, then what is behind it — the em dash is content, so the row wraps as one sentence rather
+   than being laid out as two columns that would break apart at a narrow width. */
+.intro .starts { list-style: none; margin: 0; padding: 0; }
+.intro .starts li {
+    padding: 7px 0;
+    color: var(--faint);
+    font-size: var(--fs-sm2);
+    border-bottom: 1px solid var(--line-soft);
+}
+.intro .starts li:last-child { border-bottom: 0; }
+.intro .starts a { color: var(--text); text-decoration: none; }
+.intro .starts a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
 .feeds {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));

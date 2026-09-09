@@ -452,6 +452,10 @@
     <value>about</value>
     <comment>site chrome</comment>
   </data>
+  <data name="nav.api" xml:space="preserve">
+    <value>API</value>
+    <comment>chrome</comment>
+  </data>
   <data name="nav.discord" xml:space="preserve">
     <value>Discord</value>
     <comment>site chrome</comment>
@@ -571,6 +575,78 @@
   <data name="home.trending.empty" xml:space="preserve">
     <value>No game is trending up right now.</value>
     <comment>home</comment>
+  </data>
+  <data name="home.what.title" xml:space="preserve">
+    <value>What a MU* is</value>
+    <comment>the front page, in prose</comment>
+  </data>
+  <data name="home.what.body" xml:space="preserve">
+    <value>A MU* is a text game you connect to over telnet and play by typing — a MUSH, a MUD, a MUCK or a MOO. The oldest have been running since the 1980s and most cost nothing to play. This site lists the ones we can reach, and says when we last reached each one.</value>
+    <comment>the front page, in prose</comment>
+  </data>
+  <data name="home.measured.title" xml:space="preserve">
+    <value>How the numbers here are measured</value>
+    <comment>the front page, in prose</comment>
+  </data>
+  <data name="home.measured.body" xml:space="preserve">
+    <value>Every figure on this site came from connecting to the game and reading what it sent back. Where a server publishes MSSP we read that and label it declared; where it does not, we read the connect screen and the player list and label that measured. The two are shown side by side and never merged into one number, because when they disagree the disagreement is the interesting fact.</value>
+    <comment>the front page, in prose</comment>
+  </data>
+  <data name="home.states.title" xml:space="preserve">
+    <value>An hour has three states, not two</value>
+    <comment>the front page, in prose</comment>
+  </data>
+  <data name="home.states.body" xml:space="preserve">
+    <value>A filled cell means we connected and counted — a counted zero included. A hatched cell means we connected and the game published nothing we could read. An empty cell means we hold no measurement for that hour at all. A player list our parser cannot read is never rounded down to nobody playing.</value>
+    <comment>the front page, in prose</comment>
+  </data>
+  <data name="home.never.title" xml:space="preserve">
+    <value>What this site will never have</value>
+    <comment>the front page, in prose</comment>
+  </data>
+  <data name="home.never.body" xml:space="preserve">
+    <value>A directory ordered by whoever campaigns hardest stops being a directory, so nothing here is ordered that way. Nothing here is ever deleted either: a game that goes dark keeps its page, its history and its address, is still probed, and returns to the listing on one successful connection.</value>
+    <comment>the front page, in prose</comment>
+  </data>
+  <data name="home.start.title" xml:space="preserve">
+    <value>Where to go next</value>
+    <comment>the front page, in prose</comment>
+  </data>
+  <data name="home.start.games" xml:space="preserve">
+    <value>Browse every game we reach</value>
+    <comment>the front page, in prose</comment>
+  </data>
+  <data name="home.start.find" xml:space="preserve">
+    <value>Answer a few questions and get a shortlist</value>
+    <comment>the front page, in prose</comment>
+  </data>
+  <data name="home.start.rankings" xml:space="preserve">
+    <value>Busiest and most reachable, computed from measurements</value>
+    <comment>the front page, in prose</comment>
+  </data>
+  <data name="home.start.ecosystem" xml:space="preserve">
+    <value>Which codebases and protocols the hobby actually runs</value>
+    <comment>the front page, in prose</comment>
+  </data>
+  <data name="home.start.reference" xml:space="preserve">
+    <value>Written pages on the codebases, clients and protocols</value>
+    <comment>the front page, in prose</comment>
+  </data>
+  <data name="home.start.archive" xml:space="preserve">
+    <value>The games that went dark, kept</value>
+    <comment>the front page, in prose</comment>
+  </data>
+  <data name="home.start.crawler" xml:space="preserve">
+    <value>What the crawler did today</value>
+    <comment>the front page, in prose</comment>
+  </data>
+  <data name="home.start.about" xml:space="preserve">
+    <value>How this catalogue is built, and how to make it stop</value>
+    <comment>the front page, in prose</comment>
+  </data>
+  <data name="home.start.api" xml:space="preserve">
+    <value>The public API, the bulk exports and their licence</value>
+    <comment>the front page, in prose</comment>
   </data>
   <data name="games.title" xml:space="preserve">
     <value>Games</value>
@@ -3132,6 +3208,10 @@
     <value>{title} on {site}</value>
     <comment>what this site says about itself where it is not this site</comment>
   </data>
+  <data name="preview.title.home" xml:space="preserve">
+    <value>Directory of MUSHes, MUDs, MUCKs and MOOs</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
   <data name="preview.title.games" xml:space="preserve">
     <value>Games</value>
     <comment>what this site says about itself where it is not this site</comment>
@@ -3211,6 +3291,66 @@
   <data name="preview.desc.claim" xml:space="preserve">
     <value>Prove you run this game by publishing a token where only its operator could put it.</value>
     <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.title.category.codebase" xml:space="preserve">
+    <value>{value} games</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="preview.title.category.lineage" xml:space="preserve">
+    <value>{value} games</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="preview.title.category.genre" xml:space="preserve">
+    <value>{value} MU* games</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="preview.title.category.language" xml:space="preserve">
+    <value>MU* games in {value}</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="preview.title.category.protocol" xml:space="preserve">
+    <value>Games offering {value}</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="preview.desc.category.codebase" xml:space="preserve">
+    <value>Every game we have reached that runs {value}, with the player counts, protocols and reachability we measured — each carrying when it was last confirmed.</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="preview.desc.category.lineage" xml:space="preserve">
+    <value>Every game we have reached in the {value} lineage. The lineage is a classification of ours, not a claim any of these games made; the counts, protocols and reachability beside it are measured and dated.</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="preview.desc.category.genre" xml:space="preserve">
+    <value>Games that describe themselves as {value}. The genre is the game's own claim about itself; the counts, protocols and reachability beside it are ours, measured, and dated.</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="preview.desc.category.language" xml:space="preserve">
+    <value>Games that say they are played in {value}. The language is the game's own claim about itself; the counts, protocols and reachability beside it are ours, measured, and dated.</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="preview.desc.category.protocol" xml:space="preserve">
+    <value>Games whose handshake we watched offer {value} — observed on the wire, never read off a game's own claim about itself. Each row carries when it was last confirmed.</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="games.heading.codebase" xml:space="preserve">
+    <value>{value} games</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="games.heading.lineage" xml:space="preserve">
+    <value>{value} games</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="games.heading.genre" xml:space="preserve">
+    <value>{value} games</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="games.heading.language" xml:space="preserve">
+    <value>Games in {value}</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
+  </data>
+  <data name="games.heading.protocol" xml:space="preserve">
+    <value>Games offering {value}</value>
+    <comment>one faceted listing, once it is a page of its own</comment>
   </data>
   <data name="preview.game.archived" xml:space="preserve">
     <value>Archived — last reachable {age}, and still probed</value>

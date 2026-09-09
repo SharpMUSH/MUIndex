@@ -2196,6 +2196,9 @@
   <data name="preview.cardAlt.named" xml:space="preserve">
     <value>{title} op {site}</value>
   </data>
+  <data name="preview.title.home" xml:space="preserve">
+    <value>Gids voor MUSHes, MUDs, MUCKs en MOOs</value>
+  </data>
   <data name="preview.title.games" xml:space="preserve">
     <value>Spellen</value>
   </data>

@@ -89,6 +89,12 @@ public static class Render
             // Whether a database is configured, which several surfaces switch on: claiming and
             // submitting are absent over the fixture rather than present and unable to do anything.
             services.AddSingleton(new CatalogueSource(measured));
+
+            // The head's identity graph reads what this deployment says it also is. Unconfigured
+            // here, which is the shipped default and the state every assertion in this suite wants:
+            // an empty list means the claim is simply not made.
+            services.AddOptions<SiteIdentityOptions>();
+
             services.AddSingleton<NavigationManager>(new StubNavigation(query));
             services.AddSingleton<AntiforgeryStateProvider, StubAntiforgery>();
 

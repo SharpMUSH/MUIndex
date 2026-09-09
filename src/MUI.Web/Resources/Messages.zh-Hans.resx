@@ -2196,6 +2196,9 @@
   <data name="preview.cardAlt.named" xml:space="preserve">
     <value>{site} 上的 {title}</value>
   </data>
+  <data name="preview.title.home" xml:space="preserve">
+    <value>MUSH、MUD、MUCK、MOO 游戏目录</value>
+  </data>
   <data name="preview.title.games" xml:space="preserve">
     <value>游戏</value>
   </data>

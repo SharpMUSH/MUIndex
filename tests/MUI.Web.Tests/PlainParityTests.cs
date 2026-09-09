@@ -704,12 +704,39 @@ public class PlainParityTests
             PlainText.RenderListing(await Queries.SearchAsync(new GameFilter()), new GameFilter(), Now),
         };
 
+        // The site's own standing disclaimer is made of the words this scan bans, because those are
+        // the words it exists to disclaim. Removed by id rather than by rewording it out of the way:
+        // any *other* occurrence still fails, and if the sentence is ever reworded the exemption
+        // follows it instead of rotting into a hole.
+        // Whitespace is collapsed on both sides first: the plain surface wraps prose at 80 columns,
+        // so the sentence is not contiguous there. Safe, because PlainText.Wrap only ever breaks at
+        // a space — no banned word can be split across a line and survive this scan.
+        var promise = Flatten(Messages.For(Locales.SourceTag, HomeCopy.NoVote));
+
         foreach (var word in new[] { "vote", "rating", "star", "recommend", "upvote" })
         {
             foreach (var surface in surfaces)
             {
-                await Assert.That(surface.ToLowerInvariant()).DoesNotContain(word);
+                await Assert.That(Flatten(surface).Replace(promise, string.Empty, StringComparison.Ordinal))
+                    .DoesNotContain(word);
             }
         }
+    }
+
+    /// <summary>One surface as one lower-case line, so a wrapped sentence reads as the sentence it is.</summary>
+    private static string Flatten(string text) =>
+        string.Join(' ', text.ToLowerInvariant().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+    [Test]
+    public async Task TheDisclaimerExemptionCoversOnlyTheSentenceItNames()
+    {
+        // The exemption above is only safe while it is that sentence and nothing wider. If the
+        // promise ever stops containing the banned words, the exemption is dead weight hiding a
+        // hole, and this says so.
+        var promise = Messages.For(Locales.SourceTag, HomeCopy.NoVote).ToLowerInvariant();
+
+        await Assert.That(promise).Contains("vote");
+        await Assert.That(promise).Contains("star");
+        await Assert.That(promise).Contains("rating");
     }
 }

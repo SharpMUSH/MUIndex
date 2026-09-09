@@ -2196,6 +2196,9 @@
   <data name="preview.cardAlt.named" xml:space="preserve">
     <value>{site}の{title}</value>
   </data>
+  <data name="preview.title.home" xml:space="preserve">
+    <value>MUSH・MUD・MUCK・MOO のディレクトリ</value>
+  </data>
   <data name="preview.title.games" xml:space="preserve">
     <value>ゲーム</value>
   </data>

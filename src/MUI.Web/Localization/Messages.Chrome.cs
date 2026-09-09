@@ -140,6 +140,9 @@ public static partial class Messages
         ["nav.ecosystem"] = "ecosystem",
         ["nav.rankings"] = "rankings",
         ["nav.about"] = "about",
+        // Machine voice as a word, but a label the nav and the front page's start list share, so
+        // both call the same page the same thing.
+        ["nav.api"] = "API",
         ["nav.discord"] = "Discord",
         ["nav.submit"] = "submit",
         ["nav.submitGame"] = "submit a game",
@@ -174,6 +177,51 @@ public static partial class Messages
         ["feed.live"] = "live",
         ["home.trending.title"] = "trending",
         ["home.trending.empty"] = "No game is trending up right now.",
+
+        // ── the front page, in prose ──────────────────────────────────────────────────────────
+        // The page above this is figures, feeds and a search box: legible to somebody who already
+        // knows what a MUCK is, and to nobody else. Four short passages, because the two readers
+        // this page had no answer for are the newcomer ("what is any of this") and the program
+        // summarising the site from whatever text it finds first. Every claim here is one the site
+        // makes elsewhere and can stand behind — no figure is quoted, because a number written into
+        // a message is a number nothing re-measures.
+        ["home.what.title"] = "What a MU* is",
+        ["home.what.body"] = "A MU* is a text game you connect to over telnet and play by typing — a "
+            + "MUSH, a MUD, a MUCK or a MOO. The oldest have been running since the 1980s and most "
+            + "cost nothing to play. This site lists the ones we can reach, and says when we last "
+            + "reached each one.",
+
+        ["home.measured.title"] = "How the numbers here are measured",
+        ["home.measured.body"] = "Every figure on this site came from connecting to the game and "
+            + "reading what it sent back. Where a server publishes MSSP we read that and label it "
+            + "declared; where it does not, we read the connect screen and the player list and "
+            + "label that measured. The two are shown side by side and never merged into one "
+            + "number, because when they disagree the disagreement is the interesting fact.",
+
+        ["home.states.title"] = "An hour has three states, not two",
+        ["home.states.body"] = "A filled cell means we connected and counted — a counted zero "
+            + "included. A hatched cell means we connected and the game published nothing we could "
+            + "read. An empty cell means we hold no measurement for that hour at all. A player list "
+            + "our parser cannot read is never rounded down to nobody playing.",
+
+        ["home.never.title"] = "What this site will never have",
+        // The half of this promise about ranking is `rankings.noVote`, rendered beside this rather
+        // than restated: the site should say that once, in one sentence, everywhere it says it.
+        ["home.never.body"] = "A directory ordered by whoever campaigns hardest stops being a "
+            + "directory, so nothing here is ordered that way. Nothing here is ever deleted either: "
+            + "a game that goes dark keeps its page, its history and its address, is still probed, "
+            + "and returns to the listing on one successful connection.",
+
+        ["home.start.title"] = "Where to go next",
+        ["home.start.games"] = "Browse every game we reach",
+        ["home.start.find"] = "Answer a few questions and get a shortlist",
+        ["home.start.rankings"] = "Busiest and most reachable, computed from measurements",
+        ["home.start.ecosystem"] = "Which codebases and protocols the hobby actually runs",
+        ["home.start.reference"] = "Written pages on the codebases, clients and protocols",
+        ["home.start.archive"] = "The games that went dark, kept",
+        ["home.start.crawler"] = "What the crawler did today",
+        ["home.start.about"] = "How this catalogue is built, and how to make it stop",
+        ["home.start.api"] = "The public API, the bulk exports and their licence",
 
         // ── the listing ───────────────────────────────────────────────────────────────────────
         ["games.title"] = "Games",

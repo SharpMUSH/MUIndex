@@ -7,12 +7,23 @@
 }
 else
 {
-    <SitePreview Title="@PreviewCopy.Titles.Games(Tag)" Description="@PreviewCopy.Pages.Games(Tag)" />
+    @* A listing filtered to one category is its own page — its own title, description, canonical
+       URL and heading. Everything else is /games with the panel touched, and says so. *@
+    @if (Category is { } category)
+    {
+        <SitePreview Title="@CategoryCopy.Title(Tag, category)"
+                     Description="@CategoryCopy.Description(Tag, category)"
+                     CanonicalQuery="@IndexableFacet.Query(category)" />
+    }
+    else
+    {
+        <SitePreview Title="@PreviewCopy.Titles.Games(Tag)" Description="@PreviewCopy.Pages.Games(Tag)" />
+    }
 
     <div class="card-page">
 
     <header class="listing-head">
-        <h1>@Messages.For(Tag, "games.title")</h1>
+        <h1>@(Category is { } heading ? CategoryCopy.Heading(Tag, heading) : Messages.For(Tag, "games.title"))</h1>
     </header>
 
     @if (Error is { } problem)
@@ -133,6 +144,20 @@ else
     [Parameter] public string? Error { get; set; }
 
     [Parameter] public string Query { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The one category this listing is, or null where it is the catalogue with the panel touched.
+    /// </summary>
+    /// <remarks>
+    /// Null whenever the filter failed to bind: <see cref="Filter"/> is then the default rather than
+    /// what was asked for, and a page showing a parse error must not also claim to be a category —
+    /// it would name a canonical URL that returns a different set of games.
+    /// The value is respelled as the catalogue publishes it, so a hand-typed <c>?codebase=pennmush</c>
+    /// canonicalizes onto the same URL the panel links to rather than beside it.
+    /// </remarks>
+    private IndexableFacet.Category? Category => Error is null && IndexableFacet.Of(Filter) is { } found
+        ? IndexableFacet.AsPublished(found, Listing.Facets)
+        : null;
 
     private bool Plain => Truthy.Is(
         QueryHelpers.ParseQuery(Query).TryGetValue("plain", out var flag) ? flag.ToString() : null);

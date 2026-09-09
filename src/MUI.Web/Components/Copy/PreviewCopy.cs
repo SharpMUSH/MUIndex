@@ -75,6 +75,15 @@ public static class PreviewCopy
     /// </remarks>
     public static class Titles
     {
+        /// <summary>
+        /// The front page's own title.
+        /// </summary>
+        /// <remarks>
+        /// It had none, so <see cref="Title"/> answered the bare wordmark — the one page on the site
+        /// whose search result said only what it was called and nothing about what it was.
+        /// </remarks>
+        public static string Home(string tag) => Messages.For(tag, "preview.title.home");
+
         public static string Games(string tag) => Messages.For(tag, "preview.title.games");
 
         public static string Archive(string tag) => Messages.For(tag, "preview.title.archive");

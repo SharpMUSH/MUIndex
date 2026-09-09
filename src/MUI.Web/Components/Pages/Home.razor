@@ -24,7 +24,8 @@
 }
 else
 {
-    <SitePreview Description="@PreviewCopy.Site(Http.LocaleOf().Tag)" />
+    <SitePreview Title="@PreviewCopy.Titles.Home(Http.LocaleOf().Tag)"
+                 Description="@PreviewCopy.Site(Http.LocaleOf().Tag)" />
 
     @* One column, one rhythm: blocks are spaced by the column's own gap rather than a margin on
        each, because a margin on a block that renders nothing (the crawler strip with no pulse)
@@ -121,6 +122,56 @@ else
         </section>
     </div>
 
+    @*
+        Prose, under the feeds rather than over them: a returning reader wants what changed, and
+        gets it first. This is for the two readers the page above has no answer for — somebody who
+        does not yet know what a MUCK is, and a program summarising the site from whatever text it
+        finds first, which until now was the demo banner or a column of hostnames.
+
+        The claims are the site's own, stated nowhere else on this page. No figure appears in them:
+        a number written into a message is a number nothing re-measures, and the tiles above are
+        where the counts belong.
+    *@
+    <section class="intro" aria-labelledby="intro-what">
+        @* The first passage carries the section's own h2; the rest step down to h3, so the page has
+           a heading outline rather than one flat rank. Walked from HomeCopy so this and the text
+           mirror cannot fall out of step. *@
+        @for (var i = 0; i < HomeCopy.Prose.Count; i++)
+        {
+            var passage = HomeCopy.Prose[i];
+
+            @if (i == 0)
+            {
+                <h2 id="intro-what">@L(passage.Title)</h2>
+            }
+            else
+            {
+                <h3>@L(passage.Title)</h3>
+            }
+
+            <p>@L(passage.Body)</p>
+
+            @if (passage == HomeCopy.Prose[^1])
+            {
+                @* The rankings page's own sentence, not a second one saying the same thing. *@
+                <p>@L(HomeCopy.NoVote)</p>
+            }
+        }
+
+        @* The front page linked to these nine surfaces only through the header nav, where each is
+           one lowercase word. Named and described here, so a reader and a crawler can both tell
+           what is behind each one. *@
+        <nav aria-labelledby="intro-start">
+            <h3 id="intro-start">@L("home.start.title")</h3>
+            <ul class="starts">
+                @foreach (var start in HomeCopy.Starts)
+                {
+                    <li><a href="@Http.Link(start.Path)">@L(start.Label)</a> — @L(start.Note)</li>
+                }
+            </ul>
+        </nav>
+    </section>
+
     </div>
 }
 
@@ -155,6 +206,7 @@ else
 
     /// <summary>Matches the liveness feeds' own row cap (NpgsqlGameQueries.FeedLimit).</summary>
     private const int FeedLimit = 11;
+
 
     /// <summary>The locale this page is being answered in.</summary>
     [CascadingParameter] private HttpContext? Http { get; set; }
