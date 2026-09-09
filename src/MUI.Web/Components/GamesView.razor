@@ -36,9 +36,7 @@ else
         what was measured, so anything restating those is padding. The description a search result
         needs lives in <meta>.
     *@
-    <header class="listing-head">
-        <h1>@(Category is { } heading ? CategoryCopy.Heading(Tag, heading) : Messages.For(Tag, "games.title"))</h1>
-    </header>
+    <h1 class="sr-only">@(Category is { } heading ? CategoryCopy.Heading(Tag, heading) : Messages.For(Tag, "games.title"))</h1>
 
     @if (Error is { } problem)
     {

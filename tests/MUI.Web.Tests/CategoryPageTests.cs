@@ -86,18 +86,19 @@ public class CategoryPageTests
     }
 
     [Test]
-    public async Task ACategoryPageHeaderIsAHeadingAndNoParagraphOfCopy()
+    public async Task TheHeadingNamesThePageWithoutBeingDrawnAboveIt()
     {
-        // The heading names the category, the chips say what is filtered and the columns say what
-        // was measured. A sentence restating those is the filler every faceted listing on the web
-        // is padded with; Amazon does not put "About Computers" above a filtered grid either. The
-        // description belongs in <meta>, where a search result needs one — see the test below.
+        // The chips already say "codebase: PennMUSH" a line lower, so a heading drawn above them
+        // spends a band of the viewport repeating them. It still has to exist: it is the on-page
+        // name this whole rule turns on, and a listing with no <h1> is one a screen reader cannot
+        // announce. So it is hidden, not removed — and the sentence a search result wants stays in
+        // <meta>, per the test below.
         await using var site = await SiteHost.StartAsync();
 
-        var header = Header(await site.Client.GetStringAsync("/games?codebase=PennMUSH"));
+        var body = await site.Client.GetStringAsync("/games?codebase=PennMUSH");
 
-        await Assert.That(header).Contains("PennMUSH games");
-        await Assert.That(header).DoesNotContain("Every PennMUSH game we have reached");
+        await Assert.That(Heading(body)).IsEqualTo("PennMUSH games");
+        await Assert.That(body).Contains("<h1 class=\"sr-only\">");
     }
 
     [Test]
@@ -122,11 +123,10 @@ public class CategoryPageTests
     {
         await using var site = await SiteHost.StartAsync();
 
-        var header = Header(await site.Client.GetStringAsync("/games"));
+        var body = await site.Client.GetStringAsync("/games");
 
-        await Assert.That(header).Contains("Games");
-        await Assert.That(header).DoesNotContain("/reference/codebases/");
-        await Assert.That(header).DoesNotContain("<p");
+        await Assert.That(Heading(body)).IsEqualTo("Games");
+        await Assert.That(body).DoesNotContain("/reference/codebases/");
     }
 
     [Test]
@@ -314,21 +314,12 @@ public class CategoryPageTests
         }
     }
 
-    private const string ListingHead = "<header class=\"listing-head\">";
-
-    /// <summary>The listing's own header block: heading, and whatever introduces it.</summary>
-    private static string Header(string body)
-    {
-        var open = body.IndexOf(ListingHead, StringComparison.Ordinal);
-        var close = body.IndexOf("</header>", open, StringComparison.Ordinal);
-
-        return System.Net.WebUtility.HtmlDecode(body[open..close]);
-    }
-
     /// <summary>The document's first heading, which is what a category page renames.</summary>
+    /// <remarks>Matched by tag rather than by <c>&lt;h1&gt;</c> exactly: the listing's carries a class.</remarks>
     private static string Heading(string body)
     {
-        var open = body.IndexOf("<h1>", StringComparison.Ordinal) + "<h1>".Length;
+        var tag = body.IndexOf("<h1", StringComparison.Ordinal);
+        var open = body.IndexOf('>', tag) + 1;
         var close = body.IndexOf("</h1>", open, StringComparison.Ordinal);
 
         return System.Net.WebUtility.HtmlDecode(body[open..close]).Trim();
