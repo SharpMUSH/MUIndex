@@ -525,10 +525,14 @@ public static class PlainText
 
             foreach (var value in group.Values)
             {
+                // The third column is whatever the token does not already say: the value in words
+                // where they differ, and otherwise what the word means, for the two the site coined.
+                // This surface has no hover, so it is where the panel's tooltip has to land.
                 var words = FacetWords.Value(tag, group.Key, value);
-                var gloss = string.Equals(words, value.Token, StringComparison.Ordinal)
-                    ? string.Empty
-                    : "  " + words;
+                var said = string.Equals(words, value.Token, StringComparison.Ordinal)
+                    ? FacetWords.Meaning(tag, group.Key, value)
+                    : words;
+                var gloss = said is null ? string.Empty : "  " + said;
 
                 // A mark, not a colour: the selected value has to be visible where there is no ink.
                 // Three marks, because the facet has three states — a shared star for included and

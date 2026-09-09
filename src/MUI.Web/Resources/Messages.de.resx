@@ -606,6 +606,12 @@
   <data name="facet.band.dark" xml:space="preserve">
     <value>verstummt</value>
   </data>
+  <data name="facet.band.quiet.meaning" xml:space="preserve">
+    <value>nie mehr als 0 gezählt</value>
+  </data>
+  <data name="facet.band.dark.meaning" xml:space="preserve">
+    <value>seit einem Monat nicht erreicht</value>
+  </data>
   <data name="facet.band.archived" xml:space="preserve">
     <value>archiviert</value>
   </data>

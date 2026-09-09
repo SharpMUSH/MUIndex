@@ -325,9 +325,12 @@
     /// </remarks>
     private RenderFragment Row(FacetGroup group, FacetValue value) =>
         @<div class="@RowClass(group, value)">
+            @* title for a pointer, and the same words folded into the aria-label — a tooltip a
+               screen reader never reaches would be a definition only some readers get. *@
             <a class="pick" href="@Href(group, value.State is FacetState.Included ? null : value.Token)"
                aria-current="@(value.State is FacetState.Included ? "true" : null)"
-               aria-label="@Name(Single(group) ? "facet.value.choose" : "facet.value.include", value.Count, ("value", FacetWords.Value(Tag, group.Key, value)))">
+               title="@FacetWords.Meaning(Tag, group.Key, value)"
+               aria-label="@Labelled(group, value)">
                 <span class="tick" aria-hidden="true">@PickGlyph(group, value)</span>
                 <span class="row-name">@FacetWords.Value(Tag, group.Key, value)</span>
                 <span class="count">@value.Count</span>
@@ -343,6 +346,25 @@
                 </a>
             }
         </div>;
+
+    /// <summary>
+    /// One value row as a screen reader hears it: the value, its count, and what it means.
+    /// </summary>
+    /// <remarks>
+    /// The meaning is appended rather than left to <c>title</c>, which browsers surface to a pointer
+    /// and not reliably to anything else.
+    /// </remarks>
+    private string Labelled(FacetGroup group, FacetValue value)
+    {
+        var name = Name(
+            Single(group) ? "facet.value.choose" : "facet.value.include",
+            value.Count,
+            ("value", FacetWords.Value(Tag, group.Key, value)));
+
+        return FacetWords.Meaning(Tag, group.Key, value) is { } meaning
+            ? $"{name} — {meaning}"
+            : name;
+    }
 
     /// <summary>Whether this group's values are one ordered scale rather than alternatives.</summary>
     private static bool Single(FacetGroup group) => FacetWords.IsSingleChoice(group.Key);

@@ -606,6 +606,12 @@
   <data name="facet.band.dark" xml:space="preserve">
     <value>消息不明</value>
   </data>
+  <data name="facet.band.quiet.meaning" xml:space="preserve">
+    <value>計数は0を超えず</value>
+  </data>
+  <data name="facet.band.dark.meaning" xml:space="preserve">
+    <value>1か月間到達なし</value>
+  </data>
   <data name="facet.band.archived" xml:space="preserve">
     <value>アーカイブ済み</value>
   </data>

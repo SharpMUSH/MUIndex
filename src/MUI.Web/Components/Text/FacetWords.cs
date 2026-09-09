@@ -264,6 +264,32 @@ public static class FacetWords
     public static string BandWord(string tag, string token) => Band(tag, token);
 
     /// <summary>
+    /// What a facet value means, for the two the site coined, or null.
+    /// </summary>
+    /// <remarks>
+    /// The label is the word and nothing else — a filter row is not the place for a definition, and
+    /// the panel was ellipsis-truncating "dark — not reached in a month" anyway. This is what the
+    /// row shows on hover and says to a screen reader instead. Null for every value that is already
+    /// its own explanation.
+    /// </remarks>
+    public static string? Meaning(string tag, string key, FacetValue value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        if (!string.Equals(key, FacetKeys.Band, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        return value.Token switch
+        {
+            "quiet" => Messages.For(tag, "facet.band.quiet.meaning"),
+            "dark" => Messages.For(tag, "facet.band.dark.meaning"),
+            _ => null,
+        };
+    }
+
+    /// <summary>
     /// What a growth direction is called, from its token — shared by the panel's row and the
     /// listing's own arrow, so the two surfaces can never name the same computed direction two ways.
     /// </summary>
