@@ -844,3 +844,32 @@ mid-task starts reporting `MCP server "muindex" is not connected` and will not n
 on its own. This is expected, not a fault in the endpoint — reconnect the client (in Claude Code,
 `/mcp`) once the new containers report healthy. Do not run a long batch of MCP administration while
 PRs are landing.
+
+
+## Filtered-listing flood protection
+
+`deploy/traefik/incident-limits.yml` captures the September 2026 outage mitigation. Traefik's
+watched directory loads it automatically, including after container recreation or a host reboot.
+The router targets filtered `/games` requests and their locale-prefixed equivalents on
+`mu-index.com`; the ordinary game list, homepage, assets and other routes retain their existing routing.
+This is configuration for the production domain: another deployment must change the host matcher.
+
+The middleware runs in this order:
+
+- Per `CF-Connecting-IP`: 2 requests/second, burst 5.
+- Shared across the filtered-listing host: 15 requests/second, burst 30.
+- Shared concurrency: at most 20 requests in flight.
+
+Excess requests return HTTP 429. Filtered listings can therefore be throttled during a distributed
+flood even for ordinary visitors. The Cloudflare client header provides fairness, not authentication;
+the shared rate and concurrency caps still apply if a direct-origin caller spoofs that header.
+This route intentionally bypasses response compression to avoid concurrent compressor allocations.
+Traefik keeps `GOMEMLIMIT=96MiB` and a hard 512 MiB memory limit with no container swap.
+
+After merging, pull the repository in `/opt/muindex`; Watchtower does not update these files.
+Validate with `docker compose config --quiet`, then apply proxy changes with
+`docker compose up -d --no-deps traefik`. The dynamic file is watched, so middleware-only changes
+need no restart. Check the homepage and `/games` return 200, filtered requests appear under
+`mui-games-protection@file` in access logs, excess requests receive 429, and the proxy restart
+count remains stable. To roll back, restore the previous Compose overlay and remove the dynamic
+limits file, then reapply only the proxy service.
