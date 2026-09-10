@@ -1,0 +1,50 @@
+{
+  "http": {
+    "routers": {
+      "mui-games-protection": {
+        "rule": "Host(`mu-index.com`) && PathRegexp(`^/([a-z]{2}(-[A-Za-z]{2})?/)?games/?$`) && (QueryRegexp(`adult`, `.+`) || QueryRegexp(`band`, `.+`) || QueryRegexp(`charset`, `.+`) || QueryRegexp(`codebase`, `.+`) || QueryRegexp(`family`, `.+`) || QueryRegexp(`genre`, `.+`) || QueryRegexp(`language`, `.+`) || QueryRegexp(`lineage`, `.+`) || QueryRegexp(`seen`, `.+`) || QueryRegexp(`trending`, `.+`) || QueryRegexp(`uncounted`, `.+`) || QueryRegexp(`unreachable`, `.+`) || QueryRegexp(`version`, `.+`))",
+        "priority": 100,
+        "entryPoints": [
+          "websecure"
+        ],
+        "tls": {},
+        "service": "mui-web@docker",
+        "middlewares": [
+          "mui-games-client-rate",
+          "mui-games-rate",
+          "mui-games-inflight"
+        ]
+      }
+    },
+    "middlewares": {
+      "mui-games-rate": {
+        "rateLimit": {
+          "average": 15,
+          "period": "1s",
+          "burst": 30,
+          "sourceCriterion": {
+            "requestHost": true
+          }
+        }
+      },
+      "mui-games-inflight": {
+        "inFlightReq": {
+          "amount": 20,
+          "sourceCriterion": {
+            "requestHost": true
+          }
+        }
+      },
+      "mui-games-client-rate": {
+        "rateLimit": {
+          "average": 2,
+          "period": "1s",
+          "burst": 5,
+          "sourceCriterion": {
+            "requestHeaderName": "CF-Connecting-IP"
+          }
+        }
+      }
+    }
+  }
+}
