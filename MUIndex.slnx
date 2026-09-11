@@ -19,6 +19,7 @@
     <Project Path="tests/MUI.Web.Tests/MUI.Web.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
+    <Project Path="tools/MUI.Listing.Benchmarks/MUI.Listing.Benchmarks.csproj" />
     <Project Path="tools/MUI.Streaming.Prototype/MUI.Streaming.Prototype.csproj" />
   </Folder>
 </Solution>
