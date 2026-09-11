@@ -14,8 +14,12 @@
       2.14.0 stops firing the state machine for ordinary text, which is most of a connect screen.
       A probe of a 2.4 KB screen falls from 10.9 MB allocated to 3.1 MB. Churn, not retention: the
       live set was flat throughout, which is why nothing here ever measured a leak.
+
+      3.0.0 inflates a stream started with MCCP v1's marker, which both Children of the Night servers
+      send in answer to DO COMPRESS2; before it, everything after their connect screens, MSSP report
+      included, arrived as zlib read as text.
     -->
-    <PackageVersion Include="TelnetNegotiationCore" Version="2.17.0" />
+    <PackageVersion Include="TelnetNegotiationCore" Version="3.0.0" />
 
     <!-- Logging abstractions (TelnetNegotiationCore takes an ILogger). -->
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.2" />
