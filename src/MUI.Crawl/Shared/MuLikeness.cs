@@ -21,7 +21,7 @@ public static class MuLikeness
     /// <remarks>
     /// Generic telnet options (TTYPE, NAWS, CHARSET, NEW-ENVIRON, EOR, SUPPRESS GO AHEAD, ECHO) are
     /// deliberately excluded — every telnet daemon negotiates them, so admitting one would publish
-    /// any host that speaks telnet at all. MCCP2/MCCP3 fold into <c>mccp</c> (matching
+    /// any host that speaks telnet at all. MCCP1/MCCP2/MCCP3 fold into <c>mccp</c> (matching
     /// <c>CapabilityFields</c>) because the option is versioned and the capability is not; the alias
     /// is repeated rather than shared since <c>MUI.Crawl</c> deliberately has no reference to
     /// <c>MUI.Catalog</c>.
@@ -35,6 +35,7 @@ public static class MuLikeness
             ["MXP"] = "mxp",
             ["MSP"] = "msp",
             ["MCCP"] = "mccp",
+            ["MCCP1"] = "mccp",
             ["MCCP2"] = "mccp",
             ["MCCP3"] = "mccp",
             ["ATCP"] = "atcp",

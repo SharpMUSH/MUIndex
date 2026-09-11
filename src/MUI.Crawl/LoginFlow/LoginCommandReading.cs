@@ -59,6 +59,14 @@ public static partial class LoginCommandReading
         ["tbamud"] = "tbaMUD",
         ["rom"] = "ROM",
         ["merc"] = "Merc",
+
+        // The Merc → GodWars line's released codebases. Children of the Night declares both, one per
+        // version -- CODEBASE "Dystopia 1.4" at 176.9.151.147:7702 (5.0) and "Mindcloud3" at
+        // omen.genesismuds.com:2251 (4.5) -- and takes whatever reaches its name prompt as a character
+        // name, INFO included; knowing the words is what lets MsspSelfDescription stop typing at it.
+        // FamilyWord allows a digit after the word, so "mindcloud" matches "Mindcloud3".
+        ["dystopia"] = "Dystopia",
+        ["mindcloud"] = "Mindcloud",
     };
 
     /// <summary>

@@ -169,6 +169,7 @@ public class FieldRegistryTests
         // The handshake names the telnet option it negotiated, MSSP names the feature: MCCP2 against
         // MCCP, SSL against TLS. Left apart, each produces a half-empty row that reads as absence.
         await Assert.That(CapabilityFields.Canonical("MCCP2")).IsEqualTo("MCCP");
+        await Assert.That(CapabilityFields.Canonical("MCCP1")).IsEqualTo("MCCP");
         await Assert.That(CapabilityFields.Canonical("SSL")).IsEqualTo("TLS");
         await Assert.That(CapabilityFields.Canonical("ssl")).IsEqualTo("TLS");
 
