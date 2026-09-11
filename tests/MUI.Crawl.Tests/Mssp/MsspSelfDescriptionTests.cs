@@ -156,23 +156,27 @@ public class MsspSelfDescriptionTests
     }
 
     /// <summary>
-    /// Dystopia is an engine in the sense the gate means, and a game that says so is not typed at.
+    /// Dystopia and Mindcloud are engines in the sense the gate means, and a game that says so is not
+    /// typed at.
     /// </summary>
     /// <remarks>
-    /// Children of the Night (<c>176.9.151.147:7702</c>) publishes this report — abridged — and reads
-    /// whatever arrives at its name prompt as a character name: <c>INFO</c> came back as "Your sure
-    /// that you want INFO engraved on your tombstone (Y/N)?", with <c>VERSION</c> then taken as the
-    /// answer. Dystopia is the Merc → GodWars line's own codebase, released as such, in the same
-    /// sense <c>Merc</c> and <c>ROM</c> already on the list are; the report had already said
-    /// everything either command could.
+    /// Both Children of the Night servers publish these reports — abridged — and read whatever arrives
+    /// at their name prompt as a character name: <c>INFO</c> came back as "Your sure that you want INFO
+    /// engraved on your tombstone (Y/N)?", with <c>VERSION</c> then taken as the answer. 5.0, at
+    /// <c>176.9.151.147:7702</c>, declares <c>Dystopia 1.4</c>; 4.5, at
+    /// <c>omen.genesismuds.com:2251</c>, declares <c>Mindcloud3</c>. Both are the Merc → GodWars
+    /// line's own released codebases, in the same sense <c>Merc</c> and <c>ROM</c> already on the list
+    /// are; the report had already said everything either command could.
     /// </remarks>
     [Test]
-    public async Task ADystopiaGameThatNamedItselfIsNotAskedAgain()
+    [Arguments("Dystopia 1.4", "DikuMUD")]
+    [Arguments("Mindcloud3", "Diku")]
+    public async Task AGodWarsLineGameThatNamedItselfIsNotAskedAgain(string codebase, string family)
     {
         var report = Report(
             ("NAME", ["Children of the Night"]),
-            ("CODEBASE", ["Dystopia 1.4"]),
-            ("FAMILY", ["DikuMUD"]),
+            ("CODEBASE", [codebase]),
+            ("FAMILY", [family]),
             ("PLAYERS", ["0"]));
 
         await Assert.That(MsspSelfDescription.AnswersTheLoginCommands(report)).IsTrue();
