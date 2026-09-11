@@ -6,7 +6,7 @@
 # mui-crawl is not in here. It is the one-shot tool a person runs against a database on purpose, and
 # an image that shipped it would invite it into a container's entrypoint.
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:11.0.100-rc.1 AS build
 
 WORKDIR /src
 
@@ -43,13 +43,16 @@ RUN dotnet publish src/MUI.Web/MUI.Web.csproj -c Release --no-restore -o /app
 
 # No SDK past this line. The runtime image has the ASP.NET shared framework and nothing that can
 # compile, restore or reach a package feed.
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:11.0.0-rc.1 AS runtime
 
 WORKDIR /app
 
 COPY --from=build /app ./
 
-# InvariantGlobalization is on solution-wide, so no ICU is needed here.
+# InvariantGlobalization is *off* (Directory.Build.props): the translated pages resolve satellite
+# assemblies by culture, which needs ICU. The aspnet image ships it -- libicu 78 on the Ubuntu 26.04
+# base .NET 11 moved to -- so nothing is installed for it here. A chiseled base lacks it unless it
+# is the -extra variant, so check a German page still renders before switching to one.
 ENV ASPNETCORE_HTTP_PORTS=8080 \
     DOTNET_TieredPGO=1
 

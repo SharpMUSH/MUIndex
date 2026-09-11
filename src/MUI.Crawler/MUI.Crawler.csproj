@@ -30,15 +30,14 @@
   <ItemGroup>
     <PackageReference Include="Npgsql" />
     <PackageReference Include="Dapper" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
 
     <!--
       The crawler is an in-process BackgroundService in the web deployable (spec §4.11, §12), so it
       takes the hosting and DI *abstractions* and nothing else. A library that pulled in the hosting
-      implementation would be deciding how its host is built.
+      implementation would be deciding how its host is built. Since .NET 11 those abstractions, and
+      logging's, ship in Microsoft.NETCore.App itself, so there is no package to reference for them;
+      the rule is now kept by what is absent from this list.
     -->
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
 
     <!--
       The HttpClient factory, for AresCentral and nothing else. Never `new HttpClient()`: the factory

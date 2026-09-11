@@ -37,8 +37,8 @@ docker build -t muindex .
 docker run --rm -p 8080:8080 -e MUI_POSTGRES='Host=…;Database=muindex;Username=…;Password=…' muindex
 ```
 
-Multi-stage: the .NET 10 SDK builds and publishes, and the runtime layer is
-`mcr.microsoft.com/dotnet/aspnet:10.0` with no SDK, no package feed and nothing that can compile. It
+Multi-stage: the .NET 11 SDK builds and publishes, and the runtime layer is
+`mcr.microsoft.com/dotnet/aspnet:11.0.0-rc.1` with no SDK, no package feed and nothing that can compile. It
 runs as the base image's `app` user (UID 1654) and listens on **8080**.
 
 **The process writes nothing to disk** — every write goes to Postgres — so it runs happily with a

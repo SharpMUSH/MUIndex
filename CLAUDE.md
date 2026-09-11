@@ -230,9 +230,12 @@ weakest. The revisit trigger is written down in spec §4.13 — do not reopen it
 
 ## Building and testing
 
-- **.NET 10**. `TreatWarningsAsErrors` is `true` solution-wide, so a clean build is a real signal.
+- **.NET 11**, release candidate 1 until GA; `global.json` pins the exact SDK build
+  (`rollForward: disable`) and CI reads it from there. `TreatWarningsAsErrors` is `true`
+  solution-wide, so a clean build is a real signal.
 - **Tests are TUnit on Microsoft.Testing.Platform** (`Exe` projects). `dotnet test` does **not**
-  work — .NET 10 dropped VSTest. Run each suite directly, and keep the `</dev/null` so the test host
+  work: since the .NET 10 SDK its default VSTest mode refuses an MTP project, and this repository has
+  not opted into the MTP mode. Run each suite directly, and keep the `</dev/null` so the test host
   does not hang waiting on stdin.
 
 ```bash
@@ -240,10 +243,10 @@ dotnet build MUIndex.slnx -c Release
 dotnet run -c Release --no-build --project tests/MUI.Catalog.Tests </dev/null
 ```
 
-Five suites: Catalog, Crawl, Crawler, Discovery, Web. Add a new one to **both** `MUIndex.slnx` and
-`.github/workflows/ci.yml`, which runs each suite explicitly. Catalog and Crawler both want a real
-PostgreSQL, so CI's Linux leg sets `MUI_REQUIRE_POSTGRES` and a missing container runtime fails
-rather than skips.
+Six suites: Catalog, Crawl, Crawler, Discovery, I3, Web. Add a new one to **both** `MUIndex.slnx` and
+`.github/workflows/ci.yml`, which runs each suite explicitly. Catalog, Crawler and Web want a real
+PostgreSQL, so CI's Linux leg sets `MUI_REQUIRE_POSTGRES` for all three and a missing container
+runtime fails rather than skips.
 
 `mui-crawl` runs crawl cycles against a real database and prints what landed — the counterpart to
 `mui-probe`, which prints what one server said:
