@@ -69,13 +69,15 @@ are never persisted — `WHO` is parsed in memory and aggregates use salted, rot
 
 ## Build & test
 
-.NET 11 (release candidate 1, pinned in `global.json`), `TreatWarningsAsErrors` on.
+.NET 11 (release candidate 1, the exact SDK build pinned in `global.json`), `TreatWarningsAsErrors` on.
 
 ```bash
 dotnet build MUIndex.slnx -c Release
 ```
 
-`dotnet test` doesn't work — .NET dropped VSTest in 10 — so run each suite directly:
+`dotnet test` doesn't work here: since the .NET 10 SDK its default VSTest mode refuses a
+Microsoft.Testing.Platform project, and this repository doesn't opt into the MTP mode. Run each suite
+directly:
 
 ```bash
 dotnet run -c Release --no-build --project tests/MUI.Catalog.Tests    </dev/null

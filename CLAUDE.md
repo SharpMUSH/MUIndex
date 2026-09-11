@@ -230,10 +230,12 @@ weakest. The revisit trigger is written down in spec §4.13 — do not reopen it
 
 ## Building and testing
 
-- **.NET 11**, release candidate 1 until GA; `global.json` pins the SDK build and CI reads it from
-  there. `TreatWarningsAsErrors` is `true` solution-wide, so a clean build is a real signal.
+- **.NET 11**, release candidate 1 until GA; `global.json` pins the exact SDK build
+  (`rollForward: disable`) and CI reads it from there. `TreatWarningsAsErrors` is `true`
+  solution-wide, so a clean build is a real signal.
 - **Tests are TUnit on Microsoft.Testing.Platform** (`Exe` projects). `dotnet test` does **not**
-  work — .NET dropped VSTest in 10. Run each suite directly, and keep the `</dev/null` so the test host
+  work: since the .NET 10 SDK its default VSTest mode refuses an MTP project, and this repository has
+  not opted into the MTP mode. Run each suite directly, and keep the `</dev/null` so the test host
   does not hang waiting on stdin.
 
 ```bash

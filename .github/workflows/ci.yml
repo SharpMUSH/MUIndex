@@ -1,5 +1,9 @@
 name: CI
 
+# Read-only: nothing here writes to the repository, and a token that cannot write cannot be misused.
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
@@ -52,9 +56,10 @@ jobs:
       - name: Build
         run: dotnet build MUIndex.slnx -c Release --no-restore
 
-      # TUnit runs on Microsoft.Testing.Platform; execute each of the six test projects directly,
-      # because the classic `dotnet test`/VSTest path is not available since .NET 10.
-      # The Catalog and Crawler suites want a real PostgreSQL 17 through Testcontainers. On a laptop
+      # TUnit runs on Microsoft.Testing.Platform; execute each of the six test projects directly.
+      # Since the .NET 10 SDK, `dotnet test`'s default VSTest mode refuses an MTP project, and this
+      # repository has not opted into the MTP mode in global.json, so `dotnet run` is the convention.
+      # The Catalog, Crawler and Web suites want a real PostgreSQL 17 through Testcontainers. On a laptop
       # with no container runtime they skip by name, which is honest — but a silently skipped storage
       # suite in CI is a green build that tested no storage, so the Linux leg (where a Docker daemon
       # is present) demands one and fails if it cannot get it.
