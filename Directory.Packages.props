@@ -17,25 +17,13 @@
     -->
     <PackageVersion Include="TelnetNegotiationCore" Version="2.14.0" />
 
-    <!-- Logging abstractions (TelnetNegotiationCore takes an ILogger). -->
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.2" />
-
     <!--
-      The legacy code pages, for CHARSET overrides. .NET ships UTF-*, ASCII and Latin-1 and nothing
-      else: GBK, Big5, EUC-KR, Shift-JIS and the Windows code pages all raise ArgumentException from
-      Encoding.GetEncoding until CodePagesEncodingProvider is registered. Measured on .NET 10 — the
-      NU1510 this raises says the reference is likely unnecessary, and it is wrong.
+      No logging, hosting or DI *abstractions* here. The crawler is an in-process BackgroundService in
+      the web deployable (spec §4.11, §12), so it needs ILogger, BackgroundService and
+      IServiceCollection and nothing that decides how a host is built. Through .NET 10 that meant
+      three packages; .NET 11 ships all three in Microsoft.NETCore.App, and NU1510 (an error here)
+      now refuses a reference to any of them.
     -->
-    <PackageVersion Include="System.Text.Encoding.CodePages" Version="10.0.2" />
-
-    <!--
-      Hosting and DI *abstractions* only. The crawler is an in-process BackgroundService in the web
-      deployable (spec §4.11, §12), so it needs BackgroundService and IServiceCollection and nothing
-      that decides how a host is built; MUI.Import exposes AddMuiImporters for the same reason, so a
-      class library that reads other people's web pages gains no hosting dependency.
-    -->
-    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.2" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.2" />
 
     <!--
       The HttpClient factory, for the one standing HTTP source the crawler reads (AresCentral). Not a
@@ -43,7 +31,7 @@
       nothing about how a host is built, and it is what bounds a handler's lifetime — the constraint
       CLAUDE.md puts on every HttpClient in this tree.
     -->
-    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.2" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="11.0.0-rc.1.26425.128" />
 
     <!--
       Retry, for the confirming dial and nothing else (see DiscoveryOptions.ConfirmationAttempts).
@@ -57,7 +45,7 @@
       A console sink, for mui-crawl and nothing else. The site's own logging is the host's business;
       a one-shot command that writes a crawl cycle to a terminal needs somewhere for it to go.
     -->
-    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="10.0.2" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="11.0.0-rc.1.26425.128" />
   </ItemGroup>
 
   <ItemGroup>

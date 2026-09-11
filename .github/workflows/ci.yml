@@ -24,10 +24,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up .NET 10 SDK
+      # The SDK comes from global.json rather than a version typed here, so CI and a laptop resolve the
+      # same toolchain -- a release candidate's exact build, while .NET 11 is one.
+      - name: Set up .NET SDK
         uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
 
       # CI restores the whole solution, so it cannot notice a project the image's own restore layer
       # is missing — that only fails after merge, in the publish workflow, with production left on
@@ -50,8 +52,8 @@ jobs:
       - name: Build
         run: dotnet build MUIndex.slnx -c Release --no-restore
 
-      # TUnit runs on Microsoft.Testing.Platform; execute each of the five test projects directly,
-      # because the classic `dotnet test`/VSTest path is not available on .NET 10.
+      # TUnit runs on Microsoft.Testing.Platform; execute each of the six test projects directly,
+      # because the classic `dotnet test`/VSTest path is not available since .NET 10.
       # The Catalog and Crawler suites want a real PostgreSQL 17 through Testcontainers. On a laptop
       # with no container runtime they skip by name, which is honest — but a silently skipped storage
       # suite in CI is a green build that tested no storage, so the Linux leg (where a Docker daemon

@@ -69,13 +69,13 @@ are never persisted — `WHO` is parsed in memory and aggregates use salted, rot
 
 ## Build & test
 
-.NET 10, `TreatWarningsAsErrors` on.
+.NET 11 (release candidate 1, pinned in `global.json`), `TreatWarningsAsErrors` on.
 
 ```bash
 dotnet build MUIndex.slnx -c Release
 ```
 
-`dotnet test` doesn't work — .NET 10 dropped VSTest — so run each suite directly:
+`dotnet test` doesn't work — .NET dropped VSTest in 10 — so run each suite directly:
 
 ```bash
 dotnet run -c Release --no-build --project tests/MUI.Catalog.Tests    </dev/null

@@ -32,8 +32,10 @@ public static class WireEncoding
 
     static WireEncoding()
     {
-        // Required despite the NU1510 warning claiming otherwise: without this, GetEncoding throws
-        // ArgumentException for GBK, Big5, EUC-KR, Shift-JIS and the Windows code pages.
+        // The provider ships in the shared framework, but nothing registers it: without this call,
+        // GetEncoding throws ArgumentException for GBK, Big5, EUC-KR, Shift-JIS and the Windows code
+        // pages. The System.Text.Encoding.CodePages *package* is not needed for it -- NU1510 said so,
+        // and the GBK/Big5 cases in WireEncodingTests pass without it on .NET 11 -- the call is.
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
     }
 
