@@ -215,6 +215,22 @@ public class MuLikenessTests
         await Assert.That(MuLikeness.Signals(probe)).IsEquivalentTo(["mssp", "gmcp", "mccp", "who"]);
     }
 
+    /// <summary>
+    /// A stream started with MCCP v1's marker is MCCP, whichever marker announced it.
+    /// </summary>
+    /// <remarks>
+    /// <c>176.9.151.147:7702</c> answers <c>DO COMPRESS2</c> with v1's marker, and the probe records
+    /// the version the wire named. Unfolded, <c>MCCP1</c> would be a telnet option this list does not
+    /// know, and the one MU*-only signal the session carried would be dropped.
+    /// </remarks>
+    [Test]
+    public async Task AStreamAnnouncedWithTheV1MarkerIsStillMccp()
+    {
+        var probe = Probe(offered: ["MCCP1"]);
+
+        await Assert.That(MuLikeness.Signals(probe)).IsEquivalentTo(["mccp"]);
+    }
+
     private static ProbeResult Probe(
         MsspOutcome msspOutcome = MsspOutcome.NotOffered,
         string[]? offered = null,

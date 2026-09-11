@@ -962,6 +962,34 @@ public class ProbeSessionTests
     }
 
     /// <summary>
+    /// A server that answers <c>DO COMPRESS2</c> with MCCP v1's marker is still read.
+    /// </summary>
+    /// <remarks>
+    /// Children of the Night (<c>176.9.151.147:7702</c>) offers both versions, is told
+    /// <c>DONT COMPRESS</c> and <c>DO COMPRESS2</c>, and starts its stream behind
+    /// <c>IAC SB COMPRESS WILL SE</c> anyway. Before TelnetNegotiationCore 2.17.0 that marker was
+    /// skipped as an unknown subnegotiation and the zlib behind it reached the page as text: its
+    /// connect screen ended in a line of binary noise, and its MSSP report, sent inside the stream,
+    /// never arrived at all.
+    /// </remarks>
+    [Test]
+    public async Task AStreamStartedWithTheV1MarkerIsInflated()
+    {
+        await using var game = new Mccp1Game();
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+        await Assert.That(result.OfferedOptions).Contains("MCCP1");
+        await Assert.That(result.Negotiation.CompressionVersion).IsEqualTo(1);
+
+        // The report only exists inside the compressed stream, so reading it proves the inflation.
+        await Assert.That(result.MsspField("NAME")).IsEqualTo("Children of the Night");
+        await Assert.That(result.Banner).Contains("What name shall we carve into your forehead?");
+        await Assert.That(result.Banner).DoesNotContain("\uFFFD");
+    }
+
+    /// <summary>
     /// And the unterminated line survives compression too, which is what the newline was for.
     /// </summary>
     /// <remarks>
@@ -2419,6 +2447,108 @@ public class ProbeSessionTests
             {
             }
 
+            _stopping.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Children of the Night's handshake, byte for byte, from a raw socket.
+    /// </summary>
+    /// <remarks>
+    /// Hand-written rather than TelnetNegotiationCore in Server mode, because the library's server
+    /// only ever sends MCCP2's marker, and the shape under test is a server that does not: this one
+    /// offers <c>COMPRESS</c> and <c>COMPRESS2</c>, prints its connect screen in the clear, and on
+    /// <c>DO COMPRESS2</c> starts one zlib stream behind v1's <c>IAC SB COMPRESS WILL SE</c> — the
+    /// order and bytes captured off the live server on 2026-09-11. Its MSSP report goes inside the
+    /// stream, where the real one's does.
+    /// </remarks>
+    private sealed class Mccp1Game : IAsyncDisposable
+    {
+        private const byte Iac = 255, Will = 251, Do = 253, Sb = 250, Se = 240;
+        private const byte Compress = 85, Compress2 = 86, Mssp = 70, MsspVar = 1, MsspVal = 2;
+
+        private readonly TcpListener _listener = new(IPAddress.Loopback, 0);
+        private readonly CancellationTokenSource _stopping = new();
+        private readonly Task _serving;
+
+        public Mccp1Game()
+        {
+            _listener.Start();
+            _serving = ServeAsync();
+        }
+
+        public ProbeTarget Target => new(
+            IPAddress.Loopback.ToString(),
+            ((IPEndPoint)_listener.LocalEndpoint).Port);
+
+        private async Task ServeAsync()
+        {
+            try
+            {
+                using var client = await _listener.AcceptTcpClientAsync(_stopping.Token);
+                var stream = client.GetStream();
+
+                await stream.WriteAsync(Encoding.ASCII.GetBytes("\n\rAttempting to detect client, please wait...\r\n\r\n")
+                    .Concat(new[] { Iac, Will, Compress })
+                    .Concat(Encoding.ASCII.GetBytes(
+                        "::Children of the Night 4.5::\n\r\n\rWhat name shall we carve into your forehead? "))
+                    .Concat(new[] { Iac, Will, Mssp, Iac, Will, Compress2 })
+                    .ToArray(), _stopping.Token);
+
+                // Both answers, however the client splits them across writes.
+                var heard = new List<byte>();
+                var buffer = new byte[512];
+                while (!(Contains(heard, [Iac, Do, Compress2]) && Contains(heard, [Iac, Do, Mssp])))
+                {
+                    var read = await stream.ReadAsync(buffer, _stopping.Token);
+                    if (read == 0)
+                    {
+                        return;
+                    }
+
+                    heard.AddRange(buffer.AsSpan(0, read).ToArray());
+                }
+
+                await stream.WriteAsync(new byte[] { Iac, Sb, Compress, Will, Se }, _stopping.Token);
+
+                await using var deflate = new System.IO.Compression.ZLibStream(
+                    stream, System.IO.Compression.CompressionLevel.Optimal, leaveOpen: true);
+                deflate.Write([Iac, Sb, Mssp]);
+                foreach (var (variable, value) in new[] { ("NAME", "Children of the Night"), ("PLAYERS", "3") })
+                {
+                    deflate.Write([MsspVar, .. Encoding.ASCII.GetBytes(variable), MsspVal, .. Encoding.ASCII.GetBytes(value)]);
+                }
+
+                deflate.Write([Iac, Se]);
+                await deflate.FlushAsync(_stopping.Token);
+
+                // Hold the session open, reading and discarding, until the probe hangs up.
+                while (await stream.ReadAsync(buffer, _stopping.Token) > 0)
+                {
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (IOException)
+            {
+            }
+            catch (SocketException)
+            {
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+
+        private static bool Contains(List<byte> haystack, byte[] needle) =>
+            System.Runtime.InteropServices.CollectionsMarshal.AsSpan(haystack).IndexOf(needle) >= 0;
+
+        public async ValueTask DisposeAsync()
+        {
+            await _stopping.CancelAsync();
+            _listener.Stop();
+            await _serving;
             _stopping.Dispose();
         }
     }

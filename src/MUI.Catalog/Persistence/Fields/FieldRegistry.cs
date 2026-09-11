@@ -32,7 +32,9 @@ public static class CapabilityFields
     /// Two vocabularies name the same capability differently: the handshake negotiates the telnet
     /// option (<c>MCCP2</c>), MSSP's variable is the version-less <c>MCCP</c>. Without this alias
     /// each spelling gets its own row, and the point of holding measured beside declared — the
-    /// comparison — cannot happen across two rows.
+    /// comparison — cannot happen across two rows. <c>MCCP1</c> is the same stream announced with
+    /// v1's marker, observed at <c>176.9.151.147:7702</c> (Children of the Night), which starts it
+    /// that way in answer to our <c>DO COMPRESS2</c>.
     /// </para>
     /// <para>
     /// <c>SSL</c> is the same shape between two MSSP variables rather than two protocols: the spec
@@ -49,6 +51,7 @@ public static class CapabilityFields
     private static readonly IReadOnlyDictionary<string, string> Aliases =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
+            ["mccp1"] = "MCCP",
             ["mccp2"] = "MCCP",
             ["ssl"] = "TLS",
         };

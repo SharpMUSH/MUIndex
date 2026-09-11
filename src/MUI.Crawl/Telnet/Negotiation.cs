@@ -39,7 +39,10 @@ public sealed record Negotiation
     /// </remarks>
     public IReadOnlyList<string> McpPackages { get; init; } = [];
 
-    /// <summary>MCCP compression, and which version, when the server negotiated it.</summary>
+    /// <summary>
+    /// MCCP compression, and which version, when the server negotiated it. 1 is not a negotiated v1 —
+    /// the probe refuses that — but a server that answered <c>DO COMPRESS2</c> with v1's marker.
+    /// </summary>
     public int? CompressionVersion { get; init; }
 
     /// <summary>
