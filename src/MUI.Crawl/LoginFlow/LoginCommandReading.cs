@@ -59,6 +59,11 @@ public static partial class LoginCommandReading
         ["tbamud"] = "tbaMUD",
         ["rom"] = "ROM",
         ["merc"] = "Merc",
+
+        // The Merc → GodWars line's released codebase. Children of the Night (176.9.151.147:7702)
+        // declares CODEBASE "Dystopia 1.4" and takes whatever reaches its name prompt as a character
+        // name, INFO included; knowing the word is what lets MsspSelfDescription stop typing at it.
+        ["dystopia"] = "Dystopia",
     };
 
     /// <summary>

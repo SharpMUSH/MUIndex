@@ -155,6 +155,29 @@ public class MsspSelfDescriptionTests
         await Assert.That(MsspSelfDescription.AnswersTheLoginCommands(report)).IsTrue();
     }
 
+    /// <summary>
+    /// Dystopia is an engine in the sense the gate means, and a game that says so is not typed at.
+    /// </summary>
+    /// <remarks>
+    /// Children of the Night (<c>176.9.151.147:7702</c>) publishes this report — abridged — and reads
+    /// whatever arrives at its name prompt as a character name: <c>INFO</c> came back as "Your sure
+    /// that you want INFO engraved on your tombstone (Y/N)?", with <c>VERSION</c> then taken as the
+    /// answer. Dystopia is the Merc → GodWars line's own codebase, released as such, in the same
+    /// sense <c>Merc</c> and <c>ROM</c> already on the list are; the report had already said
+    /// everything either command could.
+    /// </remarks>
+    [Test]
+    public async Task ADystopiaGameThatNamedItselfIsNotAskedAgain()
+    {
+        var report = Report(
+            ("NAME", ["Children of the Night"]),
+            ("CODEBASE", ["Dystopia 1.4"]),
+            ("FAMILY", ["DikuMUD"]),
+            ("PLAYERS", ["0"]));
+
+        await Assert.That(MsspSelfDescription.AnswersTheLoginCommands(report)).IsTrue();
+    }
+
     [Test]
     public async Task AMudlibOutsideTheFamilyListLeavesTheQuestionsWorthAsking()
     {
