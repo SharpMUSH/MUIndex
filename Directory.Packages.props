@@ -19,7 +19,7 @@
       send in answer to DO COMPRESS2; before it, everything after their connect screens, MSSP report
       included, arrived as zlib read as text.
     -->
-    <PackageVersion Include="TelnetNegotiationCore" Version="3.0.0" />
+    <PackageVersion Include="TelnetNegotiationCore" Version="4.0.0" />
 
     <!--
       No logging, hosting or DI *abstractions* here. The crawler is an in-process BackgroundService in
