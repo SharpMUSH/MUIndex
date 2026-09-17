@@ -112,11 +112,14 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // ago — and `ProbeIngestor` reads a failure as unreachable, so returning one would
             // publish an outage that did not happen (rule 5).
             //
-            // The second clause is for a web server over TLS, where even a silent answer is the
-            // better record: answered-and-silent is truthful and harmless, and an HTML error
-            // document standing in for a game's connect screen is neither.
+            // The second and third clauses are the cases where even a silent answer is the better
+            // record. A web server's error document standing in for a connect screen is not one, and
+            // neither is a dial that failed when the other door plainly opened — the difference
+            // between a game reading as reachable-and-quiet and reading as dark.
             if (other.Result.Outcome is ProbeOutcome.Answered
-                && (Useful(other) || SpeaksHttpOverTls(session)))
+                && (Useful(other)
+                    || SpeaksHttpOverTls(session)
+                    || session.Result.Outcome is ProbeOutcome.Failed))
             {
                 return other.Result;
             }
@@ -161,6 +164,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         { Heard: true } => true,
         { Result.Outcome: ProbeOutcome.Answered } => false,
         { Result.Failure.Cause: DialFailureCause.Tls } => false,
+        { HandshakeIncomplete: true } => false,
 
         // Refused, no route, DNS, a budget spent: the far end never got as far as a conversation, so
         // there is no second question the other transport could answer.
@@ -199,7 +203,22 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// once the result is built. It exists because "nothing arrived" is the only question a second
     /// dial may be asked on — see <see cref="ProbeAsync"/>.
     /// </remarks>
-    private readonly record struct Session(ProbeResult Result, bool Heard);
+    private readonly record struct Session(ProbeResult Result, bool Heard)
+    {
+        /// <summary>
+        /// Whether this session died before its TLS handshake finished.
+        /// </summary>
+        /// <remarks>
+        /// Carried separately because the cause the far end earns for it is not the one the retry
+        /// needs. A handshake that hangs — a plaintext server that waits to be spoken to first never
+        /// answers a ClientHello — spends the probe budget and classifies as <c>Timeout</c>, which
+        /// everywhere else means "the far end never got as far as a conversation" and so implies
+        /// there is nothing left to ask. Here the conversation that failed *is* the handshake, which
+        /// is the one thing the other transport does not need. The published cause is untouched;
+        /// this only decides whether a second question is worth asking.
+        /// </remarks>
+        public bool HandshakeIncomplete { get; init; }
+    }
 
     private async Task<Session> SessionAsync(
         ProbeTarget target,
@@ -224,6 +243,9 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         // interpreter reading through it and is torn down after that interpreter, never under it.
         SslStream? tunnel = null;
 
+        // Whether the tunnel above ever finished being built. See Session.HandshakeIncomplete.
+        var handshaken = transport is not ProbeTransport.Tls;
+
         bool Heard()
         {
             lock (lines)
@@ -244,6 +266,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             if (transport is ProbeTransport.Tls)
             {
                 tunnel = await HandshakeAsync(client, target, budget.Token);
+                handshaken = true;
             }
 
             var prompts = new PromptSink(lines);
@@ -407,7 +430,10 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                     Transport = transport,
                     Elapsed = Stopwatch.GetElapsedTime(started),
                 },
-                Heard());
+                Heard())
+            {
+                HandshakeIncomplete = !handshaken,
+            };
         }
         finally
         {

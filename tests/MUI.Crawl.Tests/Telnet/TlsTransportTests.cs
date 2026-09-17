@@ -230,6 +230,45 @@ public class TlsTransportTests
     }
 
     /// <summary>
+    /// A handshake that hangs is a handshake that did not happen, and still gets the second dial.
+    /// </summary>
+    /// <remarks>
+    /// The stale-flag case again, by the one route that used to escape it. A port that answers a
+    /// ClientHello with a TLS <em>alert</em> fails fast and is retried; a port that answers it with
+    /// nothing at all leaves the handshake hanging until the probe budget expires, which classifies
+    /// as <c>Timeout</c> — and a timeout means "the far end never got as far as a conversation", so
+    /// <see cref="ProbeOutcome"/> aside there was no second question to ask and the retry was
+    /// skipped. Wrong here, because the conversation the timeout describes is the handshake, which
+    /// is exactly the thing the other transport does not need.
+    /// </remarks>
+    [Test]
+    public async Task AHandshakeThatHangsIsStillRetriedInTheClear()
+    {
+        await using var game = new TlsGame
+        {
+            // Never speaks and never handshakes: the shape of a plaintext server that waits to be
+            // spoken to first, sitting at an address something once measured as TLS.
+            Silent = true,
+        };
+
+        // Long enough for the second session to run its phases out against a server that never
+        // speaks, since that budget is what ends it; the first session spends the whole of it
+        // waiting on a ServerHello that is not coming, which is the point.
+        var brief = Fast() with { Timeout = TimeSpan.FromSeconds(6) };
+
+        var result = await new TelnetProbe(brief).ProbeAsync(game.Target with { UseTls = true });
+
+        await Assert.That(game.Fault?.ToString() ?? "none").IsEqualTo("none");
+        await Assert.That(game.Connections).IsEqualTo(2);
+
+        // And the answer is the dial that answered. A socket that accepted and said nothing is a
+        // truer record than a handshake timeout, and it is the difference between a game reading as
+        // reachable-and-quiet and reading as dark.
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+        await Assert.That(result.Transport).IsEqualTo(ProbeTransport.Telnet);
+    }
+
+    /// <summary>
     /// A server listening for TLS, which is indistinguishable from a mute one until we try.
     /// </summary>
     /// <remarks>
@@ -281,6 +320,17 @@ public class TlsTransportTests
         /// deterministic: the probe's fallback dial cannot arrive before the listener is down.
         /// </remarks>
         public bool ClosesListenerAfterFirstConnection { get; init; }
+
+        /// <summary>
+        /// Whether this server accepts a connection and then does nothing whatever with it — no
+        /// handshake, no banner, no reply.
+        /// </summary>
+        /// <remarks>
+        /// A real shape, and the one that hangs a handshake rather than refusing it: a server that
+        /// waits to be spoken to first never answers a ClientHello, so <c>SslStream</c> sits there
+        /// until the probe's own budget ends it.
+        /// </remarks>
+        public bool Silent { get; init; }
 
         public ProbeTarget Target => new(
             IPAddress.Loopback.ToString(),
@@ -382,6 +432,14 @@ public class TlsTransportTests
             {
                 using (client)
                 {
+                    if (Silent)
+                    {
+                        // Held open rather than closed: a closed socket is a different measurement
+                        // (the far end hung up) and would be retried for a different reason.
+                        await Task.Delay(Timeout.Infinite, _stopping.Token);
+                        return;
+                    }
+
                     Stream transport = client.GetStream();
 
                     if (Tls)
