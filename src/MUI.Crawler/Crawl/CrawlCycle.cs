@@ -234,6 +234,12 @@ public sealed class CrawlCycle(
                 Charset = target.Charset,
                 MsspCharset = target.MsspCharset,
 
+                // Whether §7.8 is still ahead of this game, which is the only thing that makes a
+                // pre-login WHO worth typing at a server that negotiates nothing. The crawl loop is
+                // the only caller that can answer it — the probe has no catalogue — and every other
+                // caller keeps the cautious default of asking.
+                AwaitingCorroboration = target.AwaitingCorroboration,
+
                 // The addresses the guard just vetted, so the dial reaches what was ruled on and the
                 // name is resolved once rather than twice.
                 Addresses = decision.Addresses,

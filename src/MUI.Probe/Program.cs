@@ -2,16 +2,26 @@ using MUI.Crawl;
 
 // One probe, printed: point it at a host and see exactly what an anonymous connection gets told.
 // Never authenticates — TelnetProbe.PermittedCommands is the whole of what goes on the wire.
-var host = args.Length > 0 ? args[0] : "mush.pennmush.org";
-var port = args.Length > 1 && int.TryParse(args[1], out var p) ? p : 4201;
+
+// Whether to probe this address as one the catalogue already lists, which is the crawl loop's
+// ordinary case and decides whether a count stated on the connect screen is allowed to stand in for
+// a pre-login WHO (ProbeTarget.AwaitingCorroboration). Off by default because this tool has no
+// catalogue to ask, and a caller that cannot answer keeps the probe asking.
+var listed = args.Contains("--listed", StringComparer.Ordinal);
+
+// Flags are pulled out first so they can be written anywhere without displacing a positional.
+var positional = args.Where(a => !a.StartsWith("--", StringComparison.Ordinal)).ToArray();
+
+var host = positional.Length > 0 ? positional[0] : "mush.pennmush.org";
+var port = positional.Length > 1 && int.TryParse(positional[1], out var p) ? p : 4201;
 
 // The third argument is the CHARSET override a staff row would carry, so the encoding a game needs
 // can be tried against the real server before anybody writes it down. Names are .NET's:
 // gbk, big5, euc-kr, iso-8859-1. Anything this runtime does not know is ignored, not fatal.
-var charset = args.Length > 2 ? args[2] : null;
+var charset = positional.Length > 2 ? positional[2] : null;
 
 // The operator's CHARSET-MSSP, for a game whose report is not in its screen's encoding.
-var msspCharset = args.Length > 3 ? args[3] : null;
+var msspCharset = positional.Length > 3 ? positional[3] : null;
 
 // §11: the same contact address the deployable announces, so a probe run by hand still identifies us.
 var options = Environment.GetEnvironmentVariable("MUI_CRAWL_INFO_URL") is { Length: > 0 } contact
@@ -20,7 +30,12 @@ var options = Environment.GetEnvironmentVariable("MUI_CRAWL_INFO_URL") is { Leng
 
 options.Validate();
 
-var result = await new TelnetProbe(options).ProbeAsync(new ProbeTarget(host, port) { Charset = charset, MsspCharset = msspCharset });
+var result = await new TelnetProbe(options).ProbeAsync(new ProbeTarget(host, port)
+{
+    Charset = charset,
+    MsspCharset = msspCharset,
+    AwaitingCorroboration = !listed,
+});
 
 Console.WriteLine($"target        {result.Host}:{result.Port}");
 Console.WriteLine($"outcome       {result.Outcome}");
@@ -56,7 +71,14 @@ Console.WriteLine($"banner        {result.Banner?.Length ?? 0} chars"
 
 if (result.BannerPlayerCount is { } fromBanner)
 {
-    Console.WriteLine($"banner count  {fromBanner} (stated in the connect screen)");
+    // Two different facts arrive on this property: a count read off the screen, and the count that
+    // bought a skipped WHO when the screen stated none (TelnetProbe.PublishedCountAsync). Printing
+    // the second as "stated in the connect screen" reads an MSSP figure back as somebody's banner —
+    // which is the diagnostic this tool exists to make legible, so it has to say which it has.
+    Console.WriteLine($"banner count  {fromBanner} "
+        + (BannerCount.Find(result.Banner) is not null
+            ? "(stated in the connect screen)"
+            : "(already published when WHO came up, so WHO was not asked)"));
 }
 
 Console.WriteLine($"charset       {result.Negotiation.Charset ?? "(unset)"}{(result.Negotiation.CharsetNegotiated ? " (negotiated)" : " (default)")}");

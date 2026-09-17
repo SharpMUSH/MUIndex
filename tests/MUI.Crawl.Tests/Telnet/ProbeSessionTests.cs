@@ -893,10 +893,11 @@ public class ProbeSessionTests
     /// server that negotiates nothing and publishes no MSSP, a parseable <c>WHO</c> is its one
     /// protocol-tier signal. Talking ourselves out of asking on the strength of a number
     /// pattern-matched from ASCII art would cost such a game its listing — so the banner rung buys
-    /// silence only where the session has already shown a MU* protocol.
+    /// silence only where the session has already shown a MU* protocol, or where §7.8 is behind this
+    /// game and the signals nothing reads any more (the test below).
     /// </remarks>
     [Test]
-    public async Task AScreenCountAloneDoesNotBuySilenceFromAServerThatNegotiatedNothing()
+    public async Task AScreenCountAloneDoesNotBuySilenceFromAnUncorroboratedServerThatNegotiatedNothing()
     {
         await using var game = new FakeGame
         {
@@ -904,6 +905,9 @@ public class ProbeSessionTests
             BannerTail = "Who art thou: ",
             WhoReply = "Player Name        On For Idle\r\n7 Players logged in, 22 record, no maximum.\r\n",
         };
+
+        // The default, spelled out: a caller that does not know keeps the probe asking.
+        await Assert.That(game.Target.AwaitingCorroboration).IsTrue();
 
         var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
 
@@ -913,6 +917,56 @@ public class ProbeSessionTests
 
         await Assert.That(game.Received.Select(line => line.Trim())).Contains(TelnetProbe.WhoCommand);
         await Assert.That(result.Who.Count).IsEqualTo(7);
+    }
+
+    /// <summary>
+    /// Once §7.8 is behind a game, its screen count buys the same silence MSSP does — even from a
+    /// server that negotiates nothing at all.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The gate above guards a submission's listing, and that risk ends: <c>MuLikeness</c> has one
+    /// consumer, <c>CatalogueBinder.CorroborateAsync</c>, and it returns early for every game that is
+    /// not an uncorroborated submission. Afterwards a <c>WHO</c> typed to produce a signal produces
+    /// one nothing reads.
+    /// </para>
+    /// <para>
+    /// Measured at <c>fs.twkang.net:5555</c> (狂想空間) and three siblings — all negotiating nothing,
+    /// all publishing no MSSP, all stating their count on the connect screen, and all reading the
+    /// word <c>WHO</c> as a character name. This fixture is the same screen in the same shape.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task AListedGamesScreenCountBuysSilenceEvenWithNoNegotiationAtAll()
+    {
+        // Written through the bytes, because FakeGame puts a fixture on the wire as Latin-1 and this
+        // screen is UTF-8 — which is also what makes the probe's strict decoder accept it.
+        static string OnTheWire(string text) => Encoding.Latin1.GetString(Encoding.UTF8.GetBytes(text));
+
+        await using var game = new FakeGame
+        {
+            Banner = OnTheWire(
+                "\u72C2\u60F3\u7A7A\u9593\r\n"
+                + "\u4ECA\u65E5\u4E0A\u7DDA\u4EBA\u6B21: 2, \u672C\u9031\u4E0A\u7DDA\u4EBA\u6B21: 11, "
+                + "\u7DDA\u4E0A 12, \u4EE5\u53CA 1 \u4F4D\u4F7F\u7528\u8005\u9023\u7DDA\u4E2D\u3002\r\n"),
+            BannerTail = OnTheWire(
+                "\u8ACB\u8F38\u5165\u60A8\u7684\u82F1\u6587\u540D\u5B57\u6216\u4EE5(guest)"
+                + "\u5E33\u865F\u53C3\u89C0: "),
+            WhoReply = "Player Name        On For Idle\r\n7 Players logged in, 22 record, no maximum.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast())
+            .ProbeAsync(game.Target with { AwaitingCorroboration = false });
+
+        await Assert.That(result.OfferedOptions).IsEmpty();
+
+        await Assert.That(game.Received.Select(line => line.Trim())).DoesNotContain(TelnetProbe.WhoCommand);
+        await Assert.That(result.Who.Attempted).IsFalse();
+
+        // Not asking implies publishing, here as everywhere else: the count that bought the silence
+        // is the count that reaches the record, so nothing downstream can write our restraint down as
+        // the game answering no pre-login WHO.
+        await Assert.That(result.BannerPlayerCount).IsEqualTo(12);
     }
 
     /// <summary>

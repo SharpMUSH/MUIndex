@@ -415,12 +415,67 @@ who can help`).
 - **Still not read, and left that way on purpose:** counts spelled in Chinese numerals
   (`112.124.8.59:6666`'s "二百一十八位玩家"), game-specific nouns with no general meaning
   (`lostsouls.org:23`'s "atmai"), and counts split across roles where neither clause states a total.
+  The first of those is still the rule after the 2026-09-17 sweep below; the second and third are
+  not, for Chinese — a screen that splits its figures across roles is now the *normal* Chinese shape
+  and is read.
 
 - **A paginated `WHO` roster must never be row-counted.** `batmud.bat.org:23` answers its menu with a
   roster carrying no total and a pager — `More (18%) [qpbns?]`. Counting the rows we can see would
   publish 24 of roughly 130 as a measurement. `WhoParser` returns `Unknown` for it, which is rule 4
   working, not a gap to close: an unreadable count is honest, a truncated one is a fabrication that
   looks exactly like a real number.
+
+### Chinese connect-screen counts, 2026-09-17
+
+All 904 stored connect screens were swept again, this time against every decoding an operator's
+`CHARSET` override could produce (as stored, `cp950`, `gb18030`). **Thirty-three carry Chinese player
+vocabulary and twenty-one state a count.** `ChineseCount` reads twenty of them; the twenty-first is
+refused, correctly, for stating two different figures. Nothing in the other 883 screens matches.
+
+The dominant shape is one sentence carrying three figures, which is why this reader works clause by
+clause and binds a number to its noun rather than disqualifying a line the way the English reader
+does — there is no line to disqualify:
+
+```
+目前共有 0 位巫師、83 位玩家在線上，以及 1 位使用者嘗試連線中。
+        0 wizards      83 players online    1 user still at the login screen
+```
+
+Bound to 玩家 and to nothing else, so 巫師/巫师 (wizards), 管理者 (admins), 使用者/用戶 (users
+connecting) and 角色 (characters ever created, `mud.revivalworld.org:4000`) need no exclusion list.
+A clause naming 上限 (a cap), 最高/紀錄 (a record), 人次 (cumulative logins), 今日/本週 (today, this
+week) or 您所在 (the address *you* are at) states something other than the population now and offers
+no candidate at all. `fs.twkang.net:5555` states no player noun anywhere — `線上 2` — so the bare
+connectivity form is read too, exactly as `lusternia.com:5000`'s "Currently On-Line: 12" is in
+English; spaces and a colon are the only separators it admits, because
+`mud.revivalworld.org:4000`'s "共計 4 人正在線上，1 人正在登入" would otherwise read as one.
+
+**Six games that had no count at all now have one** — `210.59.236.38:7788` (67), `fss.twcos.com:5000`
+(18), `us.muds.net:4000` (32), `210.59.236.38:7000` (9), `es.clovers.tw:8000` (93),
+`202.103.21.247:8888` (34) — plus `fs.twkang.net:5555` (2) once its `CHARSET` override was set.
+Fourteen more gain a *measured* screen count beside their *declared* MSSP one, and two of those
+disagree loudly: `jy.mud.com.tw:6666` declares 44 and states 83, `17mud` declares 205 and states 307.
+That disagreement is the point of keeping both.
+
+**Not read, and the reasons are the ones already on the record above.** Chinese numerals
+(`mudbest`'s "共有 二百八十八 位玩家连线中", `mud.csie.org:3838`'s "六十二人") stay unread.
+`kk.muds.idv.tw:4000`'s "目前線上共有 435 位英雄豪傑" — heroes, its own word for its players — is
+game-specific vocabulary, the same call as lostsouls' "atmai". `it.muds.net:7000`'s counter has
+overflowed in both directions (2147483647 and -2147483648) and is refused by the plausibility rule
+rather than by anything about the language.
+
+**A Big5 or GBK screen reads as none of this until an operator sets `CHARSET`.** `WireEncoding` will
+not guess between two legacy encodings (rule 5), so these screens sit in the Latin-1 fallback and
+match nothing — which is the correct order of operations, not a gap: the override is the measurement
+of what the bytes are, and this reader is what they say.
+
+**`WHO` at this family.** All four of `fs.twkang.net:5555`, `210.59.236.38:7788`, `es.clovers.tw:8000`
+and `us.muds.net:4000` answer `negotiated (none observed)`, `mssp NotOffered`, and
+`who Unknown — asked, unreadable` — they read the word `WHO` as a character name. At `fs` the full
+chain is `WHO` → *好吧﹐那麼請重新輸入您的英文名字﹕* → `INFO` → the same → `VERSION` →
+*使用 version 這個名字將會創造一個新的人物﹐您確定嗎(y/n)﹖*. `ProbeTarget.AwaitingCorroboration`
+stops the `WHO`, on the argument that §7.8's signals are read by exactly one caller and only for an
+uncorroborated submission. `INFO` and `VERSION` are not stopped — see issue #182.
 
 ### Verified against live servers, 2026-08-20
 

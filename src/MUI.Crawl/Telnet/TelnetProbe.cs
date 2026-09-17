@@ -563,11 +563,25 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// rather than its replacement, and a screen the final decode reads better is still read better.
     /// </para>
     /// <para>
-    /// The banner half additionally requires the session to have shown a protocol signal. A game whose
-    /// only evidence of being a game is a parseable <c>WHO</c> (<c>MuLikeness</c>, <c>§7.8</c>) would
+    /// The banner half additionally requires the session to have shown a protocol signal, <em>or</em>
+    /// this game to be past §7.8 already (<see cref="ProbeTarget.AwaitingCorroboration"/>). A game
+    /// whose only evidence of being a game is a parseable <c>WHO</c> (<c>MuLikeness</c>) would
     /// otherwise be talked out of the one answer that gets it listed, on the strength of a number
     /// pattern-matched out of somebody's ASCII art. MSSP carries no such risk: a report *is* the
     /// signal.
+    /// </para>
+    /// <para>
+    /// The second way out of that gate is not a softening of it, because the risk it guards has an
+    /// end: <c>MuLikeness</c> has exactly one consumer, <c>CatalogueBinder.CorroborateAsync</c>, and
+    /// that one returns early unless the game is <c>{ SubmittedAt: not null, CorroboratedAt: null }</c>.
+    /// Once a game is listed, nothing reads those signals ever again, so a <c>WHO</c> typed to produce
+    /// one is a command at somebody's login prompt for nothing — which is not a figure of speech at
+    /// the family this was measured against. <c>fs.twkang.net:5555</c> and its siblings negotiate
+    /// nothing, publish no MSSP, state their count on the screen in Chinese, and read every line we
+    /// send as a character name: <c>WHO</c> comes back <em>請重新輸入您的英文名字</em> ("re-enter your
+    /// English name"), reproducibly, on every crawl. See <c>ChineseCount</c> for the reading that
+    /// makes the screen answer, and issue #182 for <c>INFO</c> and <c>VERSION</c>, which are still
+    /// typed at the same prompt.
     /// </para>
     /// </remarks>
     private async Task<int?> PublishedCountAsync(
@@ -604,7 +618,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             return declared.Count;
         }
 
-        if (seen.Supported.Count == 0)
+        if (seen.Supported.Count == 0 && target.AwaitingCorroboration)
         {
             return null;
         }
