@@ -107,6 +107,25 @@ public sealed record CrawlTarget
     /// </para>
     /// </remarks>
     public DateTimeOffset? SubmittedAt { get; init; }
+
+    /// <summary>
+    /// Whether the game behind this address is a submission §7.8 has not corroborated yet — or there
+    /// is no game behind it at all.
+    /// </summary>
+    /// <remarks>
+    /// <b>Defaults to true</b>, and that direction is the load-bearing half: a target constructed
+    /// without knowing keeps the probe typing <c>WHO</c>, which is the behaviour that costs nothing
+    /// but noise. It is read for one purpose — <see cref="ProbeTarget.AwaitingCorroboration"/>, where
+    /// it decides whether a count a game states on its own connect screen is allowed to buy the same
+    /// silence an MSSP report buys.
+    /// <para>
+    /// Not <see cref="SubmittedAt"/> under another name. That one is the target's own column and says
+    /// how this address arrived; this is a fact about the game, loaded with the row the way
+    /// <see cref="Charset"/> is, and it is false for the overwhelming majority of targets — including
+    /// every game we found ourselves, which was never a submission and so was never waiting on one.
+    /// </para>
+    /// </remarks>
+    public bool AwaitingCorroboration { get; init; } = true;
 }
 
 /// <summary>

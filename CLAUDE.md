@@ -68,9 +68,19 @@ our host is unreachable and perfectly alive.
   it shares `MsspPresence` with `PresenceChoice` so the count that buys the silence is the same
   count that gets published: **not asking must imply publishing**, or the probe reaches
   `who_not_offered` and writes our own restraint down as *the game answers no pre-login WHO* (rule
-  5). The screen rung additionally needs a protocol signal in the session — for a server that
-  negotiates nothing, a parseable `WHO` is its only §7.8 evidence of being a game at all, and
-  talking ourselves out of asking would cost it its listing.
+  5). The screen rung additionally needs a protocol signal in the session **or a game that is past
+  §7.8** (`ProbeTarget.AwaitingCorroboration`) — for a server that negotiates nothing, a parseable
+  `WHO` is its only §7.8 evidence of being a game at all, and talking ourselves out of asking would
+  cost a *submission* its listing. Only a submission: `MuLikeness` has exactly one consumer,
+  `CatalogueBinder.CorroborateAsync`, and that one returns early unless the game is
+  `{ SubmittedAt: not null, CorroboratedAt: null }`. Once a game is listed nothing reads those
+  signals again, so a `WHO` typed to produce one is a command at a stranger's login prompt for
+  nothing. Measured at `fs.twkang.net:5555` and three siblings — they negotiate nothing, publish no
+  MSSP, state their count on screen in Chinese, and read `WHO` as a character name
+  (*請重新輸入您的英文名字*), reproducibly, every crawl. The flag defaults to `true` everywhere, so a
+  caller that cannot answer keeps asking; only the crawl loop, which has the catalogue, ever sets it.
+  `ChineseCount` is what makes those screens answer — it reads the count clause by clause and binds
+  a number to 玩家 rather than to the wizards and the people still at the login prompt beside it.
 - **Type `INFO` or `VERSION` at a game whose report already names it and its engine.** Same
   principle as `WHO`, and the same complaint: at `playdecay.com:3003` the old probe had `WHO` taken
   as a character name, was asked for a password, and sent `INFO` as the password — *Wrong password*
@@ -79,7 +89,10 @@ our host is unreachable and perfectly alive.
   and a count. The engine clause is load-bearing and was measured — without it, two games lose the
   only reading that says what they run (`northern-crossroads-ncmud` declares `NC-7.0.357.7940b961`,
   `primal-darkness-ii` declares `PD/NM III`). `FAMILY` may **not** stand in for it: both of those
-  games declare one.
+  games declare one. **`INFO` and `VERSION` have no `AwaitingCorroboration` escape and are still
+  typed at the family above, every crawl** — issue #182 is where that is being thought about, and it
+  is not the same problem: there is nothing they would publish, so "not asking must imply publishing"
+  has nothing to hold on to.
 - **Read a roster as a total, or fold it into `mssp`.** `MsspCountKind.Roster` is a **floor**:
   `tdome.nukefire.org:4000` states `PLAYERS = 70` and names sixty-nine, stably, because every
   codebase has someone it does not show. It gets its own `mssp_roster` source so a reader can tell

@@ -57,14 +57,27 @@ public static partial class BannerCount
     /// Every count this screen states about itself, in either of the two ways a screen states one.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// A connect screen states a count either as a label (<c>Players Currently Online: 218</c>) or as
     /// a sentence (<c>There are 41 players and 3 immortals online.</c>). The sentence form reuses
     /// <see cref="WhoParser.TryStatedCount"/> rather than reimplementing it, since a server writes the
     /// same sentence wherever it prints it — including its ceiling rule that keeps <c>11 out of 200</c>
     /// from reading as 200.
+    /// </para>
+    /// <para>
+    /// A Chinese screen states one a third way, which <see cref="ChineseCount"/> reads — and reads
+    /// clause by clause rather than line by line, for reasons that are about the language rather than
+    /// about this reader. Its candidates land in the same stream as the others, so the ceiling and
+    /// the two-disagreeing-figures refusal below apply to them unchanged.
+    /// </para>
     /// </remarks>
     private static IEnumerable<int> Candidates(string text)
     {
+        foreach (var chinese in ChineseCount.In(text))
+        {
+            yield return chinese;
+        }
+
         foreach (var line in text.Split('\n'))
         {
             // A line that names a staff role and no player noun is counting somebody this project

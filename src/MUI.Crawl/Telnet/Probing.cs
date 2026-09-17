@@ -37,6 +37,32 @@ public sealed record ProbeTarget(string Host, int Port)
     /// </remarks>
     public string? MsspCharset { get; init; }
 
+    /// <summary>
+    /// Whether this address still has to prove it is a game at all — a submission §7.8 has not yet
+    /// corroborated.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The one thing <c>WHO</c> is worth typing at a server that negotiates nothing and publishes no
+    /// MSSP: for such a host a parseable <c>WHO</c> is its only protocol-tier <see cref="MuLikeness"/>
+    /// signal, and without one a submitted game is never listed. See
+    /// <c>TelnetProbe.PublishedCountAsync</c>, which is the only reader.
+    /// </para>
+    /// <para>
+    /// Defaults to <c>true</c>, which is the cautious value: a caller that does not know keeps the
+    /// probe asking. Only the crawl loop knows the answer, because only it has the catalogue — and
+    /// the answer is narrow, because <see cref="MuLikeness"/> has exactly one consumer
+    /// (<c>CatalogueBinder.CorroborateAsync</c>) and that one returns early for every game that is
+    /// not an uncorroborated submission. For all the rest, typing <c>WHO</c> at a login prompt every
+    /// thirty minutes re-proves a fact nothing reads.
+    /// </para>
+    /// <para>
+    /// Rides on the target rather than <see cref="ProbeOptions"/> for the same reason
+    /// <see cref="Charset"/> does: it is a fact about one game, not about the crawl.
+    /// </para>
+    /// </remarks>
+    public bool AwaitingCorroboration { get; init; } = true;
+
     public override string ToString() => Host.Contains(':') ? $"[{Host}]:{Port}" : $"{Host}:{Port}";
 }
 

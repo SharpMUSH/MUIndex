@@ -21,12 +21,20 @@ namespace MUI.Crawler.Persistence;
 public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICrawlTargetRepository
 {
     /// <remarks>
-    /// The charset override is read here, with the target, rather than by the probe — which has no
-    /// database and must not grow one (§6.5). A subquery rather than a column on <c>crawl_target</c>,
-    /// since it's not a fact about an address; it belongs to the game and is keyed
-    /// <c>(game, field, source)</c> like every other staff assertion. <c>source = 'staff'</c> exactly,
+    /// The charset override and the §7.8 corroboration state are read here, with the target, rather
+    /// than by the probe — which has no database and must not grow one (§6.5). A subquery rather
+    /// than a column on <c>crawl_target</c>, since neither is a fact about an address; the charset
+    /// belongs to the game and is keyed <c>(game, field, source)</c> like every other staff
+    /// assertion. <c>source = 'staff'</c> exactly,
     /// never the precedence winner: an override is a decision somebody made, not a value the server
     /// itself declared (which we already know can be wrong).
+    /// <para>
+    /// <c>AwaitingCorroboration</c> is the same shape for the same reason, and answers exactly the
+    /// question <c>CatalogueBinder.CorroborateAsync</c> asks before it reads a probe's
+    /// <c>MuLikeness</c> signals — so the probe can stop typing <c>WHO</c> to produce signals that
+    /// nothing will ever look at. Null for a target no game is bound to yet, which reads as
+    /// <em>still to prove itself</em>.
+    /// </para>
     /// </remarks>
     private const string Columns = """
         id AS Id, game_id AS GameId, host AS Host, port AS Port, use_tls AS UseTls,
@@ -44,7 +52,10 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
            FROM game_field f
           WHERE f.game_id = crawl_target.game_id
             AND f.field = 'CHARSET-MSSP'
-            AND f.source = 'staff') AS MsspCharset
+            AND f.source = 'staff') AS MsspCharset,
+        (SELECT g.submitted_at IS NOT NULL AND g.corroborated_at IS NULL
+           FROM game g
+          WHERE g.id = crawl_target.game_id) AS AwaitingCorroboration
         """;
 
     public async Task<CrawlTarget?> ByAddressAsync(string host, int port, CancellationToken ct)
@@ -223,6 +234,14 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
 
         public string? MsspCharset { get; init; }
 
+        /// <remarks>
+        /// Nullable because the subquery has no row to read for a target not yet bound to a game,
+        /// and null there means the same as true: an address that has proved nothing yet is asked
+        /// everything. <c>ToRecord</c> is where that is spelled, so the property can stay the shape
+        /// the query returns.
+        /// </remarks>
+        public bool? AwaitingCorroboration { get; init; }
+
         public CrawlTarget ToRecord() => new()
         {
             Id = Id,
@@ -242,6 +261,7 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
             DiscoveredVia = DiscoverySources.From(DiscoveredVia),
             Charset = Charset,
             MsspCharset = MsspCharset,
+            AwaitingCorroboration = AwaitingCorroboration ?? true,
         };
     }
 }
