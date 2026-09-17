@@ -278,6 +278,99 @@ public sealed class GameAdminTools(
             result.MootReviewsResolved);
     }
 
+    [McpServerTool(Name = "game_unlist")]
+    [Description("""
+        Takes a game out of the listing, the rankings and the daily figure because the people who run
+        it asked (spec §11, migration 0025). Staff's route to the state the owner dashboard reaches
+        with a verified claim -- and the only route when the ask came from somebody without one,
+        which is how most of them arrive.
+
+        Recording an opt-out and unlisting a game are TWO ACTS, deliberately. crawl_opt_out_record
+        stops the dial; most asks are only that. This one answers "and take us off the site", and
+        skipping it is how Convergence MUSH stayed listed for a month after asking not to be.
+
+        §7.5 is untouched: the page, the URL, the history and the change feed all go on answering,
+        and the game keeps being probed unless an opt-out also stands. What stops is the promotion --
+        the listing, the rankings, and (issue #187) being offered to search engines with a connect
+        address attached.
+
+        `because` is required, as on --merge and --distinct: say who asked and how. An unlisting
+        nobody wrote a reason beside is one nobody can review, which is exactly what the account
+        requirement used to provide.
+
+        Refuses an unknown slug, and an excluded game -- an exclusion is our own judgement and
+        unlisting must not launder its way past one. Reversible with game_relist.
+        """)]
+    public async Task<GameUnlistResult> GameUnlistAsync(
+        [Description("The game's slug.")] string slug,
+        [Description(
+            "Who asked and how -- e.g. 'their admin asked in a chat message on 2026-08-16'. "
+            + "Required.")]
+        string because,
+        CancellationToken cancellationToken = default)
+    {
+        RequireNotBlank(slug, nameof(slug));
+        RequireNotBlank(because, nameof(because));
+
+        var game = await games.BySlugAsync(slug.Trim(), cancellationToken)
+            ?? throw new McpException($"No game with slug '{slug}'.");
+
+        if (game.State is LifecycleState.Excluded)
+        {
+            throw new McpException(
+                $"'{game.Slug}' is excluded — our own judgement, which unlisting may not overwrite. "
+                + "It is already out of the listing.");
+        }
+
+        await games.UnlistAsync(game.Id, UnlistedBy.Staff(because.Trim()), time.GetUtcNow(), cancellationToken);
+
+        // The listing is cached, and a game that has just been taken out of it should not go on
+        // appearing there until the cache happens to turn over.
+        await listing.InvalidateAsync();
+
+        logger?.LogInformation("game_unlist: {Slug} — {Because}", game.Slug, because);
+
+        return new GameUnlistResult(game.Slug, "unlisted", because.Trim());
+    }
+
+    [McpServerTool(Name = "game_relist")]
+    [Description("""
+        Puts an unlisted game back, and hands it back to the crawl. The counterpart to game_unlist,
+        so an unlisting is not a one-way door.
+
+        Needed because nothing else can do it for a game staff unlisted: an owner relists through
+        their own dashboard, and a probe relists a game that answers -- but an opted-out address is
+        refused before the dial, so that probe never happens. If the operators have also withdrawn
+        their opt-out, withdraw it there as well.
+
+        Does nothing to a game that is not unlisted. No `because`: this asserts nothing about anybody,
+        it undoes something we did.
+        """)]
+    public async Task<GameUnlistResult> GameRelistAsync(
+        [Description("The game's slug.")] string slug,
+        CancellationToken cancellationToken = default)
+    {
+        RequireNotBlank(slug, nameof(slug));
+
+        var game = await games.BySlugAsync(slug.Trim(), cancellationToken)
+            ?? throw new McpException($"No game with slug '{slug}'.");
+
+        if (game.State is not LifecycleState.Unlisted)
+        {
+            throw new McpException($"'{game.Slug}' is not unlisted; it is {game.State.ToString().ToLowerInvariant()}.");
+        }
+
+        await games.RelistAsync(game.Id, time.GetUtcNow(), cancellationToken);
+
+        await listing.InvalidateAsync();
+
+        logger?.LogInformation("game_relist: {Slug}", game.Slug);
+
+        // Active, the same state RelistAsync writes: the next probe decides the rest, and naming a
+        // state it held before would be inventing one.
+        return new GameUnlistResult(game.Slug, "active", null);
+    }
+
     [McpServerTool(Name = "game_keep_distinct")]
     [Description("""
         Closes one duplicate_review pair the other way -- these are two games, not one (spec §7.3).

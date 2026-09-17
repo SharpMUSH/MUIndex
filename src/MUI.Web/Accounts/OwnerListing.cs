@@ -88,7 +88,7 @@ public sealed class OwnerListing(
             return OwnerListingOutcome.NotOptedOut;
         }
 
-        await games.UnlistAsync(gameId, userId, time.GetUtcNow(), cancellationToken);
+        await games.UnlistAsync(gameId, UnlistedBy.Owner(userId), time.GetUtcNow(), cancellationToken);
 
         return OwnerListingOutcome.Applied;
     }

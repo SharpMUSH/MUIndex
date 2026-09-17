@@ -772,9 +772,10 @@ public class AccountSurfaceTests
         /// <summary>Which games were put back.</summary>
         public List<Guid> Relisted { get; } = [];
 
-        public Task UnlistAsync(Guid id, Guid byUserId, DateTimeOffset at, CancellationToken ct = default)
+        public Task UnlistAsync(Guid id, UnlistedBy by, DateTimeOffset at, CancellationToken ct = default)
         {
-            Unlisted[id] = byUserId;
+            // The dashboard is the only caller here, and it always names an account.
+            Unlisted[id] = by.UserId!.Value;
             return Task.CompletedTask;
         }
 

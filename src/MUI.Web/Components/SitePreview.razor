@@ -16,6 +16,14 @@
 <PageTitle>@Heading</PageTitle>
 
 <HeadContent>
+    @if (NoIndex)
+    {
+        @* Issue #187. The page goes on answering — §7.5 keeps it, its URL, its history and its
+           change feed — but a search engine is told not to carry it. Keeping a record and
+           promoting a game are different acts, and this is where they part. nofollow with it,
+           since the links out of a withheld page lead back into the listing it is out of. *@
+        <meta name="robots" content="noindex, nofollow" />
+    }
     <meta name="description" content="@Text" />
     <link rel="canonical" href="@Canonical" />
     <link rel="service-desc" type="application/json" href="@Http.Link(MUI.Web.Api.ApiRoutes.OpenApi)" />
@@ -120,6 +128,18 @@
     [Parameter]
     public Func<Uri, string>? Graph { get; set; }
 
+    /// <summary>
+    /// Whether to ask search engines to leave this page out (issue #187).
+    /// </summary>
+    /// <remarks>
+    /// False everywhere but a game withheld on purpose — unlisted at its operators' request, or
+    /// excluded by our own judgement. <b>Not for a game that merely went quiet</b>: an archived game
+    /// is a real game one successful probe away from being active again, and keeping it findable is
+    /// the difference between archiving and exclusion (§7.5).
+    /// </remarks>
+    [Parameter]
+    public bool NoIndex { get; set; }
+
     private string Heading => PreviewCopy.Title(Tag, Title);
 
     private string Said => Description ?? PreviewCopy.Site(Tag);
@@ -158,7 +178,10 @@
     /// so absent is the only correct answer over the fixture.
     /// </remarks>
     private string? StructuredData => Catalogue.IsMeasured && Graph is not null && Http is not null
-        ? Graph(SiteUrls.OriginOf(Http))
+        // Empty and absent are the same answer here. GameStructuredData returns nothing at all for a
+        // game withheld from the listing, and an empty ld+json block is worse than none: a machine
+        // reading it gets a parse error where it would otherwise have read an absence.
+        ? Graph(SiteUrls.OriginOf(Http)) is { Length: > 0 } graph ? graph : null
         : null;
 
     /// <summary>

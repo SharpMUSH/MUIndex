@@ -145,10 +145,12 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
 
     public async Task UnlistAsync(
         Guid id,
-        Guid byUserId,
+        UnlistedBy by,
         DateTimeOffset at,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(by);
+
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
         // archived_at is cleared because the schema holds the date and the state in step; the history
@@ -163,10 +165,10 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
             UPDATE game
                SET state = 'unlisted', archived_at = NULL,
                    excluded_at = NULL, excluded_reason = NULL,
-                   unlisted_at = @at, unlisted_by = @byUserId
+                   unlisted_at = @at, unlisted_by = @byUserId, unlisted_reason = @reason
              WHERE id = @id AND state <> 'excluded'
             """,
-            new { id, at = at.ToUniversalTime(), byUserId },
+            new { id, at = at.ToUniversalTime(), byUserId = by.UserId, reason = by.Reason },
             cancellationToken: cancellationToken));
     }
 
@@ -179,7 +181,8 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
         await connection.ExecuteAsync(new CommandDefinition(
             """
             UPDATE game
-               SET state = 'active', unlisted_at = NULL, unlisted_by = NULL
+               SET state = 'active', unlisted_at = NULL, unlisted_by = NULL,
+                   unlisted_reason = NULL
              WHERE id = @id AND state = 'unlisted'
             """,
             new { id },
@@ -213,7 +216,8 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
                    excluded_at = NULL,
                    excluded_reason = NULL,
                    unlisted_at = NULL,
-                   unlisted_by = NULL
+                   unlisted_by = NULL,
+                   unlisted_reason = NULL
              WHERE id = @id AND state NOT IN ('excluded', 'unlisted')
             """,
             new { id, state = SqlEnums.ToDb(state), at = at.ToUniversalTime() },

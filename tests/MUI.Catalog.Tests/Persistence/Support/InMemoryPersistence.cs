@@ -47,7 +47,7 @@ internal sealed class InMemoryGameStore : IGameStore
     public Task IncludeAsync(Guid id, DateTimeOffset at, CancellationToken ct = default) =>
         Move(id, LifecycleState.Active, at, from: LifecycleState.Excluded);
 
-    public Task UnlistAsync(Guid id, Guid byUserId, DateTimeOffset at, CancellationToken ct = default)
+    public Task UnlistAsync(Guid id, UnlistedBy by, DateTimeOffset at, CancellationToken ct = default)
     {
         if (_games.TryGetValue(id, out var game))
         {

@@ -72,6 +72,11 @@ public static class CrawlSummary
         ("opt-outs standing", "SELECT count(*) FROM crawl_opt_out WHERE withdrawn_at IS NULL"),
         ("opt-outs recorded", "SELECT count(*) FROM crawl_opt_out"),
         ("duplicate reviews open", "SELECT count(*) FROM duplicate_review WHERE resolved_at IS NULL"),
+
+        // Issue #185, beside the opt-out totals for the reason those are here: how many addresses
+        // this crawler is declining to dial is a fact about the crawl that an operator otherwise has
+        // no way to ask for at all. `crawl_refusals` lists which ones and why.
+        ("refusals standing", "SELECT count(*) FROM crawl_refusal"),
     ];
 
     /// <summary>Reads the totals, and a slice of the per-game lines behind them.</summary>

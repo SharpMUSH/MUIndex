@@ -1,6 +1,7 @@
 using System.Net;
 
 using MUI.Catalog;
+using MUI.Crawl;
 using MUI.Catalog.Persistence;
 using MUI.Crawler;
 using MUI.Crawler.Persistence;
@@ -256,6 +257,50 @@ public class McpToolsTests
         await Assert.That(result.Cycles!.Count).IsEqualTo(0);
     }
 
+    // ── crawl_refusals ──────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The addresses we are declining to dial, which nothing could see before (issue #185).
+    /// </summary>
+    /// <remarks>
+    /// A refusal is recorded as a successful attempt — the far end did not fail — so the target it
+    /// leaves behind is indistinguishable from a healthy one. This tool is the only place an
+    /// operator can ask the question at all.
+    /// </remarks>
+    [Test]
+    public async Task CrawlRefusalsNamesWhatWeAreDecliningToDial()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        await using var source = NpgsqlDataSource.Create(database.ConnectionString);
+
+        await new NpgsqlCrawlRefusalStore(source).RecordAsync(
+            "hellmoo.example",
+            7777,
+            gameId: null,
+            DialRefusal.OutOfScope,
+            "a mixed DNS answer carried fe80::1",
+            DateTimeOffset.UtcNow,
+            default);
+
+        await using var site = await SiteHost.StartAsync(
+            settings: Settings(), connectionString: database.ConnectionString);
+        await using var client = await McpTestClient.ConnectAsync(site, Token);
+
+        var refusals = await client.CallAsync<IReadOnlyList<CrawlRefusalRow>>("crawl_refusals");
+
+        var only = refusals.Single();
+
+        await Assert.That(only.Host).IsEqualTo("hellmoo.example");
+        await Assert.That(only.Port).IsEqualTo(7777);
+        // The stored word rather than the .NET enum name, so an operator reading this and an
+        // operator reading the table see one vocabulary.
+        await Assert.That(only.Reason).IsEqualTo("out_of_scope");
+
+        // The detail is the whole point: "we are not dialling this" without the reason sends an
+        // operator to read container logs that have already rotated away.
+        await Assert.That(only.Detail).Contains("fe80::1");
+    }
+
     // ── crawl_summary ───────────────────────────────────────────────────────────────────────────
 
     [Test]
@@ -274,6 +319,10 @@ public class McpToolsTests
 
         var games = summary.Totals.Single(t => t.Label == "games");
         await Assert.That(games.Count).IsEqualTo(1);
+
+        // Issue #185 — the figure an operator would otherwise have no way to ask for. Beside the
+        // opt-out totals, which are the closest thing to it that already existed.
+        await Assert.That(summary.Totals.Any(t => t.Label == "refusals standing")).IsTrue();
         await Assert.That(summary.Games.Any(g => g.Slug == "summarised-game")).IsTrue();
     }
 

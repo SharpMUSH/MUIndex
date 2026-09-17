@@ -49,6 +49,49 @@ public class UnlistedGamePostgresTests
         return id;
     }
 
+    /// <summary>
+    /// Staff can honour an ask from somebody who is not a verified owner (issue #187).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The gap this closes, measured on production: Convergence MUSH's admin asked to be unlisted in
+    /// a chat message on 2026-08-16. The opt-out was recorded and honoured at the dial — and the game
+    /// stayed in the listing for a month, because <c>game_unlisting_is_attributed</c> demanded an
+    /// <c>app_user</c> and the person who asked had no account. The request was granted and its point
+    /// was not.
+    /// </para>
+    /// <para>
+    /// So attribution becomes "a person, or an explanation" — the shape <c>excluded_reason</c>,
+    /// <c>crawl_opt_out.detail</c> and <c>--because</c> already use here. What it must not become is
+    /// optional: an unlisting nobody is accountable for is one nobody can review.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task StaffCanUnlistForSomebodyWithNoAccount()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var games = new NpgsqlGameStore(db.DataSource);
+        var id = await GameAsync(db, "convergence-mush");
+
+        await games.UnlistAsync(
+            id,
+            UnlistedBy.Staff("the admin asked in a chat message on 2026-08-16"),
+            At);
+
+        await using var connection = await db.DataSource.OpenConnectionAsync();
+
+        var state = await connection.QuerySingleAsync<string>(
+            "SELECT state FROM game WHERE id = @id", new { id });
+        var by = await connection.QuerySingleAsync<Guid?>(
+            "SELECT unlisted_by FROM game WHERE id = @id", new { id });
+        var reason = await connection.QuerySingleAsync<string?>(
+            "SELECT unlisted_reason FROM game WHERE id = @id", new { id });
+
+        await Assert.That(state).IsEqualTo("unlisted");
+        await Assert.That(by).IsNull();
+        await Assert.That(reason).IsEqualTo("the admin asked in a chat message on 2026-08-16");
+    }
+
     [Test]
     public async Task AnUnlistingRecordsTheAccountThatAskedForIt()
     {
@@ -57,7 +100,7 @@ public class UnlistedGamePostgresTests
         var id = await GameAsync(db, "a-game-that-asked");
         var owner = await OwnerAsync(db, "their-admin");
 
-        await games.UnlistAsync(id, owner, At);
+        await games.UnlistAsync(id, UnlistedBy.Owner(owner), At);
 
         await Assert.That((await games.ByIdAsync(id))!.State).IsEqualTo(LifecycleState.Unlisted);
 
@@ -105,7 +148,7 @@ public class UnlistedGamePostgresTests
         var games = new NpgsqlGameStore(db.DataSource);
         var id = await GameAsync(db, "left-alone");
 
-        await games.UnlistAsync(id, await OwnerAsync(db, "asker"), At);
+        await games.UnlistAsync(id, UnlistedBy.Owner(await OwnerAsync(db, "asker")), At);
         await games.SetStateAsync(id, attempt, At.AddHours(1));
 
         await Assert.That((await games.ByIdAsync(id))!.State).IsEqualTo(LifecycleState.Unlisted);
@@ -129,7 +172,7 @@ public class UnlistedGamePostgresTests
 
         var id = await GameAsync(db, "asked-us-back");
 
-        await games.UnlistAsync(id, await OwnerAsync(db, "asker"), At);
+        await games.UnlistAsync(id, UnlistedBy.Owner(await OwnerAsync(db, "asker")), At);
 
         await Assert.That(await sweeper.RestoreAsync(id, At.AddDays(30))).IsTrue();
         await Assert.That((await games.ByIdAsync(id))!.State).IsEqualTo(LifecycleState.Active);
@@ -152,7 +195,7 @@ public class UnlistedGamePostgresTests
         var id = await GameAsync(db, "a-dev-instance");
 
         await games.ExcludeAsync(id, "Dev instance of a game listed separately.", At);
-        await games.UnlistAsync(id, await OwnerAsync(db, "claimant"), At.AddHours(1));
+        await games.UnlistAsync(id, UnlistedBy.Owner(await OwnerAsync(db, "claimant")), At.AddHours(1));
 
         await Assert.That((await games.ByIdAsync(id))!.State).IsEqualTo(LifecycleState.Excluded);
     }
@@ -182,7 +225,7 @@ public class UnlistedGamePostgresTests
         var games = new NpgsqlGameStore(db.DataSource);
         var id = await GameAsync(db, "reconsidered");
 
-        await games.UnlistAsync(id, await OwnerAsync(db, "asker"), At);
+        await games.UnlistAsync(id, UnlistedBy.Owner(await OwnerAsync(db, "asker")), At);
         await games.RelistAsync(id, At.AddDays(1));
 
         await Assert.That((await games.ByIdAsync(id))!.State).IsEqualTo(LifecycleState.Active);
@@ -212,7 +255,7 @@ public class UnlistedGamePostgresTests
         var games = new NpgsqlGameStore(db.DataSource);
         var id = await GameAsync(db, "still-here");
 
-        await games.UnlistAsync(id, await OwnerAsync(db, "asker"), At);
+        await games.UnlistAsync(id, UnlistedBy.Owner(await OwnerAsync(db, "asker")), At);
 
         var game = await games.ByIdAsync(id);
 

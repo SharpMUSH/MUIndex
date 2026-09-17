@@ -55,6 +55,23 @@ public static class GameStructuredData
         ArgumentNullException.ThrowIfNull(page);
         ArgumentNullException.ThrowIfNull(origin);
 
+        // Issue #187. A graph says "this is a game worth reaching, and here is the address" —
+        // `gameServer` spells the second half out as telnet://host:port. Both are exactly the claim
+        // withdrawn when the people who run a game ask to be out of the listing, or when we judge an
+        // address is not a game anybody can play, and this vocabulary has no property meaning
+        // "withdrawn" any more than it has one meaning "invented" (see the fixture note above).
+        //
+        // §7.5 is untouched: the page, the URL, the history and the change feed all go on answering.
+        // What stops is the promotion of them.
+        //
+        // Archived is deliberately not here. An archived game is a real game one successful probe
+        // away from being active again, and keeping it findable is the whole difference between
+        // archiving and exclusion.
+        if (page.Summary.State is LifecycleState.Unlisted or LifecycleState.Excluded)
+        {
+            return string.Empty;
+        }
+
         var root = origin.ToString().TrimEnd('/');
         var summary = page.Summary;
         var url = $"{root}/g/{summary.Slug}";
