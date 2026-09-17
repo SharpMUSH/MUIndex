@@ -177,6 +177,9 @@ public class StoredCrawlerPulseTests
             DateTimeOffset nextProbeAt, CancellationToken ct) =>
             throw new NotSupportedException();
 
+        public Task RecordTransportAsync(Guid id, bool useTls, CancellationToken ct) =>
+            throw new NotSupportedException();
+
         public Task AttachGameAsync(Guid id, Guid gameId, CancellationToken ct) =>
             throw new NotSupportedException();
     }

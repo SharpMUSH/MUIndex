@@ -63,7 +63,45 @@ public sealed record ProbeTarget(string Host, int Port)
     /// </remarks>
     public bool AwaitingCorroboration { get; init; } = true;
 
+    /// <summary>Whether to open this dial with a TLS handshake rather than in the clear.</summary>
+    /// <remarks>
+    /// <para>
+    /// TLS is a transport <em>underneath</em> telnet, not a protocol beside it: the IAC bytes are
+    /// still on the wire once the handshake completes, so MSSP, GMCP, MCCP and CHARSET all survive
+    /// the wrapping and nothing above the socket knows the difference. Measured at
+    /// <c>chatmud.com:7443</c> and <c>mud.drifters.world:3000</c> — a full connect screen with
+    /// telnet negotiation inside the tunnel.
+    /// </para>
+    /// <para>
+    /// False on a target nobody has established is TLS, which is every target until a probe finds
+    /// out. A TLS listener says <em>nothing</em> until it is sent a ClientHello, so there is no
+    /// banner to recognise it by and no passive detection is possible — see
+    /// <c>TelnetProbe.ProbeAsync</c>, which retries a silent plaintext dial once over TLS, and
+    /// <see cref="ProbeResult.Transport"/>, which is how the answer gets written down.
+    /// </para>
+    /// </remarks>
+    public bool UseTls { get; init; }
+
     public override string ToString() => Host.Contains(':') ? $"[{Host}]:{Port}" : $"{Host}:{Port}";
+}
+
+/// <summary>
+/// What carried a probe session. Part of the result's provenance, and the whole of what
+/// <c>EndpointKind.Tls</c> is written from.
+/// </summary>
+/// <remarks>
+/// <b>A TLS session proves a handshake completed, never that a certificate was trustworthy.</b> The
+/// probe reads a public login screen and accepts any certificate, self-signed and expired ones
+/// included, because refusing a chain would drop games without protecting anything we hold. Nothing
+/// downstream may render <see cref="Tls"/> as an endorsement.
+/// </remarks>
+public enum ProbeTransport
+{
+    /// <summary>A plain TCP socket, which is how the hobby's ports overwhelmingly answer.</summary>
+    Telnet,
+
+    /// <summary>The same telnet session, inside a TLS tunnel.</summary>
+    Tls,
 }
 
 /// <summary>

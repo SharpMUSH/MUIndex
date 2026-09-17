@@ -143,6 +143,16 @@ public sealed record ProbeResult
 
     public FailureDetail? Failure { get; init; }
 
+    /// <summary>
+    /// What carried this session. Measured, not configured: a target may be dialled in the clear and
+    /// answer only behind a handshake, and this is what actually happened.
+    /// </summary>
+    /// <remarks>
+    /// Read <see cref="ProbeTransport"/> before rendering it anywhere — <c>Tls</c> says a handshake
+    /// completed and nothing whatever about the certificate.
+    /// </remarks>
+    public ProbeTransport Transport { get; init; } = ProbeTransport.Telnet;
+
     public TimeSpan Elapsed { get; init; }
 }
 
@@ -215,6 +225,16 @@ public enum DialFailureCause
 {
     Dns,
     Refused,
+
+    /// <summary>
+    /// A TLS handshake the far end would not complete, on a dial that was told to open with one.
+    /// </summary>
+    /// <remarks>
+    /// A measurement of that host rather than a limitation of ours: the address answered and did not
+    /// speak TLS. Distinct from <see cref="Error"/> because the catalogue maps that to a timeout,
+    /// which would publish a refused handshake as a game that did not answer in time.
+    /// </remarks>
+    Tls,
     Timeout,
     NoRoute,
     Error,

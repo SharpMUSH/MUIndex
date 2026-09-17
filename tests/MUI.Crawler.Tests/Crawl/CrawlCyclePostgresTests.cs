@@ -28,74 +28,13 @@ public class CrawlCyclePostgresTests
         IHostResolver? resolver = null,
         DiscoveryOptions? options = null,
         TimeSpan? grace = null,
-        IDnsTxtResolver? dns = null)
-    {
-        var discovery = options ?? new DiscoveryOptions
-        {
-            // No rate floor: these tests assert on what was written, and a real 250 ms gap between
-            // dials would make the suite slow for nothing. The limiter has its own tests upstream.
-            GlobalInterval = TimeSpan.Zero,
-            PerHostInterval = TimeSpan.Zero,
-        };
-
-        var games = new NpgsqlGameStore(source);
-        var endpoints = new NpgsqlEndpointStore(source);
-        var fields = new NpgsqlGameFieldStore(source);
-        var availability = new NpgsqlAvailabilityStore(source);
-        var targets = new NpgsqlCrawlTargetRepository(source);
-        var slugs = new NpgsqlSlugHistoryStore(source);
-
-        // One resolver, shared with the identity matcher below, same as production: ResolvedEndpoint
-        // reads the answers HostScopeGuard's resolver already gives rather than a second lookup path.
-        var effectiveResolver = resolver ?? new FakeHostResolver();
-
-        return new CrawlCycle(
-            targets,
-            probe,
-            // §11's gate, against the real register in the real database — "an opt-out wrote no
-            // availability row" is a claim about storage and only Postgres can answer it.
-            new OptOutGate(new NpgsqlCrawlOptOutRepository(source), dns ?? new ScriptedDns(), time),
-            new HostScopeGuard(effectiveResolver),
-            new ProbeIngestor(
-                new PresenceWriter(new NpgsqlPresenceStore(source)),
-                new AvailabilityWriter(availability),
-                new FieldReconciler(fields),
-                games,
-                new ArchiveSweeper(games, availability, availability),
-                new SlugMinter(games, fields, slugs, grace)),
-            new CatalogueBinder(
-                games,
-                endpoints,
-                fields,
-                slugs,
-                new IdentityMatcher(
-                    new CatalogueGameDirectory(games),
-                    new CatalogueEndpointDirectory(endpoints),
-                    fields,
-                    new NpgsqlGameFieldIndex(source),
-                    discovery,
-                    effectiveResolver,
-                    new NpgsqlMergeLog(source)),
-                new NpgsqlDuplicateReviewRepository(source),
-                new NpgsqlMergeLog(source),
-                time),
-            new ReferralGraphWriter(new NpgsqlReferralRepository(source), targets, discovery, time),
-            new CrawlRateLimiter(discovery, time),
-            new HostConcurrencyGate(),
-            discovery,
-            time);
-    }
+        IDnsTxtResolver? dns = null) =>
+        CrawlCycles.Build(source, probe, time, resolver, options, grace, dns);
 
     private static async Task SeedAsync(NpgsqlDataSource source, params CrawlSeed[] seeds) =>
         await CrawlSeeds.PlantAsync(new NpgsqlCrawlTargetRepository(source), seeds, TimeProvider.System);
 
-    /// <summary>Confirmation on, with no wait, so the suite asserts the behaviour and not the delay.</summary>
-    private static DiscoveryOptions Confirming() => new()
-    {
-        GlobalInterval = TimeSpan.Zero,
-        PerHostInterval = TimeSpan.Zero,
-        ConfirmationDelay = TimeSpan.Zero,
-    };
+    private static DiscoveryOptions Confirming() => CrawlCycles.Confirming();
 
     [Test]
     public async Task AGameThatAnsweredOnTheSecondAttemptWasNeverDark()

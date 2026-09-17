@@ -179,6 +179,16 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
             cancellationToken: ct));
     }
 
+    public async Task RecordTransportAsync(Guid id, bool useTls, CancellationToken ct)
+    {
+        await using var connection = await source.OpenConnectionAsync(ct);
+
+        await connection.ExecuteAsync(new CommandDefinition(
+            "UPDATE crawl_target SET use_tls = @useTls WHERE id = @id",
+            new { id, useTls },
+            cancellationToken: ct));
+    }
+
     /// <summary>
     /// Attaches the game this address turned out to be.
     /// </summary>
