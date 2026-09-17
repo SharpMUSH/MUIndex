@@ -107,19 +107,27 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         {
             var other = await SessionAsync(target, Other(session.Result.Transport), cancellationToken);
 
-            if (Useful(other))
+            // A second dial may replace the first only when it got somewhere itself. A refusal or a
+            // timeout on the retry is not evidence about the game — the address answered a moment
+            // ago — and `ProbeIngestor` reads a failure as unreachable, so returning one would
+            // publish an outage that did not happen (rule 5).
+            //
+            // The second clause is for a web server over TLS, where even a silent answer is the
+            // better record: answered-and-silent is truthful and harmless, and an HTML error
+            // document standing in for a game's connect screen is neither.
+            if (other.Result.Outcome is ProbeOutcome.Answered
+                && (Useful(other) || SpeaksHttpOverTls(session)))
             {
                 return other.Result;
             }
 
-            // Neither is useful, and one of the two may still be a web server's reply over TLS.
-            // Answered-and-silent is a truthful, harmless record; an HTML error document standing in
-            // for a game's connect screen is not, so the silent one wins. Only when it answered —
-            // taking a second dial's failure over a first dial's success would publish an outage
-            // that did not happen (rule 5).
-            if (SpeaksHttpOverTls(session) && other.Result.Outcome is ProbeOutcome.Answered)
+            // Nowhere to fall back to, and what we hold is a web server's reply. The session stands
+            // — it did answer, and saying otherwise invents an outage — but the banner goes, because
+            // it is not a connect screen and this is the field that would publish it as one.
+            // Dropping it is the opposite of fabricating: no screen was read, and none is recorded.
+            if (SpeaksHttpOverTls(session))
             {
-                return other.Result;
+                return session.Result with { Banner = null };
             }
 
             // Otherwise the first result stands unchanged: which door we tried is a decision of

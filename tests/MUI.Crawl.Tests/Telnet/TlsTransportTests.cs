@@ -199,6 +199,37 @@ public class TlsTransportTests
     }
 
     /// <summary>
+    /// And when there is nowhere to fall back to, the web server's reply is dropped rather than kept.
+    /// </summary>
+    /// <remarks>
+    /// The residual case: the handshake answered with HTTP and the second dial never got in, so
+    /// there is no other session to prefer. The failed dial must not be returned in its place —
+    /// <c>ProbeIngestor</c> reads a failure as unreachable, and this address demonstrably answered a
+    /// moment ago, so that would publish an outage that did not happen (rule 5). What is left is the
+    /// TLS session, which is true in every respect except the one that matters: its banner is not a
+    /// connect screen. So the session stands and the banner goes. <b>Dropping it is the opposite of
+    /// fabricating</b> — no screen was read, and none is recorded.
+    /// </remarks>
+    [Test]
+    public async Task AWebServerWithNowhereToFallBackToKeepsTheAnswerAndLosesTheBanner()
+    {
+        await using var game = new TlsGame
+        {
+            ClosesListenerAfterFirstConnection = true,
+            Banner = "HTTP/1.1 400 Bad Request\r\nServer: nginx\r\nConnection: close\r\n\r\n"
+                + "<html><head><title>400 Bad Request</title></head></html>\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target with { UseTls = true });
+
+        await Assert.That(game.Fault?.ToString() ?? "none").IsEqualTo("none");
+
+        // It answered, and saying otherwise would be an outage we invented.
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+        await Assert.That(result.Banner ?? string.Empty).DoesNotContain("400 Bad Request");
+    }
+
+    /// <summary>
     /// A server listening for TLS, which is indistinguishable from a mute one until we try.
     /// </summary>
     /// <remarks>
@@ -240,6 +271,16 @@ public class TlsTransportTests
         /// an ordinary port, which is what the retry must leave alone.
         /// </summary>
         public bool Tls { get; init; } = true;
+
+        /// <summary>
+        /// Whether the listener closes as soon as it has taken one connection, so a second dial is
+        /// refused while the first session carries on over the socket it already has.
+        /// </summary>
+        /// <remarks>
+        /// Stops listening at accept rather than at the end of the session, which makes the refusal
+        /// deterministic: the probe's fallback dial cannot arrive before the listener is down.
+        /// </remarks>
+        public bool ClosesListenerAfterFirstConnection { get; init; }
 
         public ProbeTarget Target => new(
             IPAddress.Loopback.ToString(),
@@ -322,6 +363,15 @@ public class TlsTransportTests
                 lock (_sessions)
                 {
                     _sessions.Add(session);
+                }
+
+                if (ClosesListenerAfterFirstConnection)
+                {
+                    // Down at accept rather than at the end of the session, so the probe's fallback
+                    // dial is refused deterministically while this one carries on over the socket it
+                    // already holds. The loop ends with it — there is nothing left to accept on.
+                    _listener.Stop();
+                    return;
                 }
             }
         }
