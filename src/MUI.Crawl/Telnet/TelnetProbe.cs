@@ -103,22 +103,44 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         // TLS whose game moved back to an ordinary port would dial into a handshake nobody answers,
         // fail every cycle for ever, and be published as dark while running perfectly well. The
         // registry has no other way back.
-        if (!Learnt(session))
+        if (!Useful(session))
         {
             var other = await SessionAsync(target, Other(session.Result.Transport), cancellationToken);
 
-            if (Learnt(other) && !SpeaksHttp(other.Result.Banner))
+            if (Useful(other))
             {
                 return other.Result;
             }
 
-            // Nothing on either transport. The first result stands unchanged: which door we tried is
-            // a decision of ours, and neither a failed handshake nor a silent socket may reach a
-            // game's record as a fact about the game (rule 5).
+            // Neither is useful, and one of the two may still be a web server's reply over TLS.
+            // Answered-and-silent is a truthful, harmless record; an HTML error document standing in
+            // for a game's connect screen is not, so the silent one wins. Only when it answered —
+            // taking a second dial's failure over a first dial's success would publish an outage
+            // that did not happen (rule 5).
+            if (SpeaksHttpOverTls(session) && other.Result.Outcome is ProbeOutcome.Answered)
+            {
+                return other.Result;
+            }
+
+            // Otherwise the first result stands unchanged: which door we tried is a decision of
+            // ours, and neither a failed handshake nor a silent socket may reach a game's record as
+            // a fact about the game (rule 5).
         }
 
         return session.Result;
     }
+
+    /// <summary>Whether a session is one this probe may return as its answer.</summary>
+    /// <remarks>
+    /// Both halves are about the same thing — whether the other transport still has a question to
+    /// answer — and they are checked together here rather than at one of the two call sites,
+    /// because a rule applied to only one candidate is not a rule. An HTTP reply over TLS reached a
+    /// result through <see cref="ProbeTarget.UseTls"/> while this lived on the fallback alone: a
+    /// port that really was a TLS game keeps its flag after the game dies, so the day a web server
+    /// takes the port over, nginx's error document becomes that game's connect screen on a live
+    /// listing.
+    /// </remarks>
+    private static bool Useful(Session session) => Learnt(session) && !SpeaksHttpOverTls(session);
 
     /// <summary>Whether a session found out anything the other transport could not also explain.</summary>
     /// <remarks>
@@ -151,15 +173,16 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// page an error document as its connect screen, and one of those two is already listed.
     /// </para>
     /// <para>
-    /// Only the retry consults this, and deliberately: a status line is conclusive about the port
-    /// and says nothing about what the <em>other</em> transport found, so it decides whether a
-    /// second dial may overrule the first and nothing else. A plaintext port that answers HTTP is
-    /// the same fact and is left exactly as it has always been handled — not this change's
-    /// question.
+    /// <b>Over TLS only.</b> A plaintext port that answers HTTP is the same fact about the world and
+    /// is left exactly as it has always been handled — reading it here would put every such address
+    /// in the registry through a second dial, every cycle, for ever, to learn something no surface
+    /// consumes. What is new, and what this guards, is that a handshake can now turn a web server
+    /// into an answered session where the port used to be silent.
     /// </para>
     /// </remarks>
-    private static bool SpeaksHttp(string? banner) =>
-        banner?.TrimStart().StartsWith("HTTP/", StringComparison.OrdinalIgnoreCase) is true;
+    private static bool SpeaksHttpOverTls(Session session) =>
+        session.Result.Transport is ProbeTransport.Tls
+        && session.Result.Banner?.TrimStart().StartsWith("HTTP/", StringComparison.OrdinalIgnoreCase) is true;
 
     /// <summary>What one session produced, and whether the far end said anything at all.</summary>
     /// <remarks>

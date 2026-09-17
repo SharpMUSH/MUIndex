@@ -41,8 +41,11 @@ Console.WriteLine($"target        {result.Host}:{result.Port}");
 Console.WriteLine($"outcome       {result.Outcome}");
 // Measured rather than asked for: a plain dial that heard nothing is retried behind a handshake, so
 // this says which door actually answered. `tls` means one completed, never that a certificate was
-// checked — nothing here verifies one.
-Console.WriteLine($"transport     {result.Transport.ToString().ToLowerInvariant()}");
+// checked — nothing here verifies one. A failed result carries the transport that was *attempted*,
+// which is not the same claim, so it is not printed as though something had answered.
+Console.WriteLine(result.Outcome is ProbeOutcome.Answered
+    ? $"transport     {result.Transport.ToString().ToLowerInvariant()}"
+    : $"transport     none answered ({result.Transport.ToString().ToLowerInvariant()} attempted)");
 Console.WriteLine($"elapsed       {result.Elapsed.TotalSeconds:F1}s");
 Console.WriteLine($"mssp          {result.MsspOutcome} via {result.MsspTransport}");
 Console.WriteLine($"who           {result.Who.Confidence}" + (result.Who.HasCount

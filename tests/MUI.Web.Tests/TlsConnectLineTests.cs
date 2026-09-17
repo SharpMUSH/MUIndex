@@ -30,8 +30,12 @@ public class TlsConnectLineTests
             .Split('\n')
             .First(line => line.Contains("ashen.example", StringComparison.Ordinal));
 
-        await Assert.That(line).DoesNotStartWith("telnet ");
-        await Assert.That(line).Contains("ashen.example 4000");
+        // A runnable command, not a word that only looks like one: every other line here is
+        // something a reader pastes into a shell, so a first token naming a program nobody has is
+        // the same defect in a quieter form. -crlf because s_client sends bare LF and a MU* wants
+        // CR LF; nothing further, because the line also has to hold to PlainText.Columns.
+        await Assert.That(line).IsEqualTo("openssl s_client -crlf -connect ashen.example:4000");
+        await Assert.That(line.Length).IsLessThanOrEqualTo(PlainText.Columns);
     }
 
     /// <summary>An ordinary port keeps the command that has always worked there.</summary>

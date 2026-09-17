@@ -173,6 +173,32 @@ public class TlsTransportTests
     }
 
     /// <summary>
+    /// Nor is one adopted at an address we already believed was TLS.
+    /// </summary>
+    /// <remarks>
+    /// The same defect by the other route, and the one that survives longest: a port that really
+    /// was a TLS game has <c>use_tls</c> set on its target for ever after, so when the game dies and
+    /// the host puts a web server on the port, the probe opens with a handshake that now succeeds
+    /// and takes nginx's reply as that game's connect screen. Nothing would correct it — the screen
+    /// would simply change one day, on a live listing, into an HTML error document.
+    /// </remarks>
+    [Test]
+    public async Task AWebServerIsNotAdoptedAtAnAddressAlreadyBelievedToBeTls()
+    {
+        await using var game = new TlsGame
+        {
+            Banner = "HTTP/1.1 400 Bad Request\r\nServer: nginx\r\nConnection: close\r\n\r\n"
+                + "<html><head><title>400 Bad Request</title></head></html>\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target with { UseTls = true });
+
+        await Assert.That(game.Fault?.ToString() ?? "none").IsEqualTo("none");
+        await Assert.That(result.Banner ?? string.Empty).DoesNotContain("400 Bad Request");
+        await Assert.That(result.Transport).IsEqualTo(ProbeTransport.Telnet);
+    }
+
+    /// <summary>
     /// A server listening for TLS, which is indistinguishable from a mute one until we try.
     /// </summary>
     /// <remarks>
@@ -186,6 +212,18 @@ public class TlsTransportTests
         private readonly TcpListener _listener;
         private readonly CancellationTokenSource _stopping = new();
         private readonly Task _serving;
+
+        /// <summary>
+        /// The sessions this fixture has started, so disposal can wait for them.
+        /// </summary>
+        /// <remarks>
+        /// They cannot be awaited where they are started — the accept loop has to be back at
+        /// <c>AcceptTcpClientAsync</c> before the probe's retry arrives, which is the behaviour every
+        /// test here turns on. Untracked, disposal raced them: <c>_stopping</c> and
+        /// <c>_certificate</c> could be disposed under a session still reading through them.
+        /// </remarks>
+        private readonly List<Task> _sessions = [];
+
         private int _connections;
 
         public TlsGame()
@@ -221,6 +259,17 @@ public class TlsTransportTests
             try
             {
                 await _serving;
+
+                // Before the two disposals below, never after: a session still in flight is reading
+                // through this certificate and watching this token.
+                Task[] sessions;
+
+                lock (_sessions)
+                {
+                    sessions = [.. _sessions];
+                }
+
+                await Task.WhenAll(sessions);
             }
             catch (OperationCanceledException)
             {
@@ -267,7 +316,13 @@ public class TlsTransportTests
                 }
 
                 Interlocked.Increment(ref _connections);
-                _ = SessionAsync(client);
+
+                var session = SessionAsync(client);
+
+                lock (_sessions)
+                {
+                    _sessions.Add(session);
+                }
             }
         }
 

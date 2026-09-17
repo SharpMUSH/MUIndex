@@ -67,13 +67,21 @@ public static class PlainText
 
         foreach (var e in page.Endpoints)
         {
-            // The first word is the thing a reader has to speak, so the line stays typeable at a
-            // shell for an ordinary port and stops being a command that cannot work at a TLS one.
-            // It previously read "telnet host port · tls measured" for both, which at a TLS port is
-            // an instruction to open a connection that then says nothing for ever — the same
-            // silence that hid these ports from the crawler, handed to a person as advice. A script
-            // reading this switches on the first token rather than parsing a trailing note.
-            b.AppendLine($"{(e.TlsMeasured ? "tls" : "telnet")} {e.Host} {e.Port}");
+            // Every line here is something a reader pastes into a shell, so a TLS endpoint gets a
+            // command that works rather than one that cannot. It previously read
+            // "telnet host port · tls measured" for both kinds, which at a TLS port is an
+            // instruction to open a connection that then says nothing for ever — the same silence
+            // that hid these ports from the crawler, handed to a person as advice.
+            //
+            // OpenSSL because it is the one TLS client a terminal reader reliably has. -crlf is
+            // load-bearing: s_client sends bare LF by default and a MU* wants CR LF. Nothing else is
+            // passed — SNI is sent from the connect host automatically (s_client has -noservername
+            // to turn it off, not -servername to turn it on), and spelling it out again would put
+            // the line past Columns for any ordinary hostname, which is what the eighty-column rule
+            // is there to stop.
+            b.AppendLine(e.TlsMeasured
+                ? $"openssl s_client -crlf -connect {e.Host}:{e.Port}"
+                : $"telnet {e.Host} {e.Port}");
         }
 
         // How this site came to know about the game, and when. Rendered here as well as on the
