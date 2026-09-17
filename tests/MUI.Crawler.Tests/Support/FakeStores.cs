@@ -61,6 +61,8 @@ internal sealed class FakeTargets(DateTimeOffset now) : ICrawlTargetRepository
         Guid id, DateTimeOffset at, bool succeeded, TimeSpan? crawlDelay,
         DateTimeOffset nextProbeAt, CancellationToken ct) => Task.CompletedTask;
 
+    public Task RecordTransportAsync(Guid id, bool useTls, CancellationToken ct) => Task.CompletedTask;
+
     public Task AttachGameAsync(Guid id, Guid gameId, CancellationToken ct) => Task.CompletedTask;
 }
 

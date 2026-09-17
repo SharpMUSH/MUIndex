@@ -67,7 +67,13 @@ public static class PlainText
 
         foreach (var e in page.Endpoints)
         {
-            b.AppendLine($"telnet {e.Host} {e.Port}{(e.TlsMeasured ? " · tls measured" : string.Empty)}");
+            // The first word is the thing a reader has to speak, so the line stays typeable at a
+            // shell for an ordinary port and stops being a command that cannot work at a TLS one.
+            // It previously read "telnet host port · tls measured" for both, which at a TLS port is
+            // an instruction to open a connection that then says nothing for ever — the same
+            // silence that hid these ports from the crawler, handed to a person as advice. A script
+            // reading this switches on the first token rather than parsing a trailing note.
+            b.AppendLine($"{(e.TlsMeasured ? "tls" : "telnet")} {e.Host} {e.Port}");
         }
 
         // How this site came to know about the game, and when. Rendered here as well as on the

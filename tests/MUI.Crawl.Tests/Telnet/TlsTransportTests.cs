@@ -1,0 +1,329 @@
+using System.Net;
+using System.Net.Security;
+using System.Net.Sockets;
+using System.Security.Authentication;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
+using System.Text;
+
+using Microsoft.Extensions.Logging.Abstractions;
+
+using TelnetNegotiationCore.Builders;
+using TelnetNegotiationCore.Interpreters;
+
+namespace MUI.Crawl.Tests;
+
+/// <summary>
+/// The probe against a game that answers only behind a TLS handshake.
+/// </summary>
+/// <remarks>
+/// Measured before it was written: <c>chatmud.com:7443</c>, <c>mud.drifters.world:3000</c> and two
+/// others accept a connection, send nothing, and serve a whole connect screen — telnet negotiation
+/// and all — to anyone who opens with a ClientHello. Unlike SSH, TLS is a transport underneath
+/// telnet rather than a session protocol beside it: the IAC bytes are still there, so MSSP, GMCP and
+/// everything else above survive the wrapping and none of it has to be special-cased.
+/// </remarks>
+public class TlsTransportTests
+{
+    /// <summary>Short, so the suite settles in a moment rather than in the live defaults.</summary>
+    private static ProbeOptions Fast() => new()
+    {
+        QuietPeriod = TimeSpan.FromMilliseconds(120),
+        SilenceGrace = TimeSpan.FromMilliseconds(300),
+        MaxPhase = TimeSpan.FromSeconds(3),
+        BannerPatience = TimeSpan.FromMilliseconds(300),
+        WhoGrace = TimeSpan.FromMilliseconds(700),
+        PollInterval = TimeSpan.FromMilliseconds(15),
+        Timeout = TimeSpan.FromSeconds(20),
+        MsspSettleGrace = TimeSpan.FromMilliseconds(400),
+        PromptHold = TimeSpan.FromMilliseconds(120),
+    };
+
+    /// <summary>
+    /// A target told to dial TLS reads the screen behind the handshake.
+    /// </summary>
+    /// <remarks>
+    /// The fixture's certificate is self-signed and names <c>CN=localhost</c> while the probe dials
+    /// <c>127.0.0.1</c>, so this also pins the accept-anything policy: a probe reads a public login
+    /// screen, and refusing a certificate chain would drop games without protecting anything.
+    /// </remarks>
+    [Test]
+    public async Task AGameBehindTlsIsReadThroughTheHandshake()
+    {
+        await using var game = new TlsGame
+        {
+            Banner = "Welcome to Nowhere\r\nA quiet little place.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target with { UseTls = true });
+
+        await Assert.That(game.Fault?.ToString() ?? "none").IsEqualTo("none");
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+        await Assert.That(result.Banner).Contains("A quiet little place.");
+        await Assert.That(result.Transport).IsEqualTo(ProbeTransport.Tls);
+    }
+
+    /// <summary>
+    /// A silent plaintext dial is asked the one further question there is to ask.
+    /// </summary>
+    /// <remarks>
+    /// The retry <em>is</em> the detection, and there is no other: a TLS listener sends nothing at
+    /// all until it is sent a ClientHello, so it is byte-for-byte indistinguishable from a socket
+    /// that accepts and sits there. This is how <c>chatmud.com:7443</c> and
+    /// <c>mud.drifters.world:3000</c> spent months in the registry reading as mute.
+    /// </remarks>
+    [Test]
+    public async Task ASilentDialIsRetriedOnceOverTls()
+    {
+        await using var game = new TlsGame
+        {
+            Banner = "Welcome to Nowhere\r\nA quiet little place.\r\n",
+        };
+
+        // No UseTls: nothing has told this probe the address is anything but an ordinary port.
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(game.Fault?.ToString() ?? "none").IsEqualTo("none");
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+        await Assert.That(result.Banner).Contains("A quiet little place.");
+        await Assert.That(result.Transport).IsEqualTo(ProbeTransport.Tls);
+        await Assert.That(game.Connections).IsEqualTo(2);
+    }
+
+    /// <summary>
+    /// An ordinary port that answers is dialled once, and stays what it is.
+    /// </summary>
+    /// <remarks>
+    /// The retry's bound, and the reason it is affordable: it is spent only where the first dial
+    /// heard nothing. A server that said anything has already answered the question the handshake
+    /// would ask, and dialling it twice every cycle would double the load on the whole catalogue to
+    /// re-learn what the first connection already proved.
+    /// </remarks>
+    [Test]
+    public async Task APortThatAnswersInTheClearIsNotDialledTwice()
+    {
+        await using var game = new TlsGame
+        {
+            Tls = false,
+            Banner = "Welcome to Nowhere\r\nA quiet little place.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(game.Fault?.ToString() ?? "none").IsEqualTo("none");
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+        await Assert.That(result.Banner).Contains("A quiet little place.");
+        await Assert.That(result.Transport).IsEqualTo(ProbeTransport.Telnet);
+        await Assert.That(game.Connections).IsEqualTo(1);
+    }
+
+    /// <summary>
+    /// A port that has stopped speaking TLS is read in the clear rather than left dark.
+    /// </summary>
+    /// <remarks>
+    /// The retry runs in both directions on purpose, and this is the direction that matters most:
+    /// once a target is marked TLS, a game that later moves back to an ordinary port would dial into
+    /// a handshake nobody answers, fail every cycle, and be published as dark while running
+    /// perfectly well — the same bug this whole change exists to fix, only mirrored and worse, since
+    /// nothing in the registry would ever unstick it.
+    /// </remarks>
+    [Test]
+    public async Task APortThatStoppedSpeakingTlsIsStillRead()
+    {
+        await using var game = new TlsGame
+        {
+            Tls = false,
+            Banner = "Welcome to Nowhere\r\nA quiet little place.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target with { UseTls = true });
+
+        await Assert.That(game.Fault?.ToString() ?? "none").IsEqualTo("none");
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+        await Assert.That(result.Banner).Contains("A quiet little place.");
+        await Assert.That(result.Transport).IsEqualTo(ProbeTransport.Telnet);
+    }
+
+    /// <summary>
+    /// A web server behind the handshake is not adopted as a game.
+    /// </summary>
+    /// <remarks>
+    /// Measured, and it is half of what the retry finds in the wild: of the four silent addresses in
+    /// the registry that answer a ClientHello, <c>110.10.160.150:4001</c> and <c>mud.ren:8888</c> are
+    /// nginx, which completes the handshake and then returns <c>400 Bad Request</c> to telnet
+    /// negotiation bytes. One of the two is already listed as a game, so adopting that reply would
+    /// put an HTML error page on a game page as its connect screen — a claim about a game, made out
+    /// of a web server's complaint. An HTTP response is proof the port is not a MU*, so the retry
+    /// declines it and the address stays exactly as silent as it was before this existed.
+    /// </remarks>
+    [Test]
+    public async Task AWebServerBehindTheHandshakeIsNotAdoptedAsAConnectScreen()
+    {
+        await using var game = new TlsGame
+        {
+            Banner = "HTTP/1.1 400 Bad Request\r\nServer: nginx\r\nConnection: close\r\n\r\n"
+                + "<html><head><title>400 Bad Request</title></head></html>\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(game.Fault?.ToString() ?? "none").IsEqualTo("none");
+        await Assert.That(result.Transport).IsEqualTo(ProbeTransport.Telnet);
+        await Assert.That(result.Banner ?? string.Empty).DoesNotContain("400 Bad Request");
+    }
+
+    /// <summary>
+    /// A server listening for TLS, which is indistinguishable from a mute one until we try.
+    /// </summary>
+    /// <remarks>
+    /// Accepts repeatedly rather than once, because the behaviour under test is a second dial: the
+    /// first arrives as telnet negotiation bytes where a ClientHello was expected, and the handshake
+    /// fails on the server exactly as it does in the field.
+    /// </remarks>
+    private sealed class TlsGame : IAsyncDisposable
+    {
+        private readonly X509Certificate2 _certificate = SelfSigned();
+        private readonly TcpListener _listener;
+        private readonly CancellationTokenSource _stopping = new();
+        private readonly Task _serving;
+        private int _connections;
+
+        public TlsGame()
+        {
+            _listener = new TcpListener(IPAddress.Loopback, 0);
+            _listener.Start();
+            _serving = ServeAsync();
+        }
+
+        public string Banner { get; init; } = string.Empty;
+
+        /// <summary>
+        /// Whether this server expects a ClientHello. False serves the same screen in the clear —
+        /// an ordinary port, which is what the retry must leave alone.
+        /// </summary>
+        public bool Tls { get; init; } = true;
+
+        public ProbeTarget Target => new(
+            IPAddress.Loopback.ToString(),
+            ((IPEndPoint)_listener.LocalEndpoint).Port);
+
+        /// <summary>How many times anything has connected — a retry is a second one.</summary>
+        public int Connections => Volatile.Read(ref _connections);
+
+        /// <summary>An exception this fixture did not expect, held rather than swallowed.</summary>
+        public Exception? Fault { get; private set; }
+
+        public async ValueTask DisposeAsync()
+        {
+            await _stopping.CancelAsync();
+            _listener.Stop();
+
+            try
+            {
+                await _serving;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+
+            _stopping.Dispose();
+            _certificate.Dispose();
+        }
+
+        /// <summary>
+        /// A certificate nobody trusts, which is the point: real MU* TLS ports routinely serve one.
+        /// </summary>
+        /// <remarks>
+        /// Round-tripped through PKCS#12 because a certificate built from an ephemeral key cannot be
+        /// handed to <see cref="SslStream"/> as a server certificate on every platform — the private
+        /// key has to be one the certificate itself carries.
+        /// </remarks>
+        private static X509Certificate2 SelfSigned()
+        {
+            using var key = RSA.Create(2048);
+
+            var request = new CertificateRequest(
+                "CN=localhost", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+
+            using var certificate = request.CreateSelfSigned(
+                DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
+
+            return X509CertificateLoader.LoadPkcs12(certificate.Export(X509ContentType.Pfx), null);
+        }
+
+        private async Task ServeAsync()
+        {
+            while (!_stopping.IsCancellationRequested)
+            {
+                TcpClient client;
+
+                try
+                {
+                    client = await _listener.AcceptTcpClientAsync(_stopping.Token);
+                }
+                catch (Exception error) when (error is OperationCanceledException or SocketException)
+                {
+                    return;
+                }
+
+                Interlocked.Increment(ref _connections);
+                _ = SessionAsync(client);
+            }
+        }
+
+        private async Task SessionAsync(TcpClient client)
+        {
+            try
+            {
+                using (client)
+                {
+                    Stream transport = client.GetStream();
+
+                    if (Tls)
+                    {
+                        var tls = new SslStream(transport, leaveInnerStreamOpen: false);
+                        await tls.AuthenticateAsServerAsync(
+                            new SslServerAuthenticationOptions { ServerCertificate = _certificate },
+                            _stopping.Token);
+                        transport = tls;
+                    }
+
+                    await using var _ = transport;
+
+                    var built = await new TelnetInterpreterBuilder()
+                        .UseMode(TelnetInterpreter.TelnetMode.Server)
+                        .UseLogger(NullLogger.Instance)
+                        // Required by the builder, and deliberately empty: this fixture answers no
+                        // command. What is under test is the transport, not the conversation.
+                        .OnSubmit((_, _, _) => ValueTask.CompletedTask)
+                        .BuildAndStartAsync(transport, _stopping.Token);
+
+                    await using var telnet = built.Interpreter;
+
+                    // WriteToNetworkAsync rather than SendAsync: the banner is a complete block with
+                    // its own terminators, and SendAsync would append another CR LF.
+                    await telnet.WriteToNetworkAsync(Encoding.Latin1.GetBytes(Banner));
+
+                    await built.ReadTask;
+                }
+            }
+            catch (Exception error) when (error
+                is OperationCanceledException
+                or IOException
+                or SocketException
+                or AuthenticationException
+                or ObjectDisposedException)
+            {
+                // A dial that opened with telnet negotiation rather than a ClientHello lands here,
+                // which is the shape this fixture exists to present.
+            }
+            catch (Exception error)
+            {
+                // Anything else is a defect in the fixture rather than a shape under test. Held for
+                // the test to assert on: this session is fire-and-forget, so an exception nobody
+                // recorded would be an unobserved task and the test would fail somewhere unrelated.
+                Fault ??= error;
+            }
+        }
+    }
+}

@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using System.Security.Authentication;
 
 using MUI.Crawl;
 
@@ -76,6 +77,19 @@ public class DialFailureTests
         // Left in the catch-all these become "timeout" — a missing route published as a game that
         // did not answer in time. Collapsed to one word here; the errno stays in the detail.
         await Assert.That(DialFailure.Classify(new SocketException((int)code)).Cause).IsEqualTo(DialFailureCause.NoRoute);
+    }
+
+    [Test]
+    public async Task AHandshakeTheFarEndWouldNotCompleteIsReadAsTls()
+    {
+        // A dial told to open with TLS against a host that does not speak it is a measurement of
+        // that host, and the catalogue has carried a word for it since migration 0028 that nothing
+        // could reach: in the catch-all it became `error`, and ProbeIngestor maps `error` to
+        // `timeout` — a refused handshake published as a game that did not answer in time.
+        var refused = DialFailure.Classify(new AuthenticationException("the handshake failed"));
+
+        await Assert.That(refused.Cause).IsEqualTo(DialFailureCause.Tls);
+        await Assert.That(refused.Detail).IsEqualTo("the handshake failed");
     }
 
     [Test]

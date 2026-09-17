@@ -44,7 +44,8 @@ public static class Probes
         DateTimeOffset? at = null,
         MsspOutcome? msspOutcome = null,
         string? info = null,
-        string? version = null) => new()
+        string? version = null,
+        ProbeTransport transport = ProbeTransport.Telnet) => new()
     {
         Host = host,
         Port = port,
@@ -60,6 +61,7 @@ public static class Probes
         Who = who ?? WhoReading.NotAsked,
         Info = info,
         Version = version,
+        Transport = transport,
     };
 
     public static ProbeResult Failed(

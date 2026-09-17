@@ -247,6 +247,7 @@ public static class FailureReading
         null => FailureCause.Timeout,
         DialFailureCause.Dns => FailureCause.Dns,
         DialFailureCause.Refused => FailureCause.Refused,
+        DialFailureCause.Tls => FailureCause.Tls,
         DialFailureCause.Timeout => FailureCause.Timeout,
         DialFailureCause.NoRoute => FailureCause.NoRoute,
         DialFailureCause.Error => FailureCause.Timeout,

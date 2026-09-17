@@ -1,5 +1,8 @@
 using System.Diagnostics;
+using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -81,6 +84,97 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
     public async Task<ProbeResult> ProbeAsync(ProbeTarget target, CancellationToken cancellationToken = default)
     {
+        var session = await SessionAsync(
+            target,
+            target.UseTls ? ProbeTransport.Tls : ProbeTransport.Telnet,
+            cancellationToken);
+
+        // A TLS listener sends nothing at all until it is sent a ClientHello, so it is
+        // byte-for-byte indistinguishable from a socket that accepts and sits there. There is no
+        // banner to recognise and nothing to match on: asking again is the only detection there is.
+        //
+        // Bounded by both ends. It costs a second dial only where the first learnt nothing — a
+        // server that said anything has already answered the question, and a dial that never opened
+        // has no question to ask — and the crawl loop remembers the answer on the target, so an
+        // address pays this once rather than every cycle. Measured on the live registry before it
+        // was written: sixteen addresses out of 1,677 qualify, four of them really are TLS.
+        //
+        // Both directions, and the second one is the important one: without it a target once marked
+        // TLS whose game moved back to an ordinary port would dial into a handshake nobody answers,
+        // fail every cycle for ever, and be published as dark while running perfectly well. The
+        // registry has no other way back.
+        if (!Learnt(session))
+        {
+            var other = await SessionAsync(target, Other(session.Result.Transport), cancellationToken);
+
+            if (Learnt(other) && !SpeaksHttp(other.Result.Banner))
+            {
+                return other.Result;
+            }
+
+            // Nothing on either transport. The first result stands unchanged: which door we tried is
+            // a decision of ours, and neither a failed handshake nor a silent socket may reach a
+            // game's record as a fact about the game (rule 5).
+        }
+
+        return session.Result;
+    }
+
+    /// <summary>Whether a session found out anything the other transport could not also explain.</summary>
+    /// <remarks>
+    /// Silence is the whole question — see <see cref="Session.Heard"/>. A refused handshake counts
+    /// as silence for this purpose and no other: it is a true measurement of the far end, and it is
+    /// also exactly what a plaintext port looks like when dialled as TLS.
+    /// </remarks>
+    private static bool Learnt(Session session) => session switch
+    {
+        { Heard: true } => true,
+        { Result.Outcome: ProbeOutcome.Answered } => false,
+        { Result.Failure.Cause: DialFailureCause.Tls } => false,
+
+        // Refused, no route, DNS, a budget spent: the far end never got as far as a conversation, so
+        // there is no second question the other transport could answer.
+        _ => true,
+    };
+
+    private static ProbeTransport Other(ProbeTransport transport) =>
+        transport is ProbeTransport.Tls ? ProbeTransport.Telnet : ProbeTransport.Tls;
+
+    /// <summary>
+    /// Whether what came back is a web server answering, rather than a game.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Half of what the retry actually finds: of the four silent addresses in the live registry that
+    /// complete a handshake, two are nginx, which takes our telnet negotiation for a malformed
+    /// request and returns <c>400 Bad Request</c> with an HTML body. Adopting that would hand a game
+    /// page an error document as its connect screen, and one of those two is already listed.
+    /// </para>
+    /// <para>
+    /// Only the retry consults this, and deliberately: a status line is conclusive about the port
+    /// and says nothing about what the <em>other</em> transport found, so it decides whether a
+    /// second dial may overrule the first and nothing else. A plaintext port that answers HTTP is
+    /// the same fact and is left exactly as it has always been handled — not this change's
+    /// question.
+    /// </para>
+    /// </remarks>
+    private static bool SpeaksHttp(string? banner) =>
+        banner?.TrimStart().StartsWith("HTTP/", StringComparison.OrdinalIgnoreCase) is true;
+
+    /// <summary>What one session produced, and whether the far end said anything at all.</summary>
+    /// <remarks>
+    /// <see cref="Heard"/> is not derivable from the result: a server can send bytes that yield an
+    /// empty banner, no options and no readable answer, which is indistinguishable from silence
+    /// once the result is built. It exists because "nothing arrived" is the only question a second
+    /// dial may be asked on — see <see cref="ProbeAsync"/>.
+    /// </remarks>
+    private readonly record struct Session(ProbeResult Result, bool Heard);
+
+    private async Task<Session> SessionAsync(
+        ProbeTarget target,
+        ProbeTransport transport,
+        CancellationToken cancellationToken)
+    {
         var started = Stopwatch.GetTimestamp();
         var observedAt = DateTimeOffset.UtcNow;
 
@@ -95,6 +189,18 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
         using var client = new TcpClient();
 
+        // Held at method scope rather than in the branch that makes it, so it outlives the
+        // interpreter reading through it and is torn down after that interpreter, never under it.
+        SslStream? tunnel = null;
+
+        bool Heard()
+        {
+            lock (lines)
+            {
+                return lines.Count > 0 || seen.Supported.Count > 0;
+            }
+        }
+
         try
         {
             // The vetted addresses when the caller has them, the name otherwise. See
@@ -104,8 +210,21 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 ? client.ConnectAsync([.. target.Addresses], target.Port, budget.Token)
                 : client.ConnectAsync(target.Host, target.Port, budget.Token));
 
+            if (transport is ProbeTransport.Tls)
+            {
+                tunnel = await HandshakeAsync(client, target, budget.Token);
+            }
+
             var prompts = new PromptSink(lines);
-            var built = await Build(seen, lines, prompts).BuildAndStartAsync(client, budget.Token);
+            var builder = Build(seen, lines, prompts);
+
+            // The stream overload and the TcpClient one differ only in where the pipe comes from, so
+            // everything above the socket — negotiation, MSSP, the WHO parser, the encoding decision
+            // — runs identically inside the tunnel. That is the whole reason TLS needs no special
+            // case beyond this line, and why a TLS game keeps every capability a cleartext one has.
+            var built = tunnel is null
+                ? await builder.BuildAndStartAsync(client, budget.Token)
+                : await builder.BuildAndStartAsync(tunnel, budget.Token);
 
             // Before anything can be read from the socket in practice — see PromptSink.Reads.
             prompts.Reads(built.Interpreter);
@@ -209,9 +328,11 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                     lines, target.Charset, MsspReport.RawValues(seen.Mssp), target.MsspCharset);
             }
 
-            return BuildAnsweredResult(
-                target, observedAt, started, seen, reading, cursors,
-                whoFromMenu, whoFromMenuShape, asked, published, telnet.CurrentEncoding);
+            return new Session(
+                BuildAnsweredResult(
+                    target, observedAt, started, seen, reading, cursors,
+                    whoFromMenu, whoFromMenuShape, asked, published, telnet.CurrentEncoding, transport),
+                Heard());
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -232,23 +353,79 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         // land it in the catch-all and get misfiled as a measured game timeout downstream, so it is
         // left to propagate — CrawlCycle.VisitAsync catches it one level up, logs it loudly as an
         // error, and moves on to the next target without publishing anything about this one.
+        // AuthenticationException joins them because a handshake the far end would not complete is a
+        // measurement of that host and not a defect here: an address dialled as TLS that answers in
+        // the clear has told us something true about itself, and DialFailure.Classify has a word for
+        // it that the catalogue's own vocabulary already carried.
         catch (Exception error) when (error is SocketException
             or OperationCanceledException
             or IOException
-            or ObjectDisposedException)
+            or ObjectDisposedException
+            or AuthenticationException)
         {
-            return new ProbeResult
-            {
-                Host = target.Host,
-                Port = target.Port,
-                ObservedAt = observedAt,
-                Outcome = ProbeOutcome.Failed,
-                OfferedOptions = seen.Supported,
-                Negotiation = seen.ToNegotiation(),
-                Failure = DialFailure.Classify(error),
-                Elapsed = Stopwatch.GetElapsedTime(started),
-            };
+            return new Session(
+                new ProbeResult
+                {
+                    Host = target.Host,
+                    Port = target.Port,
+                    ObservedAt = observedAt,
+                    Outcome = ProbeOutcome.Failed,
+                    OfferedOptions = seen.Supported,
+                    Negotiation = seen.ToNegotiation(),
+                    Failure = DialFailure.Classify(error),
+                    Transport = transport,
+                    Elapsed = Stopwatch.GetElapsedTime(started),
+                },
+                Heard());
         }
+        finally
+        {
+            if (tunnel is not null)
+            {
+                await tunnel.DisposeAsync();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Opens the TLS tunnel this session will speak telnet inside.
+    /// </summary>
+    /// <remarks>
+    /// <b>Every certificate is accepted</b> — self-signed, expired, wrong name, any of it. The probe
+    /// reads a login screen a server shows to strangers, so there is nothing here for a chain to
+    /// protect, and MU* TLS ports routinely serve a certificate no public root signed. What this
+    /// costs is precision of language downstream, not safety: <see cref="ProbeTransport.Tls"/> means
+    /// a handshake completed and must never be rendered as though somebody had verified anything.
+    /// Revocation checking is off for the same reason — it is a network round trip in service of a
+    /// question this probe is not asking.
+    /// </remarks>
+    private static async Task<SslStream> HandshakeAsync(
+        TcpClient client,
+        ProbeTarget target,
+        CancellationToken cancellationToken)
+    {
+        var tunnel = new SslStream(client.GetStream(), leaveInnerStreamOpen: false);
+
+        try
+        {
+            await tunnel.AuthenticateAsClientAsync(
+                new SslClientAuthenticationOptions
+                {
+                    // SNI: a host serving several games from one address picks by this, and sending
+                    // the dialled name is the only way to reach the right one.
+                    TargetHost = target.Host,
+                    RemoteCertificateValidationCallback = static (_, _, _, _) => true,
+                    CertificateRevocationCheckMode = X509RevocationMode.NoCheck,
+                },
+                cancellationToken);
+        }
+        catch
+        {
+            await tunnel.DisposeAsync();
+            throw;
+        }
+
+        return tunnel;
     }
 
     /// <summary>
@@ -648,7 +825,8 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         string? whoFromMenuShape,
         bool asked,
         int? published,
-        Encoding? negotiatedEncoding)
+        Encoding? negotiatedEncoding,
+        ProbeTransport transport)
     {
         var read = reading.Lines;
 
@@ -715,6 +893,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             MsspOutcome = seen.MsspOutcome,
             MsspBytesRejected = seen.MsspRejectedBytes,
             MsspTransport = viaOption ? MsspTransport.TelnetOption70 : MsspTransport.None,
+            Transport = transport,
             Elapsed = Stopwatch.GetElapsedTime(started),
         };
     }

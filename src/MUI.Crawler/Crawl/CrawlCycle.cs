@@ -243,6 +243,11 @@ public sealed class CrawlCycle(
                 // The addresses the guard just vetted, so the dial reaches what was ruled on and the
                 // name is resolved once rather than twice.
                 Addresses = decision.Addresses,
+
+                // Which door answered last time. Saves the opportunistic retry on an address already
+                // known to be behind a handshake — and the probe overrules it either way if the game
+                // has since moved, which is what keeps a stale flag from going dark for ever.
+                UseTls = target.UseTls,
             },
             budget.Token);
 
@@ -414,6 +419,16 @@ public sealed class CrawlCycle(
             MsspCrawlDelay.From(result),
             ProbeSchedule.NextProbeAt(now, failures, MsspCrawlDelay.From(result) ?? target.CrawlDelay, activity),
             cancellationToken);
+
+        // Only on a session that actually got somewhere, and only when it disagrees with the row.
+        // A failed dial says nothing about which door to knock on next time — writing the transport
+        // of a probe that never had a conversation would unlearn a good answer on one bad night.
+        var transport = result.Transport is ProbeTransport.Tls;
+
+        if (answered && transport != target.UseTls)
+        {
+            await targets.RecordTransportAsync(target.Id, transport, cancellationToken);
+        }
     }
 
     /// <summary>

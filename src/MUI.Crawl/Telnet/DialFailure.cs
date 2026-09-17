@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using System.Security.Authentication;
 
 namespace MUI.Crawl;
 
@@ -44,6 +45,10 @@ public static class DialFailure
                     or SocketError.HostUnreachable
                     or SocketError.NetworkDown,
             } => new(DialFailureCause.NoRoute, error.Message),
+            // Only reachable on a dial that asked for TLS: nothing else here builds an SslStream.
+            // "It answered and would not do TLS" is a fact about the far end, so it gets the word
+            // the catalogue's own cause vocabulary has carried since migration 0028.
+            AuthenticationException => new(DialFailureCause.Tls, error.Message),
             OperationCanceledException => new(DialFailureCause.Timeout, "probe budget exhausted"),
             _ => new(DialFailureCause.Error, error.Message),
         };

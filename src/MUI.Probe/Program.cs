@@ -39,6 +39,10 @@ var result = await new TelnetProbe(options).ProbeAsync(new ProbeTarget(host, por
 
 Console.WriteLine($"target        {result.Host}:{result.Port}");
 Console.WriteLine($"outcome       {result.Outcome}");
+// Measured rather than asked for: a plain dial that heard nothing is retried behind a handshake, so
+// this says which door actually answered. `tls` means one completed, never that a certificate was
+// checked — nothing here verifies one.
+Console.WriteLine($"transport     {result.Transport.ToString().ToLowerInvariant()}");
 Console.WriteLine($"elapsed       {result.Elapsed.TotalSeconds:F1}s");
 Console.WriteLine($"mssp          {result.MsspOutcome} via {result.MsspTransport}");
 Console.WriteLine($"who           {result.Who.Confidence}" + (result.Who.HasCount

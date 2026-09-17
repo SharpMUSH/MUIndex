@@ -330,7 +330,11 @@ public sealed class CatalogueBinder(
                 gameId,
                 result.Host,
                 result.Port,
-                EndpointKind.Telnet,
+
+                // What carried the session that produced this result, which is what a reader would
+                // have to speak to reach the same screen. Measured rather than configured — and
+                // `tls` here means a handshake completed, never that a certificate was verified.
+                result.Transport is ProbeTransport.Tls ? EndpointKind.Tls : EndpointKind.Telnet,
                 existing?.FirstSeenAt ?? now,
                 now,
                 EndpointState.Active),

@@ -156,5 +156,18 @@ public interface ICrawlTargetRepository
         DateTimeOffset nextProbeAt,
         CancellationToken ct);
 
+    /// <summary>
+    /// Records which door answered, so the next dial opens with it.
+    /// </summary>
+    /// <remarks>
+    /// A memory of a measurement rather than a setting, and writable in both directions for that
+    /// reason: a game that moves off TLS must be able to unlearn it, or the flag would keep dialling
+    /// a handshake nobody answers and the game would be published as dark while running perfectly
+    /// well. Separate from <see cref="RecordAttemptAsync"/> because most attempts have nothing to
+    /// say about the transport and a refused dial has no business overwriting what a conversation
+    /// established.
+    /// </remarks>
+    Task RecordTransportAsync(Guid id, bool useTls, CancellationToken ct);
+
     Task AttachGameAsync(Guid id, Guid gameId, CancellationToken ct);
 }
