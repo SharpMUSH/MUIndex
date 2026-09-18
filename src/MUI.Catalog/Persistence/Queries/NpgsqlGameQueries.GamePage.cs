@@ -116,7 +116,9 @@ public sealed partial class NpgsqlGameQueries
             .GetValueOrDefault(row.Id, PresenceDigest.None);
 
         var intervals = await new NpgsqlAvailabilityStore(source).ForGameAsync(row.Id, cancellationToken);
-        var endpoints = await new NpgsqlEndpointStore(source).ForGameAsync(row.Id, cancellationToken);
+        // ForListingAsync, not ForGameAsync: a reader redirected here from an absorbed slug is owed
+        // that game's addresses too, because the merge made them this game's (issue #188).
+        var endpoints = await new NpgsqlEndpointStore(source).ForListingAsync(row.Id, cancellationToken);
         var neighbours = await NeighboursAsync(connection, row.Id, cancellationToken);
         var changes = await new NpgsqlGameFieldStore(source)
             .ChangesAsync(row.Id, ChangeLimit, ChangePerFieldLimit, cancellationToken);

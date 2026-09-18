@@ -306,7 +306,12 @@ called; and `game_merge` (also `mui-crawl --merge --because`), which drains one 
 pair by hand (spec §7.3) through the same `ReviewMergeService` the CLI uses — folding the loser into
 the winner, resolving an open review naming that pair if one exists, and refusing on a redirect chain
 or an already-absorbed loser the same way the schema itself refuses. The old slug redirects to the
-new page for ever; `game_field_set` on `NAME` alone still does not do this, and says so. And
+new page for ever; `game_field_set` on `NAME` alone still does not do this, and says so. The loser
+keeps its endpoint rows — a merge moves nothing — and the winner's page shows them anyway, through
+`NpgsqlEndpointStore.ForListingAsync` (issue #188): before that, an absorbed game's addresses went on
+being crawled and were shown nowhere a reader could reach. **`ForGameAsync` must stay the game's own**
+— it also answers `IdentityMatcher` and `DnsClaim`, and widening it would let a DNS claim on the
+winner vouch for the loser's hosts. And
 `game_keep_distinct` (also `mui-crawl --distinct --because`), §7.3's **other** verdict: this pair is
 two games. Nothing moves and neither page changes — the `duplicate_review` row is resolved with the
 reason beside it, which is the only thing that stops the pair being asked about again. Without it the
