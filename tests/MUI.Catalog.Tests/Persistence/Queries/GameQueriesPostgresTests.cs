@@ -62,7 +62,7 @@ public class GameQueriesPostgresTests
         await games.ExcludeAsync(stock, "Stock configuration.", Now);
 
         await OwnerRowAsync(db);
-        await games.UnlistAsync(asked, Owner, Now);
+        await games.UnlistAsync(asked, UnlistedBy.Owner(Owner), Now);
 
         var queries = QueriesOn(db);
         var withArchive = await queries.ListAsync(new GameFilter { IncludeArchived = true });
@@ -106,7 +106,7 @@ public class GameQueriesPostgresTests
         var games = new NpgsqlGameStore(db.DataSource);
         await games.ExcludeAsync(stock, "Stock configuration.", Now);
         await OwnerRowAsync(db);
-        await games.UnlistAsync(asked, Owner, Now);
+        await games.UnlistAsync(asked, UnlistedBy.Owner(Owner), Now);
 
         var queries = QueriesOn(db);
         var feeds = await queries.FeedsAsync();

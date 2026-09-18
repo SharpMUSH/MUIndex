@@ -29,7 +29,7 @@ internal sealed class NullGameStore : IGameStore
     public Task IncludeAsync(Guid id, DateTimeOffset at, CancellationToken ct = default) =>
         throw new NotSupportedException();
 
-    public Task UnlistAsync(Guid id, Guid byUserId, DateTimeOffset at, CancellationToken ct = default) =>
+    public Task UnlistAsync(Guid id, UnlistedBy by, DateTimeOffset at, CancellationToken ct = default) =>
         throw new NotSupportedException();
 
     public Task RelistAsync(Guid id, DateTimeOffset at, CancellationToken ct = default) =>

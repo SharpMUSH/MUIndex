@@ -1,6 +1,7 @@
 using MUI.Catalog.Persistence;
 using MUI.Catalog;
 using MUI.Crawl;
+using MUI.Crawler.Persistence;
 using MUI.Discovery;
 
 using Microsoft.Extensions.Logging;
@@ -51,6 +52,11 @@ public sealed class CrawlCycle(
     // §11's replay window. Optional for the same reason claims are — a crawl that cannot record a
     // shape is a crawl doing slightly less, not one that should refuse to dial.
     IProbePayloads? payloads = null,
+    // Issue #185's register of what we are declining to dial. Optional on the same terms: a crawl
+    // that cannot write down its own restraint is a crawl doing slightly less. Nothing downstream
+    // reads it — it exists so an operator can see an address that is otherwise indistinguishable
+    // from a healthy target.
+    ICrawlRefusalStore? refusals = null,
     ILogger<CrawlCycle>? logger = null)
 {
     /// <summary>Probes everything that is due, and returns what the pass did.</summary>
@@ -188,6 +194,11 @@ public sealed class CrawlCycle(
 
         var result = attempt.Result!;
 
+        // Both gates let this address through, so whatever we were declining about it no longer
+        // stands. Here rather than beside the writes below: a dial that reaches a failure still
+        // reached it, and "we are not dialling this" was the thing that stopped being true.
+        await ForgetRefusalAsync(target, cancellationToken);
+
         // A cancellation here is our own shutdown, not a fact about the far end; the writes below are
         // fast enough to land before Npgsql looks at the token, so this guard is worth having even
         // though TelnetProbe already refuses to dress cancellation as a timeout.
@@ -290,6 +301,8 @@ public sealed class CrawlCycle(
     {
         tally.Refused(reason);
 
+        await NoteRefusalAsync(target, reason, detail, cancellationToken);
+
         // An opt-out is not a warning. Somebody exercised a documented choice and the crawler did what
         // it was told; logging it as though something had gone wrong would eventually train an
         // operator to go looking for the fix.
@@ -309,6 +322,62 @@ public sealed class CrawlCycle(
             crawlDelay: null,
             time.GetUtcNow() + ProbeSchedule.LongestInterval,
             cancellationToken);
+    }
+
+    /// <summary>
+    /// Writes down that we declined this address, and why (issue #185).
+    /// </summary>
+    /// <remarks>
+    /// Failure here is swallowed to a warning, the way a probe shape's is: this is a note about our
+    /// own decision and nothing on the site is derived from one, so a write that fails must not cost
+    /// the refusal itself — which has already happened, correctly, by the time this runs.
+    /// </remarks>
+    private async Task NoteRefusalAsync(
+        CrawlTarget target,
+        DialRefusal reason,
+        string detail,
+        CancellationToken cancellationToken)
+    {
+        if (refusals is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await refusals.RecordAsync(
+                target.Host, target.Port, target.GameId, reason, detail, time.GetUtcNow(), cancellationToken);
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            logger?.LogWarning(error, "The refusal of {Target} was not recorded", target);
+        }
+    }
+
+    /// <summary>
+    /// Forgets a refusal that no longer stands, because we have just dialled the address.
+    /// </summary>
+    /// <remarks>
+    /// What keeps <c>crawl_refusal</c> a list of standing refusals rather than a log: an opt-out
+    /// withdrawn or a DNS answer that stopped carrying a private address leaves nothing to declare.
+    /// Unconditional rather than guarded by a read — the delete is cheap, and a guard would be a
+    /// second round trip on every dial to save a write on almost none of them.
+    /// </remarks>
+    private async Task ForgetRefusalAsync(CrawlTarget target, CancellationToken cancellationToken)
+    {
+        if (refusals is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await refusals.ClearAsync(target.Host, target.Port, cancellationToken);
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            logger?.LogWarning(error, "The refusal of {Target} was not cleared", target);
+        }
     }
 
     /// <summary>

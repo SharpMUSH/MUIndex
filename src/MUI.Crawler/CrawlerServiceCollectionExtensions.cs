@@ -91,6 +91,11 @@ public static class CrawlerServiceCollectionExtensions
             s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<ICrawlCycles>(s => new NpgsqlCrawlCycles(
             s.GetRequiredService<NpgsqlDataSource>()));
+        // Issue #185 — the register of addresses we are declining to dial. CrawlCycle resolves it
+        // through TryAddSingleton like the rest, so the hosted crawler writes it without the call
+        // site having to remember; the CLI passes its own.
+        services.TryAddSingleton<ICrawlRefusalStore>(s => new NpgsqlCrawlRefusalStore(
+            s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton(s => new PresenceMaintenance(
             s.GetRequiredService<NpgsqlPresenceStore>(),
             s.GetRequiredService<NpgsqlPresenceRollupStore>(),

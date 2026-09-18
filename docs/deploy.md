@@ -791,10 +791,30 @@ Set `MUI_MCP_TOKEN` (`openssl rand -hex 32`, never committed) and point a client
 `https://<site>/mcp` with `Authorization: Bearer <token>`. Unset, every request gets a 401 and MUI.Web
 says so once at startup — this endpoint fails closed, never open.
 
-The ten tools (`src/MUI.Web/Mcp/CrawlAdminTools.cs`, `src/MUI.Web/Mcp/GameAdminTools.cs`) mirror
+The thirteen tools (`src/MUI.Web/Mcp/CrawlAdminTools.cs`, `src/MUI.Web/Mcp/GameAdminTools.cs`) mirror
 `mui-crawl`'s CLI surface — `crawl_seed_add`,
 `crawl_opt_out_record`, `crawl_opt_out_check`, `crawl_due_targets`, `crawl_run_cycle`,
-`crawl_summary` — plus four capabilities of its own. `game_field_set` is a staff override of a single
+`crawl_summary` — plus seven capabilities of its own.
+
+`crawl_refusals` lists the addresses the crawler is declining to dial, longest-standing first, with
+the reason in the guard's or the opt-out register's own words (issue #185). There is no other way to
+ask: a refusal happens before a probe exists, so it is recorded as a successful attempt — the far end
+did not fail — and the target it leaves behind is indistinguishable from a healthy one. The only
+other trace was a log line with about thirty minutes of retention. A row disappears the moment the
+address is dialled again, so the list is what stands now rather than everything ever refused;
+`crawl_summary`'s `refusals standing` total counts the same rows.
+
+`game_unlist` takes a game out of the listing, the rankings and the daily figure because the people
+who run it asked (§11) — staff's route to the state the owner dashboard reaches with a verified
+claim, and the only route when the ask came from somebody without one, which is how most of them
+arrive. **Recording an opt-out and unlisting a game are two acts**: `crawl_opt_out_record` stops the
+dial and most asks are only that; this one answers "and take us off the site". `because` is required,
+as on `--merge` and `--distinct`. §7.5 is untouched — the page, the URL, the history and the change
+feed all go on answering, and the game keeps being probed unless an opt-out also stands. What stops
+is the promotion: the listing, the rankings, and being offered to search engines with a connect
+address attached (issue #187). `game_relist` undoes it, and is needed because nothing else can for a
+game staff unlisted — an opted-out address is refused before the dial, so the probe that would
+otherwise relist it never happens. `game_field_set` is a staff override of a single
 `GameField` row (`FieldSource.Staff`, spec §5.1) for fixing a mis-parsed value by hand without raw
 SQL, and explicitly declines to re-mint a game's slug when the field is `NAME`. `game_rename` (also
 `mui-crawl --rename`) is that missing half: it writes `NAME` through the same staff override and then

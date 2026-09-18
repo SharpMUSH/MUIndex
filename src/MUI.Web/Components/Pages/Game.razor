@@ -15,6 +15,7 @@
     <SitePreview Title="@PreviewCopy.Titles.Game(Http.LocaleOf().Tag, Page.Summary.Name)"
                  Description="@PreviewCopy.ForGame(Http.LocaleOf().Tag, Page, Now)"
                  Card="PreviewCard.Game"
+                 NoIndex="@WithheldFromSearch"
                  Graph="GraphFor" />
 }
 
@@ -458,6 +459,17 @@ else
     private bool Excluded => Page?.Summary.State is LifecycleState.Excluded;
 
     private bool Unlisted => Page?.Summary.State is LifecycleState.Unlisted;
+
+    /// <summary>
+    /// Whether this page should be kept out of search results (issue #187).
+    /// </summary>
+    /// <remarks>
+    /// The two states that are withheld on purpose — the operators asked, or we judged the address
+    /// is not a game anybody can play. Archived is not one of them: it is a real game that went
+    /// quiet, one probe away from active, and staying findable is the whole difference §7.5 draws
+    /// between going dark and being taken out.
+    /// </remarks>
+    private bool WithheldFromSearch => Unlisted || Excluded;
 
     /// <summary>
     /// When what is on this page was last true.

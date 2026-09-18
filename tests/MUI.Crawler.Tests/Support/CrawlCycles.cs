@@ -79,7 +79,12 @@ public static class CrawlCycles
             new CrawlRateLimiter(discovery, time),
             new HostConcurrencyGate(),
             discovery,
-            time);
+            time,
+            claims: null,
+            payloads: null,
+            // Issue #185 — a suite asserting what a cycle wrote has to be given the same register
+            // the deployment has, or "a refusal left a record" is untestable here.
+            refusals: new NpgsqlCrawlRefusalStore(source));
     }
 
     /// <summary>Confirmation on, with no wait, so a suite asserts the behaviour and not the delay.</summary>

@@ -5,7 +5,9 @@ using ModelContextProtocol.Server;
 
 using MUI.Catalog;
 using MUI.Catalog.Persistence;
+using MUI.Crawl;
 using MUI.Crawler;
+using MUI.Crawler.Persistence;
 using MUI.Discovery;
 
 using Npgsql;
@@ -45,6 +47,7 @@ public sealed class CrawlAdminTools(
     NpgsqlDataSource source,
     CrawlerOptions crawlerOptions,
     CrawlCycle cycle,
+    ICrawlRefusalStore refusals,
     TimeProvider time,
     ILogger<CrawlAdminTools>? logger = null)
 {
@@ -152,6 +155,38 @@ public sealed class CrawlAdminTools(
         [Description("How many due targets to list. Default 50.")] int batch = 50,
         CancellationToken cancellationToken = default) =>
         ToDue(await targets.DueAsync(time.GetUtcNow(), Math.Max(1, batch), cancellationToken));
+
+    [McpServerTool(Name = "crawl_refusals", ReadOnly = true, Destructive = false)]
+    [Description("""
+        The addresses this crawler is declining to dial, longest-standing first, with the reason in
+        the guard's or the opt-out register's own words.
+
+        There is no other way to ask. A refusal happens before a probe exists, so it is recorded as a
+        successful attempt -- the far end did not fail -- and the target it leaves behind is
+        indistinguishable from a healthy one: no failures, a recent attempt, no availability row. The
+        only other trace is a log line with about thirty minutes of retention.
+
+        `out_of_scope` is the address gate (spec 7.2): every resolved address must be globally
+        routable, and a mixed answer refuses the whole target. `opted_out` is somebody asking us to
+        stop (spec 11). A row goes the moment the address is dialled again, so this is what stands
+        now rather than everything that has ever been refused.
+
+        Read-only: dials nothing and changes nothing.
+        """)]
+    public async Task<IReadOnlyList<CrawlRefusalRow>> CrawlRefusalsAsync(
+        [Description("How many refusals to list. Default 50.")] int batch = 50,
+        CancellationToken cancellationToken = default) =>
+    [
+        .. (await refusals.StandingAsync(Math.Max(1, batch), cancellationToken))
+            .Select(r => new CrawlRefusalRow(
+                r.Host,
+                r.Port,
+                r.Reason is DialRefusal.OptedOut ? "opted_out" : "out_of_scope",
+                r.Detail,
+                r.FirstRefusedAt,
+                r.LastRefusedAt,
+                r.Times)),
+    ];
 
     [McpServerTool(Name = "crawl_run_cycle")]
     [Description("""

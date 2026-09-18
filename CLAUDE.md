@@ -105,6 +105,22 @@ our host is unreachable and perfectly alive.
   captured `ProbeResult` fixture with no network involved.
 - Credit MSSP `CREATED` toward archive grace. It is one hand-typed line of `mush.cnf` and crediting
   it would make the threshold trivially gameable.
+- **Let a refusal reach a game's record, or leave one with no record at all.** Both halves were
+  wrong at once. A scope refusal and an opt-out are decisions of ours, so they stay out of
+  `availability_interval` — where `refused` already means an RST from a real host, a measurement of
+  *them*. But `RefuseAsync` writing `succeeded: true` and nothing else left a target that reads as
+  flawless: no failures, a recent attempt, no availability row, and a log line with thirty minutes of
+  retention. Two production targets sat like that and were findable only by noticing that
+  `next_probe_at` happened to be exactly seven days after `last_probed_at`. `crawl_refusal`
+  (migration 0039) is the answer and is **our note about our own decision**, on the `icon_attempt`
+  precedent: droppable, never rendered on a game page, and cleared the moment the address is dialled
+  again so it lists what stands rather than everything that ever happened.
+- **Assume an opt-out unlists a game.** They are two acts. `crawl_opt_out_record` stops the dial and
+  most asks are only that; `game_unlist` answers "and take us off the site". Convergence MUSH asked
+  for the second on 2026-08-16, got the first, and stayed listed — indexable, with `telnet://` in its
+  structured data under a page titled "how to connect" — for a month, because the state could only be
+  set by a verified owner and the person who asked had no account. Attribution is now **a person or
+  an explanation**, never neither (migration 0040, `UnlistedBy`).
 - **Add a `Refused` member to `ProbeOutcome`, or dress a scope refusal as `ProbeResult.Failed(…)`.**
   A refusal happens *before* a probe exists, and `FailureCause.Refused` already means the far end
   sent an RST — a real measurement of a real host. Conflating them is unrecoverable downstream. The
@@ -276,9 +292,12 @@ mounted inside `MUI.Web` itself — `src/MUI.Web/Mcp/` — that reuses the same 
 uses (`OptOutGate`, `ICrawlTargetRepository`, `NpgsqlGameFieldStore`, the deployment's own singleton
 `CrawlCycle`) rather than reviving the excluded CLI image. It is gated behind `MUI_MCP_TOKEN`, a
 shared bearer secret checked in constant time; unset, every request fails authentication (fail
-closed — see `docs/deploy.md`'s "Administering the site over MCP"). Ten tools, mirroring the CLI:
+closed — see `docs/deploy.md`'s "Administering the site over MCP"). Thirteen tools, mirroring the CLI:
 `crawl_seed_add`, `crawl_opt_out_record`, `crawl_opt_out_check`, `crawl_due_targets`,
-`crawl_run_cycle`, `crawl_summary`, plus four capabilities of its own — `game_field_set`, a staff override
+`crawl_run_cycle`, `crawl_summary`, plus seven capabilities of its own — `crawl_refusals`, which
+lists the addresses we are declining to dial and why (issue #185); `game_unlist` and `game_relist`,
+staff's route to §11's "and take us off the site" for an ask from somebody with no account, which is
+how most of them arrive (issue #187, and see **Never** below); `game_field_set`, a staff override
 (`FieldSource.Staff`) of one `GameField` row, for fixing a mis-parsed value by hand without raw SQL;
 `game_rename` (also `mui-crawl --rename`), which writes `NAME` through that same staff override
 and then takes `SlugMinter`'s immediate, no-grace mint-and-rename path — the one a verified owner's

@@ -1,6 +1,44 @@
 namespace MUI.Catalog.Persistence;
 
 /// <summary>
+/// Who an unlisting is answerable to — an account, or staff with a reason (migration 0040).
+/// </summary>
+/// <remarks>
+/// <para>
+/// A type rather than a nullable pair, because the thing that must be impossible is "neither". The
+/// schema refuses that too (<c>game_unlisting_is_attributed</c>), and this is what stops a caller
+/// having to remember.
+/// </para>
+/// <para>
+/// <see cref="Staff"/> exists because the dashboard is not the only way an ask arrives. Convergence
+/// MUSH's admin asked in a chat message; the opt-out was honoured at the dial and the game stayed
+/// listed for a month, because they held no verified claim and there was no other route. §11 already
+/// anticipated one ("the recorded-request route reaches the listing by hand"); this is it.
+/// </para>
+/// </remarks>
+/// <param name="UserId">The account that asked, claim-verified through the dashboard.</param>
+/// <param name="Reason">Why staff did it, when nobody with an account could.</param>
+public sealed record UnlistedBy(Guid? UserId, string? Reason)
+{
+    /// <summary>A verified owner, through their own dashboard.</summary>
+    public static UnlistedBy Owner(Guid userId) => new(userId, null);
+
+    /// <summary>
+    /// Staff, on somebody's behalf, saying who asked and how.
+    /// </summary>
+    /// <remarks>
+    /// The reason is required and not merely non-null: a blank one is an unlisting nobody can
+    /// review, which is what the account was there to prevent.
+    /// </remarks>
+    public static UnlistedBy Staff(string reason)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+
+        return new UnlistedBy(null, reason);
+    }
+}
+
+/// <summary>
 /// The <c>game</c> table (spec §5, §7.5). <see cref="IGameFieldStore"/>, <see cref="IPresenceStore"/>
 /// and <see cref="IAvailabilityStore"/> all hang off it.
 /// </summary>
@@ -27,17 +65,13 @@ public interface IGameStore
     /// Takes a game out of the listing because the people who run it asked (spec §11, migration 0025).
     /// </summary>
     /// <remarks>
-    /// Separate from <see cref="ExcludeAsync"/>: this carries an account, not an argument. The reason
-    /// is that they asked; <paramref name="byUserId"/> is the account that held a verified claim, and
-    /// <c>crawl_opt_out</c> holds how the ask arrived.
+    /// Separate from <see cref="ExcludeAsync"/>: the reason here is that they asked, and
+    /// <c>crawl_opt_out</c> holds how the ask arrived. What varies is who can be held to it — see
+    /// <see cref="UnlistedBy"/>, which is never inferred and never defaulted.
     /// </remarks>
-    /// <param name="byUserId">
-    /// The account that asked — claim-verified through the dashboard, or the operator's own where
-    /// §11's recorded-request route reaches the listing by hand. Never inferred, never defaulted.
-    /// </param>
     Task UnlistAsync(
         Guid id,
-        Guid byUserId,
+        UnlistedBy by,
         DateTimeOffset at,
         CancellationToken cancellationToken = default);
 

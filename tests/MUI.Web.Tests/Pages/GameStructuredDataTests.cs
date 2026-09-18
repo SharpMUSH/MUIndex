@@ -174,6 +174,50 @@ public class GameStructuredDataTests
         return null;
     }
 
+    /// <summary>
+    /// A game withheld from the listing on purpose publishes no graph at all (issue #187).
+    /// </summary>
+    /// <remarks>
+    /// The graph exists to tell a machine this is a game worth reaching, and <c>gameServer</c> spells
+    /// out the address to reach it at. When the people who run a game have asked to be out of the
+    /// listing, or when we have judged the address is not a game anybody can play, that is the exact
+    /// claim being withdrawn — and there is no property in this vocabulary for "withdrawn", the same
+    /// gap that keeps the graph off the demo fixture.
+    ///
+    /// §7.5 is untouched: the page, the URL, the history and the change feed all stay.
+    /// </remarks>
+    [Test]
+    [Arguments(LifecycleState.Unlisted)]
+    [Arguments(LifecycleState.Excluded)]
+    public async Task AGameWithheldFromTheListingPublishesNoGraph(LifecycleState state)
+    {
+        var page = Page(count: 15, source: FieldSource.Who, at: Now.AddMinutes(-4));
+
+        var json = GameStructuredData.For(page with { Summary = page.Summary with { State = state } }, Origin);
+
+        await Assert.That(json).IsEmpty();
+    }
+
+    /// <summary>
+    /// A game that merely went quiet keeps its graph.
+    /// </summary>
+    /// <remarks>
+    /// The boundary §7.5 draws and the one this must not cross: an archived game is a real game one
+    /// successful probe away from being active again, and silence was never a request.
+    /// </remarks>
+    [Test]
+    [Arguments(LifecycleState.Active)]
+    [Arguments(LifecycleState.Dark)]
+    [Arguments(LifecycleState.Archived)]
+    public async Task AGameThatWentQuietKeepsItsGraph(LifecycleState state)
+    {
+        var page = Page(count: 15, source: FieldSource.Who, at: Now.AddMinutes(-4));
+
+        var json = GameStructuredData.For(page with { Summary = page.Summary with { State = state } }, Origin);
+
+        await Assert.That(json).Contains("VideoGame");
+    }
+
     private static GamePage Page(
         int? count,
         FieldSource source,

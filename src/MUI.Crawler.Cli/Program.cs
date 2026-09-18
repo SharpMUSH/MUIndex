@@ -599,6 +599,9 @@ var cycle = new CrawlCycle(
     new ClaimService(new NpgsqlClaimStore(source), games, time),
     // §11 — a CLI crawl fills the same replay window an in-process one does.
     new NpgsqlProbePayloads(source),
+    // Issue #185 — and it writes down what it declined to dial, for the same reason: an operator
+    // running a cycle by hand is the reader most likely to want to know.
+    new NpgsqlCrawlRefusalStore(source),
     loggerFactory.CreateLogger<CrawlCycle>());
 
 if (arguments.DryRun)
