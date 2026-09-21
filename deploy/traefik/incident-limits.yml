@@ -2,7 +2,7 @@
   "http": {
     "routers": {
       "mui-games-protection": {
-        "rule": "Host(`mu-index.com`) && PathRegexp(`^/([a-z]{2}(-[A-Za-z]{2})?/)?games/?$`) && (QueryRegexp(`adult`, `.+`) || QueryRegexp(`band`, `.+`) || QueryRegexp(`charset`, `.+`) || QueryRegexp(`codebase`, `.+`) || QueryRegexp(`family`, `.+`) || QueryRegexp(`genre`, `.+`) || QueryRegexp(`language`, `.+`) || QueryRegexp(`lineage`, `.+`) || QueryRegexp(`seen`, `.+`) || QueryRegexp(`trending`, `.+`) || QueryRegexp(`uncounted`, `.+`) || QueryRegexp(`unreachable`, `.+`) || QueryRegexp(`version`, `.+`))",
+        "rule": "Host(`mu-index.com`) && PathRegexp(`^/([a-z]{2,3}(-[A-Za-z0-9]{1,8})*/)?games/?$`) && (QueryRegexp(`adult`, `.+`) || QueryRegexp(`band`, `.+`) || QueryRegexp(`charset`, `.+`) || QueryRegexp(`codebase`, `.+`) || QueryRegexp(`family`, `.+`) || QueryRegexp(`genre`, `.+`) || QueryRegexp(`language`, `.+`) || QueryRegexp(`lineage`, `.+`) || QueryRegexp(`seen`, `.+`) || QueryRegexp(`trending`, `.+`) || QueryRegexp(`uncounted`, `.+`) || QueryRegexp(`unreachable`, `.+`) || QueryRegexp(`version`, `.+`))",
         "priority": 100,
         "entryPoints": [
           "websecure"
