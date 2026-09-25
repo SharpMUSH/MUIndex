@@ -33,6 +33,80 @@ public class MergedGameVisibilityPostgresTests
             new { id = Guid.CreateVersion7(), into, from, at = Now, reverted });
     }
 
+    private static async Task EndpointAsync(TestDatabase db, Guid game, string host, int port, string kind)
+    {
+        await new NpgsqlEndpointStore(db.DataSource).UpsertAsync(new GameEndpoint(
+            game,
+            host,
+            port,
+            SqlEnums.ToEndpointKind(kind),
+            Now,
+            Now,
+            EndpointState.Active));
+    }
+
+    /// <summary>
+    /// The listing a reader lands on shows every address the merge made this game's (issue #188).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A merge says these are one game, so every address either of them answered at is an address
+    /// of that game. The loser keeps its endpoint rows — nothing moves, the merge is still a
+    /// redirect — but the page a reader is redirected <em>to</em> read only the winner's own, so the
+    /// absorbed game's addresses were still crawled and never shown anywhere a reader could reach.
+    /// </para>
+    /// <para>
+    /// Found about to merge ChatMUD's two listings: the TLS door on 7443 was the loser's, and the
+    /// merge would have taken it off the only page left — the one fact the TLS crawl had just
+    /// surfaced about the game.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task TheWinnersPageShowsTheAddressesOfWhatItAbsorbed()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var survivor = await Seed.GameAsync(db, "chatmud", "ChatMUD");
+        var absorbed = await Seed.GameAsync(db, "chatmud-2", "ChatMUD");
+
+        await EndpointAsync(db, survivor, "chatmud.com", 7777, "telnet");
+        await EndpointAsync(db, absorbed, "chatmud.com", 7443, "tls");
+
+        await MergeAsync(db, survivor, absorbed);
+
+        var page = await QueriesOn(db).FindAsync("chatmud");
+
+        await Assert.That(page!.Endpoints.Select(e => (e.Host, e.Port)))
+            .IsEquivalentTo([("chatmud.com", 7777), ("chatmud.com", 7443)]);
+
+        // The kind travels with the address — the door is still a TLS door.
+        await Assert.That(page.Endpoints.Single(e => e.Port == 7443).TlsMeasured).IsTrue();
+    }
+
+    /// <summary>
+    /// And a merge that was taken back gives them back.
+    /// </summary>
+    /// <remarks>
+    /// A reverted merge is two games again, so the loser's addresses are its own and belong on its
+    /// own page — showing them on the former winner would assert a merge that no longer stands.
+    /// </remarks>
+    [Test]
+    public async Task ARevertedMergeKeepsTheAddressesApart()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var survivor = await Seed.GameAsync(db, "chatmud", "ChatMUD");
+        var absorbed = await Seed.GameAsync(db, "chatmud-2", "ChatMUD");
+
+        await EndpointAsync(db, survivor, "chatmud.com", 7777, "telnet");
+        await EndpointAsync(db, absorbed, "chatmud.com", 7443, "tls");
+
+        await MergeAsync(db, survivor, absorbed, reverted: Now.AddHours(1));
+
+        var page = await QueriesOn(db).FindAsync("chatmud");
+
+        await Assert.That(page!.Endpoints.Select(e => (e.Host, e.Port)))
+            .IsEquivalentTo([("chatmud.com", 7777)]);
+    }
+
     [Test]
     public async Task AnAbsorbedGameIsNotListed()
     {
