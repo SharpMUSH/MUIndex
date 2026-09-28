@@ -236,10 +236,16 @@ services:
   traefik:
     image: traefik:v3.7
     environment:
-      # Keep Go collection below the container kill boundary, with transient headroom.
-      # The September 2026 facet flood also exhausted 256 MiB; retain the soft GC target
-      # and allow 512 MiB alongside the bounded filtered-listing middleware.
-      GOMEMLIMIT: 96MiB
+      # A soft target the collector aims under, set close to `mem_limit` below, never far beneath
+      # it. It was 96MiB against a 512 MiB limit, and on 2026-09-28 that gap was the outage: a facet
+      # flood through Cloudflare held ~2,600 connections open, the live heap sat far above 96MiB, and
+      # a Go runtime over its soft limit collects continuously (capped at about half the CPU). Traefik
+      # spent 62% CPU collecting at 511.9/512 MiB, its own health probe to `web` stopped completing
+      # inside 3s, it marked the only backend down, and every path answered 503 and then 522 while
+      # `web` itself served /health in 1.5 ms. A soft limit below the working set does not bound
+      # memory; it converts memory pressure into CPU starvation. ~83% of the limit leaves the
+      # collector room to act before the cgroup kills the process, which is what it is for.
+      GOMEMLIMIT: 640MiB
     # Ordering only, not `condition: service_healthy`: Compose's health-gated `depends_on` is not
     # well-specified against a service running `deploy.replicas` > 1, and the real gate on whether a
     # given `web` container receives traffic is the per-container active healthcheck on `mui-web`
@@ -270,6 +276,15 @@ services:
       - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
       - "--entrypoints.websecure.address=:443"
 
+      # Connections cost memory whether or not a request on them was ever served, and during the
+      # 2026-09-28 flood Traefik held ~2,600 established and ~1,600 in CLOSE_WAIT. The defaults are
+      # 60s to read a request and 180s to keep an idle keep-alive open; Cloudflare reuses its origin
+      # connections and reopens one transparently, so a shorter idle window costs a handshake, not a
+      # request. No writeTimeout: it bounds the whole response, and an MCP `crawl_run_cycle` or a
+      # slow reader of a large listing legitimately runs longer than any number worth setting.
+      - "--entrypoints.websecure.transport.respondingTimeouts.readTimeout=15s"
+      - "--entrypoints.websecure.transport.respondingTimeouts.idleTimeout=30s"
+
       # Only for the ACME account behind crawler.mu-index.com, which is DNS-only and therefore gets
       # an ordinary Let's Encrypt certificate over HTTP-01 — unreachable through Cloudflare's proxy,
       # which is why the site domain uses the file-provided Origin CA certificate instead. Named
@@ -290,6 +305,12 @@ services:
       # there for why that is considered close enough rather than replicated exactly.
       - "--accesslog=true"
       - "--accesslog.format=json"
+      # Everything except 429. The log exists to say what was *served*, and a request the rate
+      # limiter turned away reached nothing behind it. Logging them is what made the record useless
+      # on 2026-09-28: 60,246 of 64,240 lines in ten minutes were 429s, so the 100 MiB the `logging:`
+      # block below keeps covered ten minutes, and the start of the flood had rotated out before
+      # anyone looked. A flood's size is in Cloudflare's analytics, which see it before this box does.
+      - "--accesslog.filters.statuscodes=100-428,430-599"
 
       # /ping, gated on this flag, is what the HEALTHCHECK below and `traefik healthcheck` ask.
       - "--ping=true"
@@ -329,8 +350,15 @@ services:
       timeout: 3s
       retries: 3
       start_period: 10s
-    mem_limit: 512m
-    memswap_limit: 512m
+    # 768m, up from 512m, which a flood filled to the last 0.1 MiB. Paired with GOMEMLIMIT above:
+    # raising either one alone reproduces a failure — the target without the ceiling as an OOM kill,
+    # the ceiling without the target as the collector spiral.
+    #
+    # The host is overcommitted by these numbers and was before this change: the limits sum to about
+    # 4.1 GB on a 3.73 GiB box. They are ceilings, not reservations — steady use is under 1.5 GB — and
+    # `web`'s 2g is the one sized against a peak rather than a working set.
+    mem_limit: 768m
+    memswap_limit: 768m
     restart: unless-stopped
 
   watchtower:

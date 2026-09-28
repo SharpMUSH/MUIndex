@@ -134,8 +134,11 @@ probe and `curl --fail http://127.0.0.1:9102/metrics`; a changed file alone prov
 The September 2026 incident still had two replicas and no metrics listener despite both settings
 having been corrected in the deployment checkout.
 
-The proxy's `GOMEMLIMIT=96MiB` gives Go a soft collection target below its 256 MiB cgroup limit.
-It is not a hard RSS cap; verify working set and OOM/restart events under load.
+The proxy's `GOMEMLIMIT=640MiB` gives Go a soft collection target just below its 768 MiB cgroup
+limit. It is not a hard RSS cap, and it must not sit far below the working set either: a Go process
+over its soft limit collects continuously, which is how a 96MiB target took the site down on
+2026-09-28 (see the Traefik comment in `deploy/compose.production.yaml`). Verify working set and
+OOM/restart events under load.
 
 `MUI_METRICS_PORT` maps `GET /metrics`, in Prometheus text format. It exists because of a specific
 dead end: for three days at the start of September 2026 the site's memory climbed, and every
@@ -884,12 +887,14 @@ Excess requests return HTTP 429. Filtered listings can therefore be throttled du
 flood even for ordinary visitors. The Cloudflare client header provides fairness, not authentication;
 the shared rate and concurrency caps still apply if a direct-origin caller spoofs that header.
 This route intentionally bypasses response compression to avoid concurrent compressor allocations.
-Traefik keeps `GOMEMLIMIT=96MiB` and a hard 512 MiB memory limit with no container swap.
+Traefik keeps `GOMEMLIMIT=640MiB` and a hard 768 MiB memory limit with no container swap, reads a
+request within 15s and closes an idle connection after 30s. The access log omits 429s, so
+a flood's size is read from Cloudflare's analytics rather than from this log.
 
 After merging, pull the repository in `/opt/muindex`; Watchtower does not update these files.
 Validate with `docker compose config --quiet`, then apply proxy changes with
 `docker compose up -d --no-deps traefik`. The dynamic file is watched, so middleware-only changes
 need no restart. Check the homepage and `/games` return 200, filtered requests appear under
-`mui-games-protection@file` in access logs, excess requests receive 429, and the proxy restart
-count remains stable. To roll back, restore the previous Compose overlay and remove the dynamic
+`mui-games-protection@file` in access logs, excess requests receive 429 (and are absent from those
+logs), and the proxy restart count remains stable. To roll back, restore the previous Compose overlay and remove the dynamic
 limits file, then reapply only the proxy service.
