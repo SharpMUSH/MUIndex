@@ -85,13 +85,16 @@ public static partial class LoginCommandReading
     /// <remarks>
     /// Counterpart to <c>MsspDefaults.MeaningfulName</c> for codebases (RhostMUSH among them) that
     /// answer <c>INFO</c> but offer no MSSP. Same filter, same reason: <c>Name: PennMUSH</c> merely
-    /// restates the codebase and is not an identification.
+    /// restates the codebase and is not an identification. Read only from inside a closed block, as
+    /// <see cref="ConnectedPlayers"/> is: a game that takes <c>INFO</c> as a character name answers
+    /// with its own <c>Name:</c> prompt, and mud.paroxysmrpg.com's — a colour reset after the colon —
+    /// was once listed as the game's name.
     /// </remarks>
     public static string? MeaningfulName(string? info, string? version)
     {
         var codebase = MeaningfulCodebase(info, version);
 
-        foreach (var line in Lines(info))
+        foreach (var line in InfoBlock(info) ?? [])
         {
             if (!TrySplitLabelled(line, out var label, out var value)
                 || !NameLabels.Contains(label, StringComparer.OrdinalIgnoreCase))
@@ -121,38 +124,50 @@ public static partial class LoginCommandReading
     /// </remarks>
     public static int? ConnectedPlayers(string? info)
     {
-        if (string.IsNullOrWhiteSpace(info))
+        foreach (var line in InfoBlock(info) ?? [])
         {
-            return null;
-        }
-
-        var inside = false;
-        int? connected = null;
-
-        foreach (var raw in info.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n'))
-        {
-            var line = raw.Trim();
-
-            if (!inside)
-            {
-                inside = InfoBlockStart().IsMatch(line);
-                continue;
-            }
-
-            if (InfoBlockEnd().IsMatch(line))
-            {
-                return connected;
-            }
-
-            if (connected is null
-                && TrySplitLabelled(line, out var label, out var value)
+            if (TrySplitLabelled(line, out var label, out var value)
                 && label.Equals(ConnectedLabel, StringComparison.OrdinalIgnoreCase)
                 // NumberStyles.None refuses a sign — a negative count means we misread the value, not
                 // a small number.
                 && int.TryParse(value.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var players))
             {
-                connected = players;
+                return players;
             }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The lines strictly inside the first <c>INFO</c> block, colour codes removed, or null when no
+    /// block both opened and closed.
+    /// </summary>
+    private static List<string>? InfoBlock(string? info)
+    {
+        if (string.IsNullOrWhiteSpace(info))
+        {
+            return null;
+        }
+
+        List<string>? inside = null;
+
+        foreach (var raw in AnsiEscape().Replace(info, string.Empty).Replace("\r\n", "\n").Replace('\r', '\n').Split('\n'))
+        {
+            var line = raw.Trim();
+
+            if (inside is null)
+            {
+                inside = InfoBlockStart().IsMatch(line) ? [] : null;
+                continue;
+            }
+
+            if (InfoBlockEnd().IsMatch(line))
+            {
+                return inside;
+            }
+
+            inside.Add(line);
         }
 
         return null;
@@ -418,6 +433,10 @@ public static partial class LoginCommandReading
     private const string ConnectedLabel = "Connected";
 
     // `### Begin INFO 1.1` (PennMUSH, RhostMUSH, TinyMUX) and `## BEGIN INFO 1.1` (Evennia).
+    // The same CSI shape WhoParser strips: SGR colour and the cursor/erase codes some prompts carry.
+    [GeneratedRegex(@"\x1B\[[0-9;?]*[ -/]*[@-~]")]
+    private static partial Regex AnsiEscape();
+
     [GeneratedRegex(@"^#{2,}\s*begin\s+info\b", RegexOptions.IgnoreCase)]
     private static partial Regex InfoBlockStart();
 
