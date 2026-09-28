@@ -225,6 +225,44 @@ public class LoginCommandReadingTests
         await Assert.That(LoginCommandReading.MeaningfulName(info, null)).IsNull();
     }
 
+    /// <summary>
+    /// A login prompt that answers <c>INFO</c> by asking again is not an <c>INFO</c> block, however
+    /// much its prompt looks like a <c>Name:</c> field.
+    /// </summary>
+    /// <remarks>
+    /// Measured at mud.paroxysmrpg.com:3000 on 2026-09-28: it takes <c>INFO</c> as a character name
+    /// and replies <c>Illegal name, try another.</c> then <c>Name: ESC[40;0;37m</c> — its prompt with
+    /// a trailing colour reset. Read as a field, the escape sequence became the listing's name and
+    /// slug (<c>/g/40-0-37m</c>). The count reader already demanded a closed block for the same
+    /// reason; the name reader now asks the same of it.
+    /// </remarks>
+    [Test]
+    [Arguments("Illegal name, try another.\r\nName: \u001B[40;0;37m")]
+    [Arguments("Illegal name, try another.\nName: INFO")]
+    [Arguments("### Begin INFO 1\nName: Convergence MUSH\nConnected: 64")]
+    public async Task ANameOutsideAClosedInfoBlockIsNotRead(string info)
+    {
+        await Assert.That(LoginCommandReading.MeaningfulName(info, null)).IsNull();
+    }
+
+    /// <summary>A colour code around the value is presentation, not part of the name.</summary>
+    [Test]
+    public async Task AnInfoNameIsReadWithoutItsColourCodes()
+    {
+        const string Info = "### Begin INFO 1\nName: \u001B[1;36mConvergence MUSH\u001B[0m\n### End INFO";
+
+        await Assert.That(LoginCommandReading.MeaningfulName(Info, null)).IsEqualTo("Convergence MUSH");
+    }
+
+    /// <summary>A value that is nothing but colour codes names nothing.</summary>
+    [Test]
+    public async Task AnInfoNameThatIsOnlyAColourCodeIsRefused()
+    {
+        const string Info = "### Begin INFO 1\nName: \u001B[40;0;37m\n### End INFO";
+
+        await Assert.That(LoginCommandReading.MeaningfulName(Info, null)).IsNull();
+    }
+
     /// <summary>No <c>INFO</c>, or one that never names anything, yields nothing.</summary>
     [Test]
     public async Task AnInfoBlockWithNoNameYieldsNothing()
