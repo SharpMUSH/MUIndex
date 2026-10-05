@@ -15,6 +15,7 @@ public class DiscoverySourceTests
     [Arguments(DiscoverySource.Referral, "referral")]
     [Arguments(DiscoverySource.I3Mudlist, "i3_mudlist")]
     [Arguments(DiscoverySource.AresCentral, "ares_central")]
+    [Arguments(DiscoverySource.Announcement, "announcement")]
     [Arguments(DiscoverySource.Backfill, "backfill")]
     public async Task EverySourceRoundTripsThroughItsDatabaseSpelling(
         DiscoverySource source, string spelling)
@@ -45,14 +46,18 @@ public class DiscoverySourceTests
     }
 
     /// <summary>
-    /// The vocabulary the two CHECK constraints in migration 0033 spell out. A member added here and
-    /// not there is a row the database refuses at write time, in production, on a Sunday.
+    /// The vocabulary the two CHECK constraints spell out — migration 0033, widened by 0041. A member
+    /// added here and not there is a row the database refuses at write time, in production, on a
+    /// Sunday.
     /// </summary>
     [Test]
     public async Task EveryMemberHasASpellingTheSchemaAllows()
     {
         string[] allowed =
-            ["operator_seed", "submission", "referral", "i3_mudlist", "ares_central", "backfill"];
+        [
+            "operator_seed", "submission", "referral", "i3_mudlist", "ares_central", "announcement",
+            "backfill",
+        ];
 
         foreach (var source in Enum.GetValues<DiscoverySource>())
         {

@@ -15,9 +15,10 @@ using Npgsql;
 namespace MUI.Web.Mcp;
 
 /// <summary>
-/// The six crawl-administration tools -- the half of the nine that replace the ssh/scp/
+/// The crawl-administration tools -- the ones that replace the ssh/scp/
 /// <c>docker compose run --entrypoint mui-crawl</c> dance for the registry and the crawl cycle
-/// itself, mirroring <c>mui-crawl</c>'s CLI surface (see <c>src/MUI.Crawler.Cli/Arguments.cs</c>).
+/// itself, mirroring <c>mui-crawl</c>'s CLI surface (see <c>src/MUI.Crawler.Cli/Arguments.cs</c>),
+/// plus <c>crawl_refusals</c> and the lead routine's door, <c>crawl_lead_add</c>/<c>crawl_leads</c>.
 /// The three catalogue-write tools -- <see cref="GameAdminTools.GameFieldSetAsync"/>,
 /// <see cref="GameAdminTools.GameRenameAsync"/> and <see cref="GameAdminTools.GameMergeAsync"/> --
 /// are <see cref="GameAdminTools"/>, a separate <c>[McpServerToolType]</c> registered alongside this
@@ -48,6 +49,8 @@ public sealed class CrawlAdminTools(
     CrawlerOptions crawlerOptions,
     CrawlCycle cycle,
     ICrawlRefusalStore refusals,
+    LeadService leads,
+    ILeadLog leadLog,
     TimeProvider time,
     ILogger<CrawlAdminTools>? logger = null)
 {
@@ -83,6 +86,89 @@ public sealed class CrawlAdminTools(
 
         return new CrawlSeedAddResult(seed.Host, seed.Port, exempt, planted > 0);
     }
+
+    [McpServerTool(Name = "crawl_lead_add")]
+    [Description("""
+        Hands in one address a public announcement named -- a forum post, a search result, or the
+        game's own website that a post linked to. For the lead-finding routine; a person choosing an
+        address on purpose wants crawl_seed_add instead.
+
+        Held to the public submission form's standard, not an operator seed's: the same checks in the
+        same order (already listed, already queued, the resolved-address gate of spec 7.2, the opt-out
+        register of spec 11), and the target is marked as submitted, so it is only listed once a probe
+        shows a MU* answering there (spec 7.8). A wrong address costs one probe and puts nothing on a
+        page. Hand in the address and where it was read, nothing else: the name, codebase and
+        everything else about the game are measured by the crawler.
+
+        Bounded per day across all callers. dryRun runs every check and writes nothing.
+        """)]
+    public async Task<CrawlLeadAddResult> CrawlLeadAddAsync(
+        [Description("Host name or literal address, exactly as the page gave it.")] string host,
+        [Description("Port, exactly as the page gave it. A page that names no port is not a lead.")] int port,
+        [Description(
+            "The http(s) URL of the page the address was read from, word for word -- the post itself, "
+            + "or the game's website when the post only linked to it.")]
+        string evidenceUrl,
+        [Description(
+            "Where the routine was reading, as a short lower-case label: reddit, gemini, hn, "
+            + "mastodon, forum.")]
+        string channel,
+        [Description(
+            "The announcement's URL when the address was found on a page it linked to. Omit when "
+            + "evidenceUrl is the announcement.")]
+        string? postUrl = null,
+        [Description("Run every check and say what would happen, writing nothing.")] bool dryRun = false,
+        CancellationToken cancellationToken = default)
+    {
+        LeadEvidence evidence;
+
+        try
+        {
+            evidence = new LeadEvidence(
+                ParseUrlOrThrow(evidenceUrl, nameof(evidenceUrl)),
+                postUrl is null ? null : ParseUrlOrThrow(postUrl, nameof(postUrl)),
+                channel);
+            LeadService.Validate(evidence);
+        }
+        catch (ArgumentException error)
+        {
+            throw new McpException(error.Message, error);
+        }
+
+        var receipt = await leads.SubmitAsync(host, port, evidence, dryRun, cancellationToken);
+
+        if (receipt.Detail is { } detail)
+        {
+            logger?.LogInformation("crawl_lead_add: {Host}:{Port} refused, {Detail}", host, port, detail);
+        }
+
+        return new CrawlLeadAddResult(
+            receipt.Address?.Host,
+            receipt.Address?.Port,
+            LeadOutcomeWord(receipt.Outcome),
+            dryRun);
+    }
+
+    [McpServerTool(Name = "crawl_leads", ReadOnly = true, Destructive = false)]
+    [Description("""
+        The leads handed in through crawl_lead_add, newest first: the address, the page it was read
+        from, and what became of it. The lead routine reads this first so it does not hand in a page
+        it has already read. Our own note about our own crawl -- none of it reaches a game page.
+        """)]
+    public async Task<IReadOnlyList<CrawlLeadRow>> CrawlLeadsAsync(
+        [Description("How many leads to list. Default 100.")] int batch = 100,
+        CancellationToken cancellationToken = default) =>
+    [
+        .. (await leadLog.RecentAsync(Math.Max(1, batch), cancellationToken))
+            .Select(r => new CrawlLeadRow(
+                r.Host,
+                r.Port,
+                r.Evidence.EvidenceUrl.AbsoluteUri,
+                r.Evidence.PostUrl?.AbsoluteUri,
+                r.Evidence.Channel,
+                r.FoundAt,
+                r.Outcome is { } outcome ? LeadOutcomeWord(outcome) : "pending")),
+    ];
 
     [McpServerTool(Name = "crawl_opt_out_record")]
     [Description("""
@@ -309,6 +395,22 @@ public sealed class CrawlAdminTools(
 
         return CrawlSummary.CollectAsync(source, games, offset, cancellationToken);
     }
+
+    /// <summary>
+    /// The stored word for an outcome, so the wire says what <c>crawl_lead</c> says. The two scope
+    /// refusals stay distinct here, unlike on the public form: this caller is staff, and the reason
+    /// the form folds them together -- an oracle over our resolver for a stranger -- does not apply.
+    /// </summary>
+    private static string LeadOutcomeWord(SubmissionOutcome outcome) => outcome switch
+    {
+        SubmissionOutcome.TooMany => "over_daily_bound",
+        _ => NpgsqlSubmissionLog.ToDb(outcome),
+    };
+
+    private static Uri ParseUrlOrThrow(string value, string name) =>
+        Uri.TryCreate(value?.Trim(), UriKind.Absolute, out var url)
+            ? url
+            : throw new ArgumentException($"{name} is not an absolute URL.", name);
 
     private static IReadOnlyList<CrawlDueTarget> ToDue(IReadOnlyList<CrawlTarget> due) =>
         [.. due.Select(t => new CrawlDueTarget(t.Host, t.Port, t.Depth, t.ConsecutiveFailures, t.NextProbeAt))];

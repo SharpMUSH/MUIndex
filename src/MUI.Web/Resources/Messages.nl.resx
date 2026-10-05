@@ -808,6 +808,9 @@
   <data name="game.firstSeen.aresCentral" xml:space="preserve">
     <value>Voor het eerst gezien op {date}, vermeld op AresCentral.</value>
   </data>
+  <data name="game.firstSeen.announcement" xml:space="preserve">
+    <value>Voor het eerst gezien op {date}, in een openbare aankondiging.</value>
+  </data>
   <data name="game.firstSeen.backfill" xml:space="preserve">
     <value>Voor het eerst gezien op {date}, in de adreslijst van dag één van deze site.</value>
   </data>

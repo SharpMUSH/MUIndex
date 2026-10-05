@@ -15,7 +15,7 @@ using Npgsql;
 namespace MUI.Web.Tests.Mcp;
 
 /// <summary>
-/// Each of the nine <see cref="CrawlAdminTools"/>/<see cref="GameAdminTools"/> tools, called over the real MCP transport against a
+/// Each of the <see cref="CrawlAdminTools"/>/<see cref="GameAdminTools"/> tools, called over the real MCP transport against a
 /// real Postgres — the properties under test are the ones a caller cannot see from the tool's C#
 /// alone: what actually landed in the database, and what the tool refuses.
 /// </summary>
@@ -102,6 +102,104 @@ public class McpToolsTests
         var planted = await targets.ByAddressAsync("127.0.0.1", 4201, CancellationToken.None);
 
         await Assert.That(planted!.IsOperatorSeed).IsTrue();
+    }
+
+    // ── crawl_lead_add / crawl_leads ────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// A lead for an address somebody asked us to leave alone is refused, writes no target, and is
+    /// listed back with the page it came from — all without a DNS lookup, since the register answers
+    /// before the TXT record would be asked.
+    /// </summary>
+    [Test]
+    public async Task CrawlLeadAddHonoursAnOptOutAndCrawlLeadsReadsItBack()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        await using var source = NpgsqlDataSource.Create(database.ConnectionString);
+        await using var site = await SiteHost.StartAsync(
+            settings: Settings(), connectionString: database.ConnectionString);
+        await using var client = await McpTestClient.ConnectAsync(site, Token);
+
+        await client.CallAsync<CrawlOptOut>("crawl_opt_out_record", new Dictionary<string, object?>
+        {
+            ["host"] = "8.8.8.8",
+            ["because"] = "Test: asked by mail.",
+        });
+
+        var added = await client.CallAsync<CrawlLeadAddResult>("crawl_lead_add", new Dictionary<string, object?>
+        {
+            ["host"] = "8.8.8.8",
+            ["port"] = 4000,
+            ["evidenceUrl"] = "https://tidewater.example.org/connect",
+            ["postUrl"] = "https://www.reddit.com/r/MUD/comments/abc123/",
+            ["channel"] = "reddit",
+        });
+
+        await Assert.That(added.Outcome).IsEqualTo("refused_opt_out");
+        await Assert.That(added.DryRun).IsFalse();
+        await Assert.That(await new NpgsqlCrawlTargetRepository(source)
+            .ByAddressAsync("8.8.8.8", 4000, CancellationToken.None)).IsNull();
+
+        var leads = await client.CallAsync<List<CrawlLeadRow>>("crawl_leads", new Dictionary<string, object?>());
+
+        await Assert.That(leads.Count).IsEqualTo(1);
+        await Assert.That(leads[0].Outcome).IsEqualTo("refused_opt_out");
+        await Assert.That(leads[0].EvidenceUrl).IsEqualTo("https://tidewater.example.org/connect");
+        await Assert.That(leads[0].PostUrl).IsEqualTo("https://www.reddit.com/r/MUD/comments/abc123/");
+        await Assert.That(leads[0].Channel).IsEqualTo("reddit");
+    }
+
+    /// <summary>An address we already crawl collapses onto it; a dry run says so and logs nothing.</summary>
+    [Test]
+    public async Task CrawlLeadAddDryRunReportsWithoutWriting()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        await using var source = NpgsqlDataSource.Create(database.ConnectionString);
+        await using var site = await SiteHost.StartAsync(
+            settings: Settings(), connectionString: database.ConnectionString);
+        await using var client = await McpTestClient.ConnectAsync(site, Token);
+
+        await client.CallAsync<CrawlSeedAddResult>("crawl_seed_add", new Dictionary<string, object?>
+        {
+            ["host"] = "mush.example.org",
+            ["port"] = 4201,
+        });
+
+        var dry = await client.CallAsync<CrawlLeadAddResult>("crawl_lead_add", new Dictionary<string, object?>
+        {
+            ["host"] = "mush.example.org",
+            ["port"] = 4201,
+            ["evidenceUrl"] = "https://www.reddit.com/r/MUSH/comments/def456/",
+            ["channel"] = "reddit",
+            ["dryRun"] = true,
+        });
+
+        await Assert.That(dry.Outcome).IsEqualTo("already_queued");
+        await Assert.That(dry.DryRun).IsTrue();
+
+        await using var connection = await source.OpenConnectionAsync();
+        await using var count = new NpgsqlCommand("SELECT count(*)::int FROM crawl_lead", connection);
+
+        await Assert.That((int)(await count.ExecuteScalarAsync())!).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task CrawlLeadAddRefusesEvidenceThatIsNotAWebPage()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        await using var site = await SiteHost.StartAsync(
+            settings: Settings(), connectionString: database.ConnectionString);
+        await using var client = await McpTestClient.ConnectAsync(site, Token);
+
+        var result = await client.TryCallAsync("crawl_lead_add", new Dictionary<string, object?>
+        {
+            ["host"] = "mush.example.org",
+            ["port"] = 4201,
+            ["evidenceUrl"] = "not a url",
+            ["channel"] = "reddit",
+        });
+
+        await Assert.That(result.IsError).IsTrue();
     }
 
     // ── crawl_opt_out_record ────────────────────────────────────────────────────────────────────

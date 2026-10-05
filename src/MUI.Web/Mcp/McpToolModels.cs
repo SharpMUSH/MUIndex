@@ -3,6 +3,24 @@ namespace MUI.Web.Mcp;
 /// <summary>What <see cref="CrawlAdminTools.CrawlSeedAddAsync"/> did.</summary>
 public sealed record CrawlSeedAddResult(string Host, int Port, bool Exempt, bool WasNewlyPlanted);
 
+/// <summary>What <see cref="CrawlAdminTools.CrawlLeadAddAsync"/> did, or in a dry run would have done.</summary>
+/// <remarks>
+/// <see cref="Outcome"/> is <c>crawl_lead</c>'s own word (<c>accepted</c>, <c>already_listed</c>,
+/// <c>refused_opt_out</c>, …), or <c>over_daily_bound</c> when the bound is spent and nothing was
+/// written.
+/// </remarks>
+public sealed record CrawlLeadAddResult(string? Host, int? Port, string Outcome, bool DryRun);
+
+/// <summary>One row of <see cref="CrawlAdminTools.CrawlLeadsAsync"/>.</summary>
+public sealed record CrawlLeadRow(
+    string? Host,
+    int? Port,
+    string EvidenceUrl,
+    string? PostUrl,
+    string Channel,
+    DateTimeOffset FoundAt,
+    string Outcome);
+
 /// <summary>One row of <see cref="CrawlAdminTools.CrawlDueTargetsAsync"/> or a dry-run listing.</summary>
 public sealed record CrawlDueTarget(
     string Host, int Port, int Depth, int ConsecutiveFailures, DateTimeOffset NextProbeAt);

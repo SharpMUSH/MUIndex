@@ -180,6 +180,11 @@ public static class CrawlerServiceCollectionExtensions
             s => new NpgsqlSubmissionLog(s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<SubmissionService>();
 
+        // Staff's lead routine (crawl_lead_add over /mcp): the form's checks, its own bound and log.
+        services.TryAddSingleton(options.Leads);
+        services.TryAddSingleton<ILeadLog>(s => new NpgsqlLeadLog(s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<LeadService>();
+
         services.TryAddSingleton<IdentityMatcher>();
         services.TryAddSingleton<ReferralGraphWriter>();
         services.TryAddSingleton<HostConcurrencyGate>();
@@ -336,6 +341,9 @@ public sealed class CrawlerOptionsBuilder
     /// <summary>What one source may put through the public submission form.</summary>
     public SubmissionOptions Submissions { get; set; } = new();
 
+    /// <summary>How many leads staff's announcement routine may hand in per window.</summary>
+    public LeadOptions Leads { get; set; } = new();
+
     /// <summary>
     /// Rollups, partitions ahead of need, and how long each grain of presence is kept (§5.2, §15.4).
     /// Keeps everything until a deployment says otherwise.
@@ -385,6 +393,7 @@ public sealed class CrawlerOptionsBuilder
         Probe = Probe,
         Maintenance = Maintenance,
         Submissions = Submissions,
+        Leads = Leads,
         I3 = I3,
         Ares = Ares,
         DnsClaims = DnsClaims,

@@ -40,6 +40,18 @@ public enum DiscoverySource
     AresCentral,
 
     /// <summary>
+    /// A public announcement named it — a post on a forum or a social site, or the game's own website
+    /// that post linked to — read for us by staff's lead-finding routine and handed in through
+    /// <c>crawl_lead_add</c>.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not one member per site. Which post we read first is recorded in
+    /// <c>crawl_lead</c>, our own note, and never on a game: a game announced on one forum is announced
+    /// on three, so the site that happened to be read first would be §7.6's accident-as-fact again.
+    /// </remarks>
+    Announcement,
+
+    /// <summary>
     /// The one-time day-one address backfill (§7.6).
     /// </summary>
     /// <remarks>
@@ -65,6 +77,7 @@ public static class DiscoverySources
         DiscoverySource.Referral => "referral",
         DiscoverySource.I3Mudlist => "i3_mudlist",
         DiscoverySource.AresCentral => "ares_central",
+        DiscoverySource.Announcement => "announcement",
         DiscoverySource.Backfill => "backfill",
         _ => throw new ArgumentOutOfRangeException(
             nameof(source), source, "No database spelling for this discovery source. Add one."),
@@ -85,6 +98,7 @@ public static class DiscoverySources
         "referral" => DiscoverySource.Referral,
         "i3_mudlist" => DiscoverySource.I3Mudlist,
         "ares_central" => DiscoverySource.AresCentral,
+        "announcement" => DiscoverySource.Announcement,
         "backfill" => DiscoverySource.Backfill,
         _ => null,
     };
