@@ -153,7 +153,9 @@ public sealed class CrawlAdminTools(
     [Description("""
         The leads handed in through crawl_lead_add, newest first: the address, the page it was read
         from, and what became of it. The lead routine reads this first so it does not hand in a page
-        it has already read. Our own note about our own crawl -- none of it reaches a game page.
+        it has already read -- except a row whose outcome is `pending`, which never finished and should
+        be handed in again (a second try answers already_queued if the first got as far as the
+        registry). Our own note about our own crawl -- none of it reaches a game page.
         """)]
     public async Task<IReadOnlyList<CrawlLeadRow>> CrawlLeadsAsync(
         [Description("How many leads to list. Default 100.")] int batch = 100,

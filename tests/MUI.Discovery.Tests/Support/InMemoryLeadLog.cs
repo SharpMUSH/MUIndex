@@ -39,6 +39,9 @@ public sealed class InMemoryLeadLog : ILeadLog
         }
     }
 
+    /// <summary>Makes the next <see cref="CompleteAsync"/> throw, as a dropped connection would.</summary>
+    public bool FailNextComplete { get; set; }
+
     public Task CompleteAsync(
         Guid id,
         SubmittedAddress? address,
@@ -48,6 +51,12 @@ public sealed class InMemoryLeadLog : ILeadLog
     {
         lock (_gate)
         {
+            if (FailNextComplete)
+            {
+                FailNextComplete = false;
+                throw new InvalidOperationException("connection lost");
+            }
+
             var index = _rows.FindIndex(r => r.Id == id);
 
             if (index >= 0)
@@ -60,6 +69,16 @@ public sealed class InMemoryLeadLog : ILeadLog
                     CrawlTargetId = crawlTargetId,
                 };
             }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task AbandonAsync(Guid id, CancellationToken ct)
+    {
+        lock (_gate)
+        {
+            _rows.RemoveAll(r => r.Id == id && r.Outcome is null && r.CrawlTargetId is null);
         }
 
         return Task.CompletedTask;

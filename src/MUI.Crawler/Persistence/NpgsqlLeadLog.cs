@@ -102,6 +102,16 @@ public sealed class NpgsqlLeadLog(NpgsqlDataSource dataSource) : ILeadLog
             cancellationToken: ct));
     }
 
+    public async Task AbandonAsync(Guid id, CancellationToken ct)
+    {
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+
+        await connection.ExecuteAsync(new CommandDefinition(
+            "DELETE FROM crawl_lead WHERE id = @id AND outcome = 'pending' AND crawl_target_id IS NULL",
+            new { id },
+            cancellationToken: ct));
+    }
+
     public async Task<IReadOnlyList<LeadRecord>> RecentAsync(int limit, CancellationToken ct)
     {
         await using var connection = await dataSource.OpenConnectionAsync(ct);

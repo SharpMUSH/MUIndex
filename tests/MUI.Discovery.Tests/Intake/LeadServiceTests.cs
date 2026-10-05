@@ -216,6 +216,51 @@ public class LeadServiceTests
         await Assert.That(tomorrow.Outcome).IsEqualTo(SubmissionOutcome.Accepted);
     }
 
+    /// <summary>
+    /// A failure before anything was written gives the reservation back: it holds no slot and does not
+    /// tell the routine, through crawl_leads, that a page it never finished was handed in.
+    /// </summary>
+    [Test]
+    public async Task AFailureBeforeATargetExistsReleasesTheReservation()
+    {
+        var world = Build(new LeadOptions { PerWindow = 1 });
+        world.Log.FailNextComplete = true;
+
+        // Unreadable, so the only write after the reservation is the one that fails.
+        await Assert.That(async () => await world.Service.SubmitAsync("", 4201, Post, ct: None))
+            .ThrowsException();
+
+        await Assert.That(world.Log.Rows).IsEmpty();
+
+        // The one slot is still there to take.
+        var next = await world.Service.SubmitAsync("mud.example.org", 4201, Post, ct: None);
+
+        await Assert.That(next.Outcome).IsEqualTo(SubmissionOutcome.Accepted);
+    }
+
+    /// <summary>
+    /// Once a target exists the row is never given back, even if completing it fails: it is the only
+    /// record of the page that produced that target, and handing the page in again settles it.
+    /// </summary>
+    [Test]
+    public async Task AFailureAfterTheTargetExistsKeepsThePendingRow()
+    {
+        var world = Build();
+        world.Log.FailNextComplete = true;
+
+        await Assert.That(async () => await world.Service.SubmitAsync("mud.example.org", 4201, Post, ct: None))
+            .ThrowsException();
+
+        var row = world.Log.Rows.Single();
+
+        await Assert.That(row.Outcome).IsNull();
+        await Assert.That(await world.Targets.ByAddressAsync("mud.example.org", 4201, None)).IsNotNull();
+
+        var again = await world.Service.SubmitAsync("mud.example.org", 4201, Post, ct: None);
+
+        await Assert.That(again.Outcome).IsEqualTo(SubmissionOutcome.AlreadyQueued);
+    }
+
     /// <summary>An address that cannot be read is recorded as that, and fabricates no default port.</summary>
     [Test]
     [Arguments("", 4201)]
