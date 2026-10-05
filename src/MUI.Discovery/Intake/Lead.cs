@@ -67,6 +67,14 @@ public interface ILeadLog
         Guid? crawlTargetId,
         CancellationToken ct);
 
+    /// <summary>
+    /// Removes a reservation that never got further than being taken, so it stops holding a slot.
+    /// </summary>
+    /// <remarks>
+    /// Only a row still <c>pending</c>: a lead that reached an outcome is a record and stays one.
+    /// </remarks>
+    Task AbandonAsync(Guid id, CancellationToken ct);
+
     /// <summary>The newest leads first, so the routine can skip pages it has already read.</summary>
     Task<IReadOnlyList<LeadRecord>> RecentAsync(int limit, CancellationToken ct);
 }
@@ -157,40 +165,58 @@ public sealed partial class LeadService(
             return new LeadReceipt(SubmissionOutcome.TooMany);
         }
 
-        if (!SubmittedAddressReader.TryRead(host, port.ToString(CultureInfo.InvariantCulture), out var address))
+        // Set the moment a target exists, which is the line between a reservation that may be given
+        // back and one that may not.
+        Guid? planted = null;
+
+        try
         {
-            return await CompleteAsync(dryRun, reservation, new LeadReceipt(SubmissionOutcome.Malformed), null, ct);
-        }
-
-        var ruling = await intake.RuleAsync(address, ct);
-
-        if (ruling.Refusal is { } refusal)
-        {
-            return await CompleteAsync(
-                dryRun, reservation, new LeadReceipt(refusal, address, ruling.GameId, ruling.Detail), null, ct);
-        }
-
-        if (dryRun)
-        {
-            return new LeadReceipt(SubmissionOutcome.Accepted, address);
-        }
-
-        // Due now: an announcement is a game that has just opened, and the probe is what decides
-        // whether it is one. IsOperatorSeed stays false — §7.2's exemption is never inferred.
-        var id = await targets.AddAsync(
-            new CrawlTarget
+            if (!SubmittedAddressReader.TryRead(host, port.ToString(CultureInfo.InvariantCulture), out var address))
             {
-                Id = Guid.CreateVersion7(),
-                Host = address.Host,
-                Port = address.Port,
-                NextProbeAt = now,
-                FirstSeenAt = now,
-                SubmittedAt = now,
-                DiscoveredVia = DiscoverySource.Announcement,
-            },
-            ct);
+                return await CompleteAsync(dryRun, reservation, new LeadReceipt(SubmissionOutcome.Malformed), null, ct);
+            }
 
-        return await CompleteAsync(dryRun, reservation, new LeadReceipt(SubmissionOutcome.Accepted, address), id, ct);
+            var ruling = await intake.RuleAsync(address, ct);
+
+            if (ruling.Refusal is { } refusal)
+            {
+                return await CompleteAsync(
+                    dryRun, reservation, new LeadReceipt(refusal, address, ruling.GameId, ruling.Detail), null, ct);
+            }
+
+            if (dryRun)
+            {
+                return new LeadReceipt(SubmissionOutcome.Accepted, address);
+            }
+
+            // Due now: an announcement is a game that has just opened, and the probe is what decides
+            // whether it is one. IsOperatorSeed stays false — §7.2's exemption is never inferred.
+            planted = await targets.AddAsync(
+                new CrawlTarget
+                {
+                    Id = Guid.CreateVersion7(),
+                    Host = address.Host,
+                    Port = address.Port,
+                    NextProbeAt = now,
+                    FirstSeenAt = now,
+                    SubmittedAt = now,
+                    DiscoveredVia = DiscoverySource.Announcement,
+                },
+                ct);
+
+            return await CompleteAsync(
+                dryRun, reservation, new LeadReceipt(SubmissionOutcome.Accepted, address), planted, ct);
+        }
+        catch when (!dryRun && planted is null)
+        {
+            // Nothing was written but the reservation, so give it back: left pending, it would hold a
+            // slot until the window passed and tell the routine, through crawl_leads, that a page it
+            // never finished had been handed in. Once a target exists the row stays, pending, as the
+            // only record of the page that produced it — handing the page in again then answers
+            // already_queued and completes normally.
+            await AbandonQuietlyAsync(reservation);
+            throw;
+        }
     }
 
     /// <summary>
@@ -229,6 +255,26 @@ public sealed partial class LeadService(
         if (url.AbsoluteUri.Length > MaxUrlLength)
         {
             throw new ArgumentException($"{name} is longer than {MaxUrlLength} characters.", name);
+        }
+    }
+
+    /// <summary>
+    /// Gives a reservation back, without letting a second failure hide the first.
+    /// </summary>
+    /// <remarks>
+    /// Not cancellable: this runs because the call already failed, quite possibly by cancellation, and
+    /// a token that has fired would leave exactly the row this exists to remove.
+    /// </remarks>
+    private async Task AbandonQuietlyAsync(Guid reservation)
+    {
+        try
+        {
+            await log.AbandonAsync(reservation, CancellationToken.None);
+        }
+        catch (Exception)
+        {
+            // The original failure is the one worth surfacing. A row this could not remove reads as
+            // pending in crawl_leads, which tells the routine to hand the page in again.
         }
     }
 

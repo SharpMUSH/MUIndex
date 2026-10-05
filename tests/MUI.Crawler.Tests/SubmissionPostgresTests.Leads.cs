@@ -183,6 +183,31 @@ public partial class SubmissionPostgresTests
             .IsFalse();
     }
 
+    /// <summary>
+    /// Abandoning gives back a bare reservation and never touches a lead that reached an outcome.
+    /// </summary>
+    [Test]
+    public async Task AbandoningRemovesOnlyAReservationThatWentNowhere()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        var log = new NpgsqlLeadLog(database.DataSource);
+        var now = DateTimeOffset.UtcNow;
+        var bare = Guid.CreateVersion7();
+        var finished = Guid.CreateVersion7();
+
+        await log.TryBeginAsync(bare, Announcement, now, 10, now.AddDays(-1), None);
+        await log.TryBeginAsync(finished, Announcement, now, 10, now.AddDays(-1), None);
+        await log.CompleteAsync(
+            finished, new SubmittedAddress("mud.example.org", 4201), SubmissionOutcome.AlreadyQueued, null, None);
+
+        await log.AbandonAsync(bare, None);
+        await log.AbandonAsync(finished, None);
+
+        var left = await log.RecentAsync(10, None);
+
+        await Assert.That(left.Select(r => r.Id)).IsEquivalentTo([finished]);
+    }
+
     /// <summary>The bound holds under a concurrent burst, as the form's does.</summary>
     [Test]
     public async Task AConcurrentBurstOfLeadsDoesNotWalkThroughTheBound()
