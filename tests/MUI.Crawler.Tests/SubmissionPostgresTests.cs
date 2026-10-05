@@ -20,7 +20,7 @@ namespace MUI.Crawler.Tests;
 /// that keeps it off the listing until somebody claims it. Each half has its own tests upstream, and
 /// none of them would have caught the marker being dropped in between.
 /// </remarks>
-public class SubmissionPostgresTests
+public partial class SubmissionPostgresTests
 {
     private static readonly CancellationToken None = CancellationToken.None;
 

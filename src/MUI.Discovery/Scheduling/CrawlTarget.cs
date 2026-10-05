@@ -93,13 +93,16 @@ public sealed record CrawlTarget
 
 
     /// <summary>
-    /// When somebody handed us this address through the public form, or null when we found it
-    /// ourselves (spec §7.6, migration 0010).
+    /// When somebody handed us this address through the public form — or staff's lead routine handed
+    /// it in from a public announcement — or null when we found it ourselves (spec §7.6, migration
+    /// 0010).
     /// </summary>
     /// <remarks>
     /// A submission creates no game — a game exists only once a host answers for itself (§7.1) — so
     /// this holds the fact until <c>CatalogueBinder</c> mints one and copies it across. It keeps a
-    /// submitted game off every public surface until somebody claims it (§8).
+    /// submitted game off every public surface until somebody claims it (§8) or a probe corroborates
+    /// it (§7.8). A lead carries it for exactly that reason: an address read out of a forum post by a
+    /// model is proposed, not chosen, and must prove it is a game the way a stranger's must.
     /// <para>
     /// <b>Nothing sets this on a target that already exists</b> — <see cref="ICrawlTargetRepository.AddAsync"/>
     /// collapses onto the existing row and changes nothing but depth, so submitting an address we

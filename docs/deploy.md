@@ -794,10 +794,23 @@ Set `MUI_MCP_TOKEN` (`openssl rand -hex 32`, never committed) and point a client
 `https://<site>/mcp` with `Authorization: Bearer <token>`. Unset, every request gets a 401 and MUI.Web
 says so once at startup — this endpoint fails closed, never open.
 
-The thirteen tools (`src/MUI.Web/Mcp/CrawlAdminTools.cs`, `src/MUI.Web/Mcp/GameAdminTools.cs`) mirror
+The fifteen tools (`src/MUI.Web/Mcp/CrawlAdminTools.cs`, `src/MUI.Web/Mcp/GameAdminTools.cs`) mirror
 `mui-crawl`'s CLI surface — `crawl_seed_add`,
 `crawl_opt_out_record`, `crawl_opt_out_check`, `crawl_due_targets`, `crawl_run_cycle`,
-`crawl_summary` — plus seven capabilities of its own.
+`crawl_summary` — plus nine capabilities of its own.
+
+`crawl_lead_add` is the door for staff's lead routine: a scheduled session that reads public
+announcements (r/MUD, search results, and the game websites those link to) and hands in each address
+it finds with the page it read it from. **It is not `crawl_seed_add`.** A lead runs the public
+submission form's checks in the form's order (`AddressIntake`: already listed, already queued, §7.2's
+gate, §11's opt-out) and is marked as submitted, so `CatalogueBinder` mints a game only once the server
+identifies itself and the listing withholds it until §7.8 corroborates it — a model that misreads a
+web server's port costs one probe and puts nothing on a page. It takes an address and evidence and
+nothing else; the game's name and the rest are measured. `discovered_via` records `announcement` and
+never the site; the evidence URL lives in `crawl_lead` (migration 0041), our own note, never rendered.
+Thirty leads a day across all callers (`LeadOptions`), and `dryRun` runs every check and writes
+nothing. `crawl_leads` reads the log back, newest first, so the routine can skip pages it has already
+handed in.
 
 `crawl_refusals` lists the addresses the crawler is declining to dial, longest-standing first, with
 the reason in the guard's or the opt-out register's own words (issue #185). There is no other way to

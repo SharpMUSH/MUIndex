@@ -292,9 +292,14 @@ mounted inside `MUI.Web` itself — `src/MUI.Web/Mcp/` — that reuses the same 
 uses (`OptOutGate`, `ICrawlTargetRepository`, `NpgsqlGameFieldStore`, the deployment's own singleton
 `CrawlCycle`) rather than reviving the excluded CLI image. It is gated behind `MUI_MCP_TOKEN`, a
 shared bearer secret checked in constant time; unset, every request fails authentication (fail
-closed — see `docs/deploy.md`'s "Administering the site over MCP"). Thirteen tools, mirroring the CLI:
+closed — see `docs/deploy.md`'s "Administering the site over MCP"). Fifteen tools, mirroring the CLI:
 `crawl_seed_add`, `crawl_opt_out_record`, `crawl_opt_out_check`, `crawl_due_targets`,
-`crawl_run_cycle`, `crawl_summary`, plus seven capabilities of its own — `crawl_refusals`, which
+`crawl_run_cycle`, `crawl_summary`, plus nine capabilities of its own — `crawl_lead_add` and
+`crawl_leads`, the door for staff's announcement-reading routine, which is **held to the submission
+form's standard and never an operator seed's**: an address a model read out of a forum post is
+proposed, not chosen, so it goes through `AddressIntake` and carries `SubmittedAt`, and is listed only
+once a probe shows a MU\* there (§7.8); its evidence URL stays in `crawl_lead`, and `discovered_via`
+says `announcement`, never the site; `crawl_refusals`, which
 lists the addresses we are declining to dial and why (issue #185); `game_unlist` and `game_relist`,
 staff's route to §11's "and take us off the site" for an ask from somebody with no account, which is
 how most of them arrive (issue #187, and see **Never** below); `game_field_set`, a staff override

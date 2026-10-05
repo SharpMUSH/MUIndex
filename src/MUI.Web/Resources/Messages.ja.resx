@@ -808,6 +808,9 @@
   <data name="game.firstSeen.aresCentral" xml:space="preserve">
     <value>{date}に初めて確認。AresCentral に掲載されていました。</value>
   </data>
+  <data name="game.firstSeen.announcement" xml:space="preserve">
+    <value>{date}に初めて確認。公開された告知より。</value>
+  </data>
   <data name="game.firstSeen.backfill" xml:space="preserve">
     <value>{date}に初めて確認。当サイト開設時のアドレス一覧より。</value>
   </data>

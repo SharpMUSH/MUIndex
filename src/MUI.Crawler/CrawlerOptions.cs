@@ -32,6 +32,9 @@ public sealed record CrawlerOptions
     /// <summary>What one source may put through the public submission form (spec §9).</summary>
     public SubmissionOptions Submissions { get; init; } = new();
 
+    /// <summary>How many leads staff's announcement routine may hand in per window.</summary>
+    public LeadOptions Leads { get; init; } = new();
+
     /// <summary>
     /// When presence is rolled up, how far ahead its partitions are made, and how long each grain is
     /// kept (spec §5.2, §15.4). Runs on its own advisory lock and its own schedule.
@@ -84,6 +87,7 @@ public sealed record CrawlerOptions
         Probe.Validate();
         Maintenance.Validate();
         Submissions.Validate();
+        Leads.Validate();
 
         // Both passes are validated here, not only by themselves, because AddMuiCrawler calls this
         // at registration: an enabled pass with no credentials otherwise registers cleanly and then

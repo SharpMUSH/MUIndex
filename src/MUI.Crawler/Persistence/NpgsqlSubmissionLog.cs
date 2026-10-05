@@ -113,7 +113,7 @@ public sealed class NpgsqlSubmissionLog(NpgsqlDataSource dataSource) : ISubmissi
     /// bound never reserved a row, so there's nothing to complete, and a caller that reaches here
     /// with it has a bug.
     /// </remarks>
-    private static string ToDb(SubmissionOutcome outcome) => outcome switch
+    public static string ToDb(SubmissionOutcome outcome) => outcome switch
     {
         SubmissionOutcome.Accepted => "accepted",
         SubmissionOutcome.AlreadyListed => "already_listed",

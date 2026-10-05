@@ -280,9 +280,9 @@ public static class SubmittedAddressReader
 /// <para>
 /// <b>The order of the checks is the design.</b> The rate limit runs first, as a reservation rather
 /// than a count, so a burst can't walk through a check none of it has written to yet, and a source at
-/// its bound can't make us do work. Then the address, then our own catalogue, and only then DNS, so
-/// the form can't be used as a free resolver. §7.2's gate runs on the resolved address before the
-/// target is written, so a refused name never reaches the registry.
+/// its bound can't make us do work. Then the address, then <see cref="AddressIntake"/> — our own
+/// catalogue, and only then DNS, so the form can't be used as a free resolver. §7.2's gate runs on
+/// the resolved address before the target is written, so a refused name never reaches the registry.
 /// </para>
 /// <para>
 /// <b>§11's opt-out is asked last</b> — after the scope gate, since an address we won't dial anyway
@@ -312,6 +312,8 @@ public sealed class SubmissionService(
     SubmissionOptions options,
     TimeProvider time)
 {
+    private readonly AddressIntake intake = new(targets, endpoints, scope, optOut);
+
     public async Task<SubmissionReceipt> SubmitAsync(
         string? host,
         string? port,
@@ -336,40 +338,12 @@ public sealed class SubmissionService(
             return new SubmissionReceipt(SubmissionOutcome.Malformed);
         }
 
-        if (await endpoints.ByAddressAsync(address.Host, address.Port, ct) is { } known)
+        var ruling = await intake.RuleAsync(address, ct);
+
+        if (ruling.Refusal is { } refusal)
         {
-            await log.CompleteAsync(reservation, address, SubmissionOutcome.AlreadyListed, null, ct);
-            return new SubmissionReceipt(SubmissionOutcome.AlreadyListed, address, known.GameId);
-        }
-
-        if (await targets.ByAddressAsync(address.Host, address.Port, ct) is not null)
-        {
-            await log.CompleteAsync(reservation, address, SubmissionOutcome.AlreadyQueued, null, ct);
-            return new SubmissionReceipt(SubmissionOutcome.AlreadyQueued, address);
-        }
-
-        var decision = await scope.InspectAsync(address.Host, ct);
-
-        if (decision.Ruling is not HostScopeRuling.Allowed)
-        {
-            // Two outcomes, because §7.2 keeps them as two facts on the record — but what the
-            // submitter is told collapses them into one sentence (see SubmitCopy), since telling a
-            // stranger which happened is an oracle over our resolver's view of names.
-            var outcome = decision.Ruling is HostScopeRuling.RefusedNonGlobal
-                ? SubmissionOutcome.RefusedNotRoutable
-                : SubmissionOutcome.Unresolvable;
-
-            await log.CompleteAsync(reservation, address, outcome, null, ct);
-            return new SubmissionReceipt(outcome, address, Detail: decision.Detail);
-        }
-
-        // §11, checked here rather than left to the crawl loop's gate: without this, the form would
-        // tell somebody "accepted" for an address we'd already promised never to touch. A refusal we
-        // know at the door belongs at the door.
-        if (await optOut.RuleOnAsync(address.Host, address.Port, ct) is not null)
-        {
-            await log.CompleteAsync(reservation, address, SubmissionOutcome.RefusedOptOut, null, ct);
-            return new SubmissionReceipt(SubmissionOutcome.RefusedOptOut, address);
+            await log.CompleteAsync(reservation, address, refusal, null, ct);
+            return new SubmissionReceipt(refusal, address, ruling.GameId, ruling.Detail);
         }
 
         // Due now, since a person is waiting. IsOperatorSeed stays false: a stranger with a browser

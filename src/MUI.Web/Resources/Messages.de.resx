@@ -808,6 +808,9 @@
   <data name="game.firstSeen.aresCentral" xml:space="preserve">
     <value>Erstmals am {date} gesehen, bei AresCentral geführt.</value>
   </data>
+  <data name="game.firstSeen.announcement" xml:space="preserve">
+    <value>Erstmals am {date} gesehen, in einer öffentlichen Ankündigung.</value>
+  </data>
   <data name="game.firstSeen.backfill" xml:space="preserve">
     <value>Erstmals am {date} gesehen, in der Adressliste vom ersten Tag dieser Seite.</value>
   </data>

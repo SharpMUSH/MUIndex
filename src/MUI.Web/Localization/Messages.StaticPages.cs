@@ -302,6 +302,7 @@ public static partial class Messages
         ["game.firstSeen.referral"] = "First seen on {date}, named by another game's list.",
         ["game.firstSeen.i3Mudlist"] = "First seen on {date}, listed on the I3 mudlist.",
         ["game.firstSeen.aresCentral"] = "First seen on {date}, listed on AresCentral.",
+        ["game.firstSeen.announcement"] = "First seen on {date}, in a public announcement.",
         ["game.firstSeen.backfill"] = "First seen on {date}, in this site's day-one list of addresses.",
         ["source.i3Mudlist"] = "the I3 mudlist",
         ["source.banner"] = "the connect screen",

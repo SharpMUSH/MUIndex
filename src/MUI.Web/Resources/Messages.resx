@@ -1062,6 +1062,10 @@
     <value>First seen on {date}, listed on AresCentral.</value>
     <comment>AresCentral is a proper noun and stays as written in every locale</comment>
   </data>
+  <data name="game.firstSeen.announcement" xml:space="preserve">
+    <value>First seen on {date}, in a public announcement.</value>
+    <comment>names no site on purpose: which post we read first is our note, never a claim about the game</comment>
+  </data>
   <data name="game.firstSeen.backfill" xml:space="preserve">
     <value>First seen on {date}, in this site's day-one list of addresses.</value>
     <comment>names no directory on purpose: which one supplied a given address was never recorded</comment>

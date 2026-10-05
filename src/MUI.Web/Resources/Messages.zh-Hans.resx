@@ -808,6 +808,9 @@
   <data name="game.firstSeen.aresCentral" xml:space="preserve">
     <value>于 {date} 首次发现，收录于 AresCentral。</value>
   </data>
+  <data name="game.firstSeen.announcement" xml:space="preserve">
+    <value>于 {date} 首次发现，来自一则公开公告。</value>
+  </data>
   <data name="game.firstSeen.backfill" xml:space="preserve">
     <value>于 {date} 首次发现，在本站开站当天的地址清单中。</value>
   </data>

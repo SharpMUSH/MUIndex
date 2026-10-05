@@ -53,6 +53,7 @@ public static class DiscoveryLine
                 DiscoverySource.Referral => "game.firstSeen.referral",
                 DiscoverySource.I3Mudlist => "game.firstSeen.i3Mudlist",
                 DiscoverySource.AresCentral => "game.firstSeen.aresCentral",
+                DiscoverySource.Announcement => "game.firstSeen.announcement",
                 DiscoverySource.Backfill => "game.firstSeen.backfill",
                 _ => throw new ArgumentOutOfRangeException(
                     nameof(source),

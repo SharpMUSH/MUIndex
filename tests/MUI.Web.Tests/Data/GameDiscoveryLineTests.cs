@@ -45,6 +45,21 @@ public class GameDiscoveryLineTests
     }
 
     /// <summary>
+    /// A lead names no site. Which forum we happened to read first is our note in <c>crawl_lead</c>,
+    /// and a game announced on one forum is announced on three.
+    /// </summary>
+    [Test]
+    public async Task AnAnnouncementNamesNoSite()
+    {
+        var line = DiscoveryLine.FirstSeen(English, DiscoverySource.Announcement, "5 October 2026");
+
+        await Assert.That(line).DoesNotContain("Reddit");
+        await Assert.That(line).DoesNotContain("reddit");
+        await Assert.That(line).DoesNotContain("Google");
+        await Assert.That(line).Contains("5 October 2026");
+    }
+
+    /// <summary>
     /// Every source has its own sentence, and none of them reaches a reader as a C# enum member.
     /// </summary>
     [Test]
@@ -77,7 +92,7 @@ public class GameDiscoveryLineTests
     }
 
     /// <summary>
-    /// The six sentences are six different sentences. A shared template with a noun slotted in would
+    /// The sentences are all different sentences. A shared template with a noun slotted in would
     /// pass every other test here and read as machine-generated in every language.
     /// </summary>
     [Test]
