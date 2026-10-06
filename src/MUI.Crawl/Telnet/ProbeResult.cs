@@ -141,6 +141,17 @@ public sealed record ProbeResult
     /// <summary>Which transport produced <see cref="Mssp"/>. Part of the value's provenance.</summary>
     public MsspTransport MsspTransport { get; init; } = MsspTransport.None;
 
+    /// <summary>
+    /// What came of the plaintext <c>MSSP-REQUEST</c>, when <see cref="ProbeTarget.PlaintextMssp"/>
+    /// had it sent.
+    /// </summary>
+    /// <remarks>
+    /// Kept apart from <see cref="MsspOutcome"/>, which an unanswered request never changes: a game
+    /// that ignored the plaintext line has the same <see cref="MsspOutcome.NotOffered"/> it had
+    /// before it was asked. Read by the crawl loop, to decide whether to ask again.
+    /// </remarks>
+    public PlaintextMsspOutcome PlaintextMssp { get; init; } = PlaintextMsspOutcome.NotAsked;
+
     public FailureDetail? Failure { get; init; }
 
     /// <summary>
@@ -168,7 +179,10 @@ public sealed record ProbeResult
 /// </remarks>
 public enum MsspOutcome
 {
-    /// <summary>The server never offered MSSP and did not answer the plaintext request.</summary>
+    /// <summary>
+    /// No report arrived: the server never offered MSSP and, if it was sent the plaintext request,
+    /// did not answer that either.
+    /// </summary>
     NotOffered,
 
     /// <summary>A report arrived and was parsed. It may still be empty, which is the server's answer.</summary>
@@ -194,11 +208,33 @@ public enum MsspTransport
 
     /// <summary>The plaintext <c>MSSP-REQUEST</c> reply, delimited by START/END markers.</summary>
     /// <remarks>
-    /// Nothing produces this yet, deliberately — the plaintext form belongs in
-    /// TelnetNegotiationCore (first-party), and implementing it here would duplicate then have to be
-    /// deleted. The member stays because spec §6.4 describes both routes.
+    /// Read by TelnetNegotiationCore's <c>MSSPPlaintextProtocol</c>; this repository only decides
+    /// when to ask (<see cref="ProbeTarget.PlaintextMssp"/>).
     /// </remarks>
     PlaintextRequest,
+}
+
+/// <summary>What came of a plaintext <c>MSSP-REQUEST</c>.</summary>
+public enum PlaintextMsspOutcome
+{
+    /// <summary>
+    /// The line was never sent: nobody asked for it, the session negotiated option 70, or the
+    /// connection was gone first. Says nothing about the game.
+    /// </summary>
+    NotAsked,
+
+    /// <summary>
+    /// The game answered with an <c>MSSP-REPLY-START</c> to <c>MSSP-REPLY-END</c> block, including
+    /// one too large to keep, which is still an answer.
+    /// </summary>
+    Answered,
+
+    /// <summary>
+    /// The line went out and no reply came back before <see cref="ProbeOptions.PlaintextMsspGrace"/>
+    /// ran out or the game hung up. A measurement of the game, and the one that stops it being asked
+    /// again.
+    /// </summary>
+    Unanswered,
 }
 
 public enum ProbeOutcome

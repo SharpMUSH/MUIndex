@@ -129,6 +129,17 @@ public sealed record CrawlTarget
     /// </para>
     /// </remarks>
     public bool AwaitingCorroboration { get; init; } = true;
+
+    /// <summary>
+    /// Which way this address hands over MSSP, as far as the crawl loop has learnt, or null when it
+    /// has learnt nothing yet (migration 0042).
+    /// </summary>
+    /// <remarks>
+    /// The address's own column, like <see cref="UseTls"/> and for the same reason: a memory of what
+    /// a conversation with this listener established. <see cref="MsspRoutes"/> owns both what it
+    /// asks for and how it changes.
+    /// </remarks>
+    public MsspRoute? MsspRoute { get; init; }
 }
 
 /// <summary>
@@ -171,6 +182,16 @@ public interface ICrawlTargetRepository
     /// established.
     /// </remarks>
     Task RecordTransportAsync(Guid id, bool useTls, CancellationToken ct);
+
+    /// <summary>
+    /// Records which way this address hands over MSSP, so the next dial knows whether to send the
+    /// plaintext <c>MSSP-REQUEST</c>. Null forgets it, which earns the address one more trial.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="RecordAttemptAsync"/> for the reason <see cref="RecordTransportAsync"/>
+    /// is: most attempts have nothing new to say about it, and the caller writes only on a change.
+    /// </remarks>
+    Task RecordMsspRouteAsync(Guid id, MsspRoute? route, DateTimeOffset at, CancellationToken ct);
 
     Task AttachGameAsync(Guid id, Guid gameId, CancellationToken ct);
 }

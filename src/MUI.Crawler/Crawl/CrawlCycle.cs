@@ -259,6 +259,10 @@ public sealed class CrawlCycle(
                 // known to be behind a handshake — and the probe overrules it either way if the game
                 // has since moved, which is what keeps a stale flag from going dark for ever.
                 UseTls = target.UseTls,
+
+                // Whether to type the plaintext MSSP-REQUEST, from what this address did with it
+                // before. See MsspRoutes for both halves of that memory.
+                PlaintextMssp = MsspRoutes.Ask(target.MsspRoute),
             },
             budget.Token);
 
@@ -497,6 +501,22 @@ public sealed class CrawlCycle(
         if (answered && transport != target.UseTls)
         {
             await targets.RecordTransportAsync(target.Id, transport, cancellationToken);
+        }
+
+        // The same shape for the MSSP route: written only when this probe taught something new.
+        // MsspRoutes.Learn already returns the row unchanged for a dial that failed.
+        if (MsspRoutes.Learn(target.MsspRoute, result) is var route && route != target.MsspRoute)
+        {
+            await targets.RecordMsspRouteAsync(target.Id, route, now, cancellationToken);
+
+            if (route is MsspRoute.Plaintext or MsspRoute.None)
+            {
+                logger?.LogInformation(
+                    "{Host}:{Port} {Answer} the plaintext MSSP-REQUEST",
+                    target.Host,
+                    target.Port,
+                    route is MsspRoute.Plaintext ? "answered" : "did not answer");
+            }
         }
     }
 

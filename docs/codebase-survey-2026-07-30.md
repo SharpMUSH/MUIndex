@@ -222,10 +222,13 @@ the entire time.
 
 ## The plaintext `MSSP-REQUEST` form — 3 answered of 20, and 8 read it as a name
 
-**Measured, and deliberately not implemented here.** The plaintext form belongs in
-TelnetNegotiationCore, where it is filed as **issue #61**; `CLAUDE.md`'s rule is that a gap in that
-library is a PR rather than a compensating hack in this repository. This section is the evidence for
-whoever writes that PR — the probe carries none of it.
+**Measured here; now asked, narrowly.** The plaintext form belongs in TelnetNegotiationCore, where
+it was filed as **issue #61** and shipped as `MSSPPlaintextProtocol` (4.0). The probe now uses it under
+the policy this section argues for: never to an address that has reported over option 70, once to
+every other address on a dial of its own after the measurement, every session only to an address
+that answered, and never again to one that did not (`crawl_target.mssp_route`, migration 0042;
+`MsspRoutes`). The cost below is why it is once and on its own dial: a name prompt that turns the
+request into a password prompt must not get the measuring session's `WHO` typed into it.
 
 Twenty games were sent the literal line `MSSP-REQUEST` at their login screen. Three answered with a
 well-formed `MSSP-REPLY-START` / tab-separated / `MSSP-REPLY-END` report:

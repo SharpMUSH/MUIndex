@@ -43,8 +43,9 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// </summary>
     /// <remarks>
     /// The bare line terminator sent between the banner and <c>WHO</c> is not on this list — it's not
-    /// a command, it carries no text. <c>MSSP-REQUEST</c> is also absent by design (see
-    /// <see cref="ProbeOptions"/>): MSSP is asked for by negotiation, which a server without it ignores.
+    /// a command, it carries no text. <c>MSSP-REQUEST</c> is not on it either: it is sent only by
+    /// TelnetNegotiationCore's <c>MSSPPlaintextProtocol</c>, only where <see cref="ProbeTarget.PlaintextMssp"/>
+    /// says this address may be asked, and never in a session that negotiated option 70.
     /// The other thing that goes on the wire is a classified prompt answer, which is not a command
     /// either and is bounded separately by <see cref="IsPermittedPromptAnswer"/>.
     /// </remarks>
@@ -83,6 +84,27 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     private readonly ILogger _logger = logger ?? NullLogger.Instance;
 
     public async Task<ProbeResult> ProbeAsync(ProbeTarget target, CancellationToken cancellationToken = default)
+    {
+        var result = await MeasureAsync(target, cancellationToken);
+
+        // The plaintext trial runs after the measurement and never inside it — see
+        // PlaintextMsspAsk.Trial. Only for a session that reached the game and got no MSSP at all:
+        // a game that negotiated option 70, even one whose report never came or was too large to
+        // keep, is reporting the proper way and has nothing to add by the older one.
+        return target.PlaintextMssp is PlaintextMsspAsk.Trial
+            && result is
+            {
+                Outcome: ProbeOutcome.Answered,
+                MsspOutcome: MsspOutcome.NotOffered,
+                PlaintextMssp: PlaintextMsspOutcome.NotAsked,
+            }
+            && !result.OfferedOptions.Contains("MSSP")
+                ? await TrialPlaintextMsspAsync(target, result, cancellationToken)
+                : result;
+    }
+
+    /// <summary>The measurement: one session, and the other transport when the first learnt nothing.</summary>
+    private async Task<ProbeResult> MeasureAsync(ProbeTarget target, CancellationToken cancellationToken)
     {
         var session = await SessionAsync(
             target,
@@ -270,7 +292,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             }
 
             var prompts = new PromptSink(lines);
-            var builder = Build(seen, lines, prompts);
+            var builder = Build(seen, lines, prompts, target.PlaintextMssp is PlaintextMsspAsk.Ask);
 
             // The stream overload and the TcpClient one differ only in where the pipe comes from, so
             // everything above the socket — negotiation, MSSP, the WHO parser, the encoding decision
@@ -323,6 +345,17 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // handed to the wrong parameter by a future edit that reorders phases.
             var cursors = new PhaseCursors { Banner = Arrived() };
 
+            // An address that has answered the plaintext form before is asked it here: after the
+            // connect screen has settled, so the request lands at the name prompt the SMAUG family
+            // reads it at, and before WHO, so a PLAYERS in the reply can spare the game the WHO.
+            // Whatever the line provokes besides the reply (the reply's own leading blank line, a
+            // re-printed prompt) arrives after cursors.Banner and before cursors.Flush, the slice
+            // that is thrown away for the same reason the flush line's reaction is: it is a reaction
+            // to text we sent, not the game's screen.
+            var plaintext = target.PlaintextMssp is PlaintextMsspAsk.Ask
+                ? await AskPlaintextMsspAsync(telnet, client, seen, target, budget.Token)
+                : PlaintextMsspOutcome.NotAsked;
+
             // A who's-online menu option is different from every category the prompt loop above
             // answers: selecting it doesn't reveal a second screen behind this one — for every real
             // game measured (BatMUD, ZombieMUD, discworld.starturtle.net) the menu already settled
@@ -365,7 +398,9 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 // has already done the flushing. Computed here rather than read off
                 // whoAlreadyAnswered inside, so that flag keeps its one meaning: if WHO ever comes to
                 // be answered by a route that sends nothing, the flush must not silently go with it.
-                alreadyFlushed: answeredAPrompt || whoFromMenu is not null,
+                alreadyFlushed: answeredAPrompt
+                    || whoFromMenu is not null
+                    || plaintext is not PlaintextMsspOutcome.NotAsked,
                 whoAlreadyAnswered: whoFromMenu is not null,
                 markAsked: () => asked = true,
                 target,
@@ -385,7 +420,8 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             return new Session(
                 BuildAnsweredResult(
                     target, observedAt, started, seen, reading, cursors,
-                    whoFromMenu, whoFromMenuShape, asked, published, telnet.CurrentEncoding, transport),
+                    whoFromMenu, whoFromMenuShape, asked, published, telnet.CurrentEncoding, transport,
+                    plaintext),
                 Heard());
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -434,6 +470,200 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             {
                 HandshakeIncomplete = !handshaken,
             };
+        }
+        finally
+        {
+            if (tunnel is not null)
+            {
+                await tunnel.DisposeAsync();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Sends the plaintext <c>MSSP-REQUEST</c> and waits for the reply, unless this session has
+    /// already shown it has no need of one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The exchange itself is TelnetNegotiationCore's (<c>MSSPPlaintextProtocol</c>): it frames the
+    /// request, reads the reply off the line stream so none of it reaches <c>lines</c> as screen, and
+    /// hands the report to the same <c>OnMSSP</c> callback option 70 uses. This method decides only
+    /// whether to ask, and what the answer says about the game.
+    /// </para>
+    /// <para>
+    /// <see cref="PlaintextMsspOutcome.Unanswered"/> covers a hang-up after the line went out as well
+    /// as silence: a server that ends the session on an unknown name has answered the question as
+    /// plainly as one that says <c>Illegal name</c>. A socket already gone beforehand is
+    /// <see cref="PlaintextMsspOutcome.NotAsked"/>, because then nothing was asked.
+    /// </para>
+    /// </remarks>
+    private async Task<PlaintextMsspOutcome> AskPlaintextMsspAsync(
+        TelnetInterpreter telnet,
+        TcpClient client,
+        Observations seen,
+        ProbeTarget target,
+        CancellationToken cancellationToken)
+    {
+        if (seen.Supported.Contains("MSSP")
+            || seen.MsspOutcome is not MsspOutcome.NotOffered
+            || !Live(client)
+            || telnet.PluginManager?.GetPlugin<MSSPPlaintextProtocol>() is not { } plaintext)
+        {
+            return PlaintextMsspOutcome.NotAsked;
+        }
+
+        seen.AskingPlaintext = true;
+
+        try
+        {
+            var report = await plaintext.RequestReportAsync(cancellationToken);
+
+            return report is not null || seen.MsspOutcome is MsspOutcome.RejectedTooLarge
+                ? PlaintextMsspOutcome.Answered
+                : PlaintextMsspOutcome.Unanswered;
+        }
+        catch (Exception error) when (HungUp(error))
+        {
+            // The write itself failed, so the line never reached them.
+            _logger.LogDebug(
+                "{Host}:{Port} was gone before MSSP-REQUEST could be sent ({Error})",
+                target.Host, target.Port, error.Message);
+            return PlaintextMsspOutcome.NotAsked;
+        }
+        finally
+        {
+            seen.AskingPlaintext = false;
+        }
+    }
+
+    /// <summary>
+    /// The second, short dial that asks an address the plaintext form for the first time: the
+    /// connect screen, any pre-screen prompts, <c>MSSP-REQUEST</c>, and nothing else.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <paramref name="measured"/> is returned with the trial's outcome on it and, when the game
+    /// answered, its report — the same report a third session would have read, minutes earlier than
+    /// waiting a whole crawl interval for it.
+    /// </para>
+    /// <para>
+    /// <b>The trial can only add to the measurement, never cost it.</b> Anything that goes wrong on
+    /// this dial — refused, reset, a handshake that will not complete, a defect here — returns
+    /// <paramref name="measured"/> unchanged with <see cref="PlaintextMsspOutcome.NotAsked"/>, which
+    /// the crawl loop reads as "still to try". Our caller going away is the one exception, rethrown
+    /// for the same reason <see cref="SessionAsync"/> rethrows it.
+    /// </para>
+    /// </remarks>
+    private async Task<ProbeResult> TrialPlaintextMsspAsync(
+        ProbeTarget target,
+        ProbeResult measured,
+        CancellationToken cancellationToken)
+    {
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        budget.CancelAfter(_options.Timeout);
+
+        var lines = new List<byte[]>();
+        var seen = new Observations();
+
+        using var client = new TcpClient();
+        SslStream? tunnel = null;
+
+        try
+        {
+            await (target.Addresses.Count > 0
+                ? client.ConnectAsync([.. target.Addresses], target.Port, budget.Token)
+                : client.ConnectAsync(target.Host, target.Port, budget.Token));
+
+            // The door the measurement just came through, not the one the target was dialled with:
+            // the measurement may have had to try the other one.
+            if (measured.Transport is ProbeTransport.Tls)
+            {
+                tunnel = await HandshakeAsync(client, target, budget.Token);
+            }
+
+            var prompts = new PromptSink(lines);
+            var builder = Build(seen, lines, prompts, plaintextMssp: true);
+            var built = tunnel is null
+                ? await builder.BuildAndStartAsync(client, budget.Token)
+                : await builder.BuildAndStartAsync(tunnel, budget.Token);
+
+            prompts.Reads(built.Interpreter);
+            await using var telnet = built.Interpreter;
+            _ = ObserveReadLoopAsync(built.ReadTask, target);
+
+            int Arrived()
+            {
+                lock (lines)
+                {
+                    return lines.Count;
+                }
+            }
+
+            // The same approach to the name prompt the measurement takes, so the request lands where
+            // a SMAUG-family nanny reads it — not on a colour question or a press-enter gate.
+            await SettleInitialBannerAsync(telnet, Arrived, lines, budget.Token);
+            await AnswerPromptsAsync(telnet, Arrived, lines, client, budget.Token);
+
+            var outcome = await AskPlaintextMsspAsync(telnet, client, seen, target, budget.Token);
+
+            _logger.LogDebug(
+                "{Host}:{Port} plaintext MSSP-REQUEST: {Outcome}", target.Host, target.Port, outcome);
+
+            if (outcome is not PlaintextMsspOutcome.Answered)
+            {
+                return measured with { PlaintextMssp = outcome };
+            }
+
+            if (seen.MsspOutcome is MsspOutcome.RejectedTooLarge)
+            {
+                return measured with
+                {
+                    PlaintextMssp = outcome,
+                    MsspOutcome = MsspOutcome.RejectedTooLarge,
+                    MsspBytesRejected = seen.MsspRejectedBytes,
+                };
+            }
+
+            // The report's encoding is decided the way the measurement decides it, against the screen
+            // it arrived beside — here, this dial's.
+            WireReading reading;
+            lock (lines)
+            {
+                reading = WireEncoding.Read(
+                    lines, target.Charset, MsspReport.RawValues(seen.Mssp), target.MsspCharset);
+            }
+
+            return measured with
+            {
+                PlaintextMssp = outcome,
+                Mssp = MsspReport.From(seen.Mssp, reading.MsspEncoding),
+                MsspOutcome = MsspOutcome.Received,
+                MsspTransport = MsspTransport.PlaintextRequest,
+            };
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception error)
+        {
+            if (HungUp(error)
+                || error is SocketException or OperationCanceledException or AuthenticationException)
+            {
+                _logger.LogDebug(
+                    "{Host}:{Port} plaintext MSSP trial did not get as far as asking ({Error})",
+                    target.Host, target.Port, error.Message);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    error,
+                    "{Host}:{Port} plaintext MSSP trial failed; the measurement stands",
+                    target.Host, target.Port);
+            }
+
+            return measured;
         }
         finally
         {
@@ -635,8 +865,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         try
         {
             // MSDP's request vocabulary — SEND, REPORT, LIST, RESET, UNREPORT — has no plaintext
-            // form, so it is not on PermittedCommands for the same reason MSSP-REQUEST is not: it
-            // is asked for by protocol, not by typing. Gated on TelnetNegotiationCore 2.9.0's
+            // form, so it is not on PermittedCommands: it is asked for by protocol, not by typing. Gated on TelnetNegotiationCore 2.9.0's
             // IsNegotiated (see Watched.Msdp), which reflects the peer's real WILL/DO acceptance —
             // unlike the pre-2.9.0 OnEnabledAsync, which was true from plugin construction
             // regardless of the wire (TelnetNegotiationCore#85). By this point in the probe the
@@ -883,7 +1112,8 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         bool asked,
         int? published,
         Encoding? negotiatedEncoding,
-        ProbeTransport transport)
+        ProbeTransport transport,
+        PlaintextMsspOutcome plaintext)
     {
         var read = reading.Lines;
 
@@ -916,7 +1146,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             seen.Charset ??= negotiatedEncoding.WebName;
         }
 
-        var viaOption = seen.MsspOutcome is MsspOutcome.Received;
+        var received = seen.MsspOutcome is MsspOutcome.Received;
 
         return new ProbeResult
         {
@@ -946,10 +1176,11 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // why not asking must imply publishing. Second, not first: the session-wide charset
             // decision is made above and a screen this decode reads better is read better.
             BannerPlayerCount = BannerCount.Find(banner) ?? published,
-            Mssp = viaOption ? MsspReport.From(seen.Mssp, reading.MsspEncoding) : MsspReport.Empty,
+            Mssp = received ? MsspReport.From(seen.Mssp, reading.MsspEncoding) : MsspReport.Empty,
             MsspOutcome = seen.MsspOutcome,
             MsspBytesRejected = seen.MsspRejectedBytes,
-            MsspTransport = viaOption ? MsspTransport.TelnetOption70 : MsspTransport.None,
+            MsspTransport = received ? seen.MsspTransport : MsspTransport.None,
+            PlaintextMssp = plaintext,
             Transport = transport,
             Elapsed = Stopwatch.GetElapsedTime(started),
         };
@@ -1221,7 +1452,11 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// separate statement apiece; the TelnetNegotiationCore plugin builders are already self-typed
     /// fluent, so this is the shape the library wants, not a new abstraction layered over it.
     /// </remarks>
-    private TelnetInterpreterBuilder Build(Observations seen, List<byte[]> lines, PromptSink prompts)
+    private TelnetInterpreterBuilder Build(
+        Observations seen,
+        List<byte[]> lines,
+        PromptSink prompts,
+        bool plaintextMssp)
     {
         void Note(string protocol) => seen.Note(protocol);
 
@@ -1231,7 +1466,20 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             {
                 seen.Mssp = config;
                 seen.MsspOutcome = MsspOutcome.Received;
-                Note("MSSP");
+
+                // The plaintext reply arrives through this same callback, and it is not option 70.
+                // Supported means "observed active in the handshake", so noting MSSP for a line of
+                // text would publish a negotiation that never happened as a measured capability.
+                if (config.Source is MSSPSource.Plaintext)
+                {
+                    seen.MsspTransport = MsspTransport.PlaintextRequest;
+                }
+                else
+                {
+                    seen.MsspTransport = MsspTransport.TelnetOption70;
+                    Note("MSSP");
+                }
+
                 return ValueTask.CompletedTask;
             })
             // 2.7.0 drops an oversized report whole rather than truncating it. Kept as its own
@@ -1240,7 +1488,13 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             {
                 seen.MsspOutcome = MsspOutcome.RejectedTooLarge;
                 seen.MsspRejectedBytes = (int)Math.Min(sizes.Item1, int.MaxValue);
-                Note("MSSP");
+
+                // The callback does not say which route overran, so the request in flight does.
+                if (!seen.AskingPlaintext)
+                {
+                    Note("MSSP");
+                }
+
                 return ValueTask.CompletedTask;
             });
 
@@ -1321,7 +1575,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         // of the TTYPE list.
         var terminalType = new Watched.TerminalType(Note).WithTerminalTypes([.. _options.TerminalTypes]);
 
-        return new TelnetInterpreterBuilder()
+        var builder = new TelnetInterpreterBuilder()
             .UseMode(TelnetInterpreter.TelnetMode.Client)
             .UseLogger(_logger)
             .WithClientIdentity(_options.TerminalTypes.Count > 0 ? _options.TerminalTypes[0] : "MUINDEX-CRAWLER")
@@ -1388,6 +1642,13 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             .AddPlugin(new PacketPatchProtocol()
                 .WithHoldTime(_options.PromptHold)
                 .OnPrompt(prompts.TakeAsync));
+
+        // Registered only when this session may ask. On a client the plugin sends nothing until
+        // RequestReportAsync is called, so this is belt and braces: a session that was not told to
+        // ask has no way to.
+        return plaintextMssp
+            ? builder.AddPlugin(new MSSPPlaintextProtocol().WithReplyTimeout(_options.PlaintextMsspGrace))
+            : builder;
     }
 
     /// <summary>
@@ -1447,6 +1708,10 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
         public MSSPConfig? Mssp;
         public MsspOutcome MsspOutcome = MsspOutcome.NotOffered;
+        public MsspTransport MsspTransport = MsspTransport.None;
+
+        /// <summary>Set while a plaintext <c>MSSP-REQUEST</c> waits for its reply.</summary>
+        public volatile bool AskingPlaintext;
         public int? MsspRejectedBytes;
         public string? Charset;
         public bool Prompts;

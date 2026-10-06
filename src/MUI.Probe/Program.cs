@@ -9,6 +9,14 @@ using MUI.Crawl;
 // catalogue to ask, and a caller that cannot answer keeps the probe asking.
 var listed = args.Contains("--listed", StringComparer.Ordinal);
 
+// Whether to try the plaintext MSSP-REQUEST, as the crawl loop does for an address that has never
+// reported over option 70: `--mssp-request` asks it on a second dial after the measurement
+// (PlaintextMsspAsk.Trial), `--mssp-request=ask` inside the measurement, before WHO, as for an
+// address known to answer. Off by default, because it is text at a stranger's login prompt.
+var plaintextMssp = args.Contains("--mssp-request=ask", StringComparer.Ordinal)
+    ? PlaintextMsspAsk.Ask
+    : args.Contains("--mssp-request", StringComparer.Ordinal) ? PlaintextMsspAsk.Trial : PlaintextMsspAsk.Never;
+
 // Flags are pulled out first so they can be written anywhere without displacing a positional.
 var positional = args.Where(a => !a.StartsWith("--", StringComparison.Ordinal)).ToArray();
 
@@ -35,6 +43,7 @@ var result = await new TelnetProbe(options).ProbeAsync(new ProbeTarget(host, por
     Charset = charset,
     MsspCharset = msspCharset,
     AwaitingCorroboration = !listed,
+    PlaintextMssp = plaintextMssp,
 });
 
 Console.WriteLine($"target        {result.Host}:{result.Port}");
@@ -48,6 +57,11 @@ Console.WriteLine(result.Outcome is ProbeOutcome.Answered
     : $"transport     none answered ({result.Transport.ToString().ToLowerInvariant()} attempted)");
 Console.WriteLine($"elapsed       {result.Elapsed.TotalSeconds:F1}s");
 Console.WriteLine($"mssp          {result.MsspOutcome} via {result.MsspTransport}");
+
+if (plaintextMssp is not PlaintextMsspAsk.Never)
+{
+    Console.WriteLine($"mssp-request  {result.PlaintextMssp}");
+}
 Console.WriteLine($"who           {result.Who.Confidence}" + (result.Who.HasCount
     ? $" \u2192 {result.Who.Count} players"
     : result.Who.Attempted ? " \u2014 asked, unreadable" : " \u2014 never asked"));

@@ -160,11 +160,18 @@ public sealed record ProbeOptions
     /// </remarks>
     public int MaxPromptRounds { get; init; } = 4;
 
-    // Deliberately no option here for the plaintext MSSP-REQUEST form — it belongs in
-    // TelnetNegotiationCore, and a compensating implementation here would duplicate a first-party
-    // dependency and then have to be deleted once that lands. Every surveyed game that answered the
-    // plaintext form also answered telnet option 70, so it reached nothing extra; several others read
-    // the bare request as a character name and burned a login attempt on it.
+    /// <summary>
+    /// How long a plaintext <c>MSSP-REQUEST</c> waits for <c>MSSP-REPLY-END</c> before the game is
+    /// taken not to answer it.
+    /// </summary>
+    /// <remarks>
+    /// Handed to TelnetNegotiationCore's <c>MSSPPlaintextProtocol.WithReplyTimeout</c>. Ten seconds is
+    /// the library's own default and Grapevine's crawler's window. Every reply measured
+    /// (<c>docs/codebase-survey-2026-07-30.md</c>) arrived well inside it; a server that has not
+    /// started one by then has read the request as a character name. Only ever spent where
+    /// <see cref="ProbeTarget.PlaintextMssp"/> says to ask at all.
+    /// </remarks>
+    public TimeSpan PlaintextMsspGrace { get; init; } = TimeSpan.FromSeconds(10);
 
     /// <summary>
     /// Ceiling on a single subnegotiation payload, handed to TelnetNegotiationCore's
