@@ -93,6 +93,13 @@ our host is unreachable and perfectly alive.
   typed at the family above, every crawl** — issue #182 is where that is being thought about, and it
   is not the same problem: there is nothing they would publish, so "not asking must imply publishing"
   has nothing to hold on to.
+- **Type `MSSP-REQUEST` at an address that has reported over option 70, or that left its trial
+  unanswered.** The plaintext form is text at a login prompt, and eight of twenty surveyed games read
+  it as a character name. `crawl_target.mssp_route` (migration 0042) remembers each address's answer
+  and `MsspRoutes` is the one place that reads it: an unknown address gets **one** trial, on a dial
+  of its own after the measurement (`PlaintextMsspAsk.Trial`), so a name prompt that turns the request
+  into a password prompt never gets that session's `WHO` typed into it. A plaintext report is stored
+  as `mssp` like any other report, and is never noted as an option-70 negotiation.
 - **Read a roster as a total, or fold it into `mssp`.** `MsspCountKind.Roster` is a **floor**:
   `tdome.nukefire.org:4000` states `PLAYERS = 70` and names sixty-nine, stably, because every
   codebase has someone it does not show. It gets its own `mssp_roster` source so a reader can tell

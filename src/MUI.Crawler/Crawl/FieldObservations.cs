@@ -181,7 +181,10 @@ public static class FieldObservations
     /// (<c>ProbeOptions.MsspSettleGrace</c>; found flapping <c>capability.mssp.measured</c> true/false
     /// in production for DIKU-family games that answer MSSP cleanly on every direct probe). Servers
     /// that only respond to <c>IAC DO MSSP</c> rather than advertising it themselves will appear as
-    /// <see cref="MsspOutcome.NotOffered"/> until TNC gains a client-side request.
+    /// <see cref="MsspOutcome.NotOffered"/>. A report that arrived by the plaintext
+    /// <c>MSSP-REQUEST</c> instead is <see cref="MsspOutcome.Received"/>, so it writes no negative
+    /// either: the game handed us MSSP, and publishing "no MSSP" beside its report would be false,
+    /// while it never offered option 70, so no <c>true</c> is written for the handshake.
     /// <see cref="MsspOutcome.RejectedTooLarge"/> is not that case and is recorded as present: the
     /// server offered, we just chose not to hold the reply (§6.4). A protocol the library named that
     /// isn't in <see cref="CapabilityFields.Names"/> is still recorded — the registry isn't a gate on

@@ -42,7 +42,7 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
         crawl_delay AS CrawlDelay, first_seen_at AS FirstSeenAt, last_probed_at AS LastProbedAt,
         discovered_from_game_id AS DiscoveredFromGameId, depth AS Depth,
         is_operator_seed AS IsOperatorSeed, submitted_at AS SubmittedAt,
-        discovered_via AS DiscoveredVia,
+        discovered_via AS DiscoveredVia, mssp_route AS MsspRoute,
         (SELECT f.value
            FROM game_field f
           WHERE f.game_id = crawl_target.game_id
@@ -189,6 +189,21 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
             cancellationToken: ct));
     }
 
+    public async Task RecordMsspRouteAsync(Guid id, MsspRoute? route, DateTimeOffset at, CancellationToken ct)
+    {
+        await using var connection = await source.OpenConnectionAsync(ct);
+
+        await connection.ExecuteAsync(new CommandDefinition(
+            """
+            UPDATE crawl_target
+               SET mssp_route = @route,
+                   mssp_route_at = CASE WHEN @route::text IS NULL THEN NULL ELSE @at END
+             WHERE id = @id
+            """,
+            new { id, route = MsspRouteSpelling.ToDb(route), at = at.ToUniversalTime() },
+            cancellationToken: ct));
+    }
+
     /// <summary>
     /// Attaches the game this address turned out to be.
     /// </summary>
@@ -244,6 +259,9 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
 
         public string? MsspCharset { get; init; }
 
+        /// <remarks>Text, not the enum, for the reason <see cref="DiscoveredVia"/> is.</remarks>
+        public string? MsspRoute { get; init; }
+
         /// <remarks>
         /// Nullable because the subquery has no row to read for a target not yet bound to a game,
         /// and null there means the same as true: an address that has proved nothing yet is asked
@@ -272,6 +290,35 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
             Charset = Charset,
             MsspCharset = MsspCharset,
             AwaitingCorroboration = AwaitingCorroboration ?? true,
+            MsspRoute = MsspRouteSpelling.From(MsspRoute),
         };
     }
+}
+
+/// <summary>
+/// <see cref="MUI.Discovery.MsspRoute"/> to and from the spellings
+/// <c>crawl_target_mssp_route_vocabulary</c> allows.
+/// </summary>
+public static class MsspRouteSpelling
+{
+    public static string? ToDb(MsspRoute? route) => route switch
+    {
+        null => null,
+        MUI.Discovery.MsspRoute.Telnet => "telnet",
+        MUI.Discovery.MsspRoute.Plaintext => "plaintext",
+        MUI.Discovery.MsspRoute.None => "none",
+        _ => throw new ArgumentOutOfRangeException(nameof(route), route, "No spelling for this route."),
+    };
+
+    /// <remarks>
+    /// An unknown spelling reads as unknown, which costs one trial dial rather than a crawl cycle
+    /// that throws on every row.
+    /// </remarks>
+    public static MsspRoute? From(string? value) => value switch
+    {
+        "telnet" => MUI.Discovery.MsspRoute.Telnet,
+        "plaintext" => MUI.Discovery.MsspRoute.Plaintext,
+        "none" => MUI.Discovery.MsspRoute.None,
+        _ => null,
+    };
 }

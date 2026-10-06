@@ -40,11 +40,14 @@ public class ProbeRestraintTests
     }
 
     [Test]
-    public async Task PlaintextMsspRequestIsNeverTypedAtALoginScreen()
+    public async Task PlaintextMsspRequestIsNotACommandAndIsOffUnlessTheCrawlLoopAsks()
     {
-        // The plaintext MSSP-REQUEST form is text at a login screen, and most games tried read it as
-        // a character name. It belongs in TelnetNegotiationCore, not here.
+        // The plaintext MSSP-REQUEST form is text at a login screen, and eight of twenty games tried
+        // read it as a character name. TelnetNegotiationCore sends it, not this probe's command list,
+        // and only for a target the crawl loop has decided may be asked (PlaintextMsspTests).
         await Assert.That(TelnetProbe.PermittedCommands).DoesNotContain("MSSP-REQUEST");
+        await Assert.That(new ProbeTarget("mud.example.org", 4000).PlaintextMssp)
+            .IsEqualTo(PlaintextMsspAsk.Never);
     }
 
     [Test]

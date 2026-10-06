@@ -82,7 +82,61 @@ public sealed record ProbeTarget(string Host, int Port)
     /// </remarks>
     public bool UseTls { get; init; }
 
+    /// <summary>
+    /// Whether, and how, to send the plaintext <c>MSSP-REQUEST</c> line this time.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Defaults to <see cref="PlaintextMsspAsk.Never"/></b>, the opposite direction from
+    /// <see cref="AwaitingCorroboration"/> and for the opposite reason: <c>IAC DO 70</c> is ignored by
+    /// a server without MSSP, but this is a line of text at somebody's login prompt, and eight of the
+    /// twenty games surveyed read it as a character name (<c>docs/codebase-survey-2026-07-30.md</c>).
+    /// A caller that cannot say what this address has done before does not type it.
+    /// </para>
+    /// <para>
+    /// Only the crawl loop answers it, from what the address did before (<c>crawl_target.mssp_route</c>,
+    /// see <c>MsspRoutes</c>): an address that has ever reported over option 70, or failed to answer
+    /// this line, is never asked; one that answered it is asked every session; one that has done
+    /// neither gets one <see cref="PlaintextMsspAsk.Trial"/>.
+    /// </para>
+    /// </remarks>
+    public PlaintextMsspAsk PlaintextMssp { get; init; } = PlaintextMsspAsk.Never;
+
     public override string ToString() => Host.Contains(':') ? $"[{Host}]:{Port}" : $"{Host}:{Port}";
+}
+
+/// <summary>What a probe does about the plaintext <c>MSSP-REQUEST</c> form.</summary>
+/// <remarks>
+/// The plaintext form is the SMAUG family's (spec §6.4); TelnetNegotiationCore carries it as
+/// <c>MSSPPlaintextProtocol</c>. It is never sent in a session that negotiated option 70, whatever
+/// this says: a game already reporting the proper way has nothing to add by the older one.
+/// </remarks>
+public enum PlaintextMsspAsk
+{
+    /// <summary>Not sent.</summary>
+    Never,
+
+    /// <summary>
+    /// Sent once, on a second short dial of its own, after an ordinary session that got no MSSP.
+    /// </summary>
+    /// <remarks>
+    /// A dial of its own because the measurement session must not pay for the experiment. A game
+    /// that reads the line as a character name moves on to a password prompt, and every command after
+    /// it, <c>WHO</c> included, is then typed into the wrong question. That would publish our
+    /// experiment as an unreadable <c>WHO</c> (rule 5). The trial dial asks for nothing else and hangs
+    /// up.
+    /// </remarks>
+    Trial,
+
+    /// <summary>
+    /// Sent in the ordinary session, at the connect screen and before <c>WHO</c>, because this address
+    /// has answered it before.
+    /// </summary>
+    /// <remarks>
+    /// Before <c>WHO</c> on purpose: the report usually carries <c>PLAYERS</c>, which is a count
+    /// <c>PublishedCountAsync</c> accepts in place of typing <c>WHO</c> at all.
+    /// </remarks>
+    Ask,
 }
 
 /// <summary>
