@@ -102,6 +102,25 @@ public sealed record ProbeTarget(string Host, int Port)
     /// </remarks>
     public PlaintextMsspAsk PlaintextMssp { get; init; } = PlaintextMsspAsk.Never;
 
+    /// <summary>
+    /// Whether this address is known to answer a pre-login <c>WHO</c> with a count.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// True means <c>WHO</c> is asked even where the game has already stated a count, and its count
+    /// is the one published. A stated count is the game's claim; <c>WHO</c> is the live answer, and
+    /// the two are not always the same number: <c>tapestries.fur.com:2069</c> answers the plaintext
+    /// <c>MSSP-REQUEST</c> with <c>PLAYERS = 26842</c>, its player objects, while its <c>WHO</c>
+    /// counts a few hundred.
+    /// </para>
+    /// <para>
+    /// False by default, so a caller that cannot say keeps the restraint
+    /// <c>TelnetProbe.PublishedCountAsync</c> describes. Only the crawl loop answers it, from
+    /// <c>crawl_target.who_answers_at</c> (migration 0043).
+    /// </para>
+    /// </remarks>
+    public bool WhoAnswers { get; init; }
+
     public override string ToString() => Host.Contains(':') ? $"[{Host}]:{Port}" : $"{Host}:{Port}";
 }
 

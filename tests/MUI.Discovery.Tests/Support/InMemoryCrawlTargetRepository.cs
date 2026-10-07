@@ -78,6 +78,13 @@ public sealed class InMemoryCrawlTargetRepository : ICrawlTargetRepository
         return Task.CompletedTask;
     }
 
+    public Task RecordWhoAnswersAsync(Guid id, DateTimeOffset? at, CancellationToken ct)
+    {
+        Replace(id, target => target with { WhoAnswersAt = at });
+
+        return Task.CompletedTask;
+    }
+
     public Task AttachGameAsync(Guid id, Guid gameId, CancellationToken ct)
     {
         Replace(id, target => target.GameId is null ? target with { GameId = gameId } : target);

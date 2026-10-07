@@ -66,6 +66,8 @@ internal sealed class FakeTargets(DateTimeOffset now) : ICrawlTargetRepository
     public Task RecordMsspRouteAsync(Guid id, MsspRoute? route, DateTimeOffset at, CancellationToken ct) =>
         Task.CompletedTask;
 
+    public Task RecordWhoAnswersAsync(Guid id, DateTimeOffset? at, CancellationToken ct) => Task.CompletedTask;
+
     public Task AttachGameAsync(Guid id, Guid gameId, CancellationToken ct) => Task.CompletedTask;
 }
 

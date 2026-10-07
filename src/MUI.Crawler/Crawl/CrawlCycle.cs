@@ -263,6 +263,10 @@ public sealed class CrawlCycle(
                 // Whether to type the plaintext MSSP-REQUEST, from what this address did with it
                 // before. See MsspRoutes for both halves of that memory.
                 PlaintextMssp = MsspRoutes.Ask(target.MsspRoute),
+
+                // Whether WHO is a working command here, so a stated count does not stand in for it.
+                // See WhoAnswers for how the memory changes.
+                WhoAnswers = target.WhoAnswersAt is not null,
             },
             budget.Token);
 
@@ -517,6 +521,13 @@ public sealed class CrawlCycle(
                     target.Port,
                     route is MsspRoute.Plaintext ? "answered" : "did not answer");
             }
+        }
+
+        // And whether WHO works here, on the same terms.
+        if (WhoAnswers.Learn(target.WhoAnswersAt, result, now) is var whoAnswers
+            && whoAnswers != target.WhoAnswersAt)
+        {
+            await targets.RecordWhoAnswersAsync(target.Id, whoAnswers, cancellationToken);
         }
     }
 
