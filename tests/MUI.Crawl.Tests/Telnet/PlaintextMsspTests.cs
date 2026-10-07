@@ -151,6 +151,30 @@ public class PlaintextMsspTests
         await Assert.That(result.Banner).Contains("Welcome to Old Realms");
     }
 
+    /// <summary>
+    /// A report whose <c>PLAYERS</c> is its database rather than its connections buys no silence.
+    /// </summary>
+    /// <remarks>
+    /// <c>tapestries.fur.com:2069</c> answers with <c>PLAYERS = 26842</c>; its <c>WHO</c> counts a few
+    /// hundred. Before the ceiling, the report spared it the <c>WHO</c> and the site published the
+    /// database as the population.
+    /// </remarks>
+    [Test]
+    public async Task AKnownAnswererStatingAnImplausibleCountIsStillAskedWho()
+    {
+        await using var game = new OldRealms { AnswersRequest = true, StatedPlayers = "26842" };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(
+            game.Target with { PlaintextMssp = PlaintextMsspAsk.Ask });
+
+        await Assert.That(result.PlaintextMssp).IsEqualTo(PlaintextMsspOutcome.Answered);
+        await Assert.That(MsspReport.Last(result.Mssp, "PLAYERS")).IsEqualTo("26842");
+        await Assert.That(game.Sessions).Count().IsEqualTo(1);
+        await Assert.That(game.Sessions[0].First()).IsEqualTo(Request);
+        await Assert.That(game.Sessions[0]).Contains("WHO");
+        await Assert.That(result.Who.Count).IsEqualTo(3);
+    }
+
     [Test]
     public async Task AKnownAnswererThatFallsSilentIsRecordedAsSuch()
     {
@@ -189,6 +213,9 @@ public class PlaintextMsspTests
         }
 
         public bool AnswersRequest { get; init; }
+
+        /// <summary>What the plaintext reply states as <c>PLAYERS</c>.</summary>
+        public string StatedPlayers { get; init; } = "4";
 
         public bool OffersOption70 { get; init; }
 
@@ -273,7 +300,7 @@ public class PlaintextMsspTests
                             case Request when AnswersRequest:
                                 await WriteAsync(
                                     telnet,
-                                    "\r\nMSSP-REPLY-START\r\nNAME\tOld Realms\r\nPLAYERS\t4\r\n"
+                                    "\r\nMSSP-REPLY-START\r\nNAME\tOld Realms\r\nPLAYERS\t" + StatedPlayers + "\r\n"
                                     + "UPTIME\t1700000000\r\nMSSP-REPLY-END\r\n" + Prompt);
                                 return;
 

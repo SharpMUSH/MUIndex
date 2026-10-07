@@ -225,6 +225,29 @@ public class PresenceChoiceTests
     }
 
     [Test]
+    public async Task AnImplausibleMsspPlayersGivesWayToWho()
+    {
+        // tapestries.fur.com:2069 states its player objects as PLAYERS. WHO is the count.
+        var reading = PresenceChoice.From(Probes.Answered(
+            mssp: Probes.Mssp(("PLAYERS", "26842")), who: new WhoReading(WhoConfidence.Count, 412)));
+
+        await Assert.That(reading.Count).IsEqualTo(412);
+        await Assert.That(reading.Source).IsEqualTo(FieldSource.Who);
+    }
+
+    [Test]
+    public async Task AnImplausibleMsspPlayersIsNotCalledNonNumeric()
+    {
+        // The ceiling is our decision and 26842 is a number. Saying the game's report was not one
+        // would write that decision down as a fact about them (rule 5).
+        var reading = PresenceChoice.From(Probes.Answered(
+            mssp: Probes.Mssp(("PLAYERS", "26842")), who: WhoReading.Unreadable));
+
+        await Assert.That(reading.Count).IsNull();
+        await Assert.That(reading.Reason).IsEqualTo(UnmeasurableReason.WhoUnparseable);
+    }
+
+    [Test]
     public async Task ANegativeMsspPlayersIsRefusedRatherThanStored()
     {
         // The schema refuses it too (presence_sample_count_is_not_negative), and a reading that got

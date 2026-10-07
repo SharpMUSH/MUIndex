@@ -139,12 +139,37 @@ public static class MsspPresence
     /// <c>RACES = -1</c>, <c>INTERMUD = -1</c> alongside a real <c>PLAYERS</c>. It is that codebase's
     /// spelling of "I do not know", and publishing it as a number would invent one (rule 4).
     /// </para>
+    /// <para>
+    /// A number above <see cref="BannerCount.Implausible"/> is refused too, and that was measured:
+    /// <c>tapestries.fur.com:2069</c> answers <c>MSSP-REQUEST</c> with <c>PLAYERS = 26842</c> beside
+    /// <c>DBSIZE = 174343</c>, <c>ROOMS = 50509</c>, <c>EXITS = 77079</c> and <c>OBJECTS = 19623</c>
+    /// — the four add to within 290 of the database, so the figure is its player <em>objects</em>,
+    /// not who is online. Its pre-login <c>WHO</c> had been counting 300 to 500 every crawl until the
+    /// plaintext report arrived, stated a count, and talked the probe out of asking. Refusing the
+    /// number here is what puts <c>WHO</c> back: the probe and <c>PresenceChoice</c> both read
+    /// through this method, so the count that no longer buys the silence is the same count that is
+    /// no longer published.
+    /// </para>
     /// </remarks>
     public static MsspCount Stated(IReadOnlyDictionary<string, IReadOnlyList<string>>? report) =>
         MsspReport.Last(report, PlayersVariable) is { } declared
-        && int.TryParse(declared.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var count)
+        && Numeric(declared) is { } count
+        && count <= BannerCount.Implausible
             ? new MsspCount(count, MsspCountKind.Stated, PlayersVariable)
             : MsspCount.None;
+
+    /// <summary>
+    /// The value of a <c>PLAYERS</c> as a non-negative integer, or null when it is not one.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="Stated"/> so a caller can tell the game's report apart from our own
+    /// ceiling: a <c>PLAYERS</c> that is not a number is a fact about their report, and one we judged
+    /// too large to be an online count is a decision of ours (rule 5).
+    /// </remarks>
+    public static int? Numeric(string declared) =>
+        int.TryParse(declared.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var count)
+            ? count
+            : null;
 
     /// <summary>
     /// The count of a roster the game published, or <see cref="MsspCount.None"/> where it published
