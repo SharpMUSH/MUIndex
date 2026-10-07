@@ -107,15 +107,9 @@ public static class PresenceChoice
     /// <c>INFO</c> block at all, which is the ordinary state of the hobby rather than a problem the way
     /// an unreadable <c>WHO</c> is, and inventing a vocabulary entry for an unobserved case would be
     /// guessing at what a codebase does.
-    /// <para>
-    /// A <c>PLAYERS</c> that is a number, but one <see cref="MsspPresence.Stated"/> refused as too large
-    /// to be an online count, does not take this reason: the refusal is ours, so the reason falls to
-    /// what <c>WHO</c> did, which the refusal is what caused to be asked.
-    /// </para>
     /// </remarks>
     private static UnmeasurableReason ReasonFor(ProbeResult result) =>
-        result.MsspField(PlayersVariable) is { } players && MsspPresence.Numeric(players) is null
-        ? UnmeasurableReason.PlayersNotNumeric
+        result.MsspField(PlayersVariable) is not null ? UnmeasurableReason.PlayersNotNumeric
         : result.Who.Confidence is WhoConfidence.LoginPrompt ? UnmeasurableReason.WhoLoginPrompt
         : result.Who.Attempted ? UnmeasurableReason.WhoUnparseable
         : UnmeasurableReason.WhoNotOffered;

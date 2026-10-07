@@ -1,4 +1,3 @@
-using System.Globalization;
 using MUI.Crawl;
 
 namespace MUI.Crawl.Tests;
@@ -71,33 +70,6 @@ public class MsspPresenceTests
 
         await Assert.That(read.Found).IsFalse();
         await Assert.That(read.Kind).IsEqualTo(MsspCountKind.None);
-    }
-
-    /// <summary>
-    /// A stated count larger than any MU* has online is the game's database, not its players.
-    /// </summary>
-    /// <remarks>
-    /// <c>tapestries.fur.com:2069</c>, plaintext <c>MSSP-REQUEST</c>, 2026-10-07: <c>PLAYERS = 26842</c>
-    /// beside <c>DBSIZE = 174343</c>, <c>ROOMS = 50509</c>, <c>EXITS = 77079</c> and
-    /// <c>OBJECTS = 19623</c>. Its pre-login <c>WHO</c> counted between 300 and 500.
-    /// </remarks>
-    [Test]
-    public async Task AStatedCountAboveTheCeilingIsNotACount()
-    {
-        var read = MsspPresence.Read(Report(
-            ("PLAYERS", ["26842"]), ("DBSIZE", ["174343"]), ("ROOMS", ["50509"])));
-
-        await Assert.That(read.Found).IsFalse();
-        await Assert.That(MsspPresence.Numeric("26842")).IsEqualTo(26842);
-    }
-
-    [Test]
-    public async Task AStatedCountAtTheCeilingIsStillACount()
-    {
-        var read = MsspPresence.Read(Report(("PLAYERS", [BannerCount.Implausible.ToString(CultureInfo.InvariantCulture)])));
-
-        await Assert.That(read.Count).IsEqualTo(BannerCount.Implausible);
-        await Assert.That(read.Kind).IsEqualTo(MsspCountKind.Stated);
     }
 
     /// <summary>A roster sent as one variable repeated per player — the Dead Souls family.</summary>

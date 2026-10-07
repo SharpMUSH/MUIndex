@@ -956,7 +956,14 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // answer we have been given is not a measurement, it is noise on somebody's console.
             // Decided here rather than earlier because here is the latest moment before the send,
             // so an MSSP report still in flight through the flush above is counted.
-            published = await PublishedCountAsync(lines, seen, cursors, target, cancellationToken);
+            //
+            // Unless this address is known to answer WHO. Then WHO is a working command rather than a
+            // word at a login prompt, and its count is the live one: a stated count can be something
+            // else entirely (see ProbeTarget.WhoAnswers). Asking means not-asking-implies-publishing
+            // has nothing to hold, and PresenceChoice still falls back to MSSP if this WHO fails.
+            published = target.WhoAnswers
+                ? null
+                : await PublishedCountAsync(lines, seen, cursors, target, cancellationToken);
 
             if (Live(client) && !whoAlreadyAnswered && published is null)
             {

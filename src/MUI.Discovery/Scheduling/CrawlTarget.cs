@@ -140,6 +140,12 @@ public sealed record CrawlTarget
     /// asks for and how it changes.
     /// </remarks>
     public MsspRoute? MsspRoute { get; init; }
+
+    /// <summary>
+    /// When a <c>WHO</c> typed at this address last came back with a count, or null when it is not
+    /// known to answer one (migration 0043). <see cref="WhoAnswers"/> owns how it changes.
+    /// </summary>
+    public DateTimeOffset? WhoAnswersAt { get; init; }
 }
 
 /// <summary>
@@ -192,6 +198,13 @@ public interface ICrawlTargetRepository
     /// is: most attempts have nothing new to say about it, and the caller writes only on a change.
     /// </remarks>
     Task RecordMsspRouteAsync(Guid id, MsspRoute? route, DateTimeOffset at, CancellationToken ct);
+
+    /// <summary>
+    /// Records that this address answers <c>WHO</c> with a count, as of <paramref name="at"/>, or
+    /// with null that it no longer does. Written only on a change, like
+    /// <see cref="RecordMsspRouteAsync"/>.
+    /// </summary>
+    Task RecordWhoAnswersAsync(Guid id, DateTimeOffset? at, CancellationToken ct);
 
     Task AttachGameAsync(Guid id, Guid gameId, CancellationToken ct);
 }

@@ -81,6 +81,13 @@ our host is unreachable and perfectly alive.
   caller that cannot answer keeps asking; only the crawl loop, which has the catalogue, ever sets it.
   `ChineseCount` is what makes those screens answer — it reads the count clause by clause and binds
   a number to 玩家 rather than to the wizards and the people still at the login prompt beside it.
+  **The one exception is an address known to answer `WHO`** (`crawl_target.who_answers_at`, migration
+  0043, `ProbeTarget.WhoAnswers`): there `WHO` is a working command rather than a word at a login
+  prompt, so it is asked and its count outranks a stated one. A stated count is not always the number
+  online — `tapestries.fur.com:2069` answers the plaintext `MSSP-REQUEST` with `PLAYERS = 26842`, its
+  player objects, while its `WHO` counts a few hundred — and before this the report talked the probe
+  out of the `WHO` and the site published the database as the population. `WhoAnswers.Learn` sets it
+  on a counted `WHO` and clears it the first time the login prompt takes `WHO` for a name.
 - **Type `INFO` or `VERSION` at a game whose report already names it and its engine.** Same
   principle as `WHO`, and the same complaint: at `playdecay.com:3003` the old probe had `WHO` taken
   as a character name, was asked for a password, and sent `INFO` as the password — *Wrong password*

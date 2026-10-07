@@ -17,10 +17,6 @@ public static partial class BannerCount
     /// A count above this is treated as not-a-player-count. The largest MU* peaks are in the low
     /// thousands, so a five-figure number in a connect screen is a year, a room count, or a record.
     /// </summary>
-    /// <remarks>
-    /// <see cref="MsspPresence.Stated"/> holds an MSSP <c>PLAYERS</c> to the same ceiling, because a
-    /// game's own report has been measured stating its player objects there rather than who is on.
-    /// </remarks>
     public const int Implausible = 10_000;
 
     /// <summary>
