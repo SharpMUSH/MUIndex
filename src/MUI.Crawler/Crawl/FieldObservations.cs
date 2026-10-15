@@ -285,7 +285,8 @@ public static class FieldObservations
     /// here: <see cref="FieldReconciler.VolatileFields"/> drops them, so that rule has one home. A
     /// variable with several values is reduced by MSSP's own rule (last value wins) and never by
     /// joining them, since a value may legitimately contain a comma and <c>string.Join</c> would
-    /// fabricate one that can't be split back apart. A capability variable produces a
+    /// fabricate one that can't be split back apart — except the few <see cref="SelfReport.Lists"/>
+    /// whose values are defined to be one line each, joined on a line break that can split back. A capability variable produces a
     /// <c>.declared</c> row, plus a descriptive row only when its value carries information beyond
     /// yes/no: <c>SSL 4202</c> is a claim and a port, <c>GMCP 1</c> is only a claim.
     /// </remarks>
@@ -305,7 +306,16 @@ public static class FieldObservations
             }
 
             var name = variable.Trim();
-            var value = values[^1].Trim();
+
+            // A list variable is every value, not the last (SelfReport.Lists): each PORTAL
+            // APPLICATION is a different page, and keeping only one would publish a portal of one
+            // page for a game that named five. The separator cannot occur in such a value, so the
+            // join splits back exactly; blanks are skipped rather than joined into empty lines.
+            var value = SelfReport.Lists.Contains(name)
+                ? string.Join(
+                    SelfReport.ListSeparator,
+                    values.Select(v => v.Trim()).Where(v => v.Length > 0))
+                : values[^1].Trim();
 
             if (CapabilityFields.Canonical(name) is { } capability)
             {

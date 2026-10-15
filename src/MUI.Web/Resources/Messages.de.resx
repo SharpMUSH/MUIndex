@@ -2131,6 +2131,21 @@
   <data name="game.endpoint.lastAnswered" xml:space="preserve">
     <value>zuletzt geantwortet</value>
   </data>
+  <data name="game.recentPlayers.both" xml:space="preserve">
+    <value>Nach eigener Zählung des Spiels: {day, plural, one {# verschiedener Spieler} other {# verschiedene Spieler}} am letzten Tag, {week, plural, one {# in der letzten Woche} other {# in der letzten Woche}}.</value>
+  </data>
+  <data name="game.recentPlayers.day" xml:space="preserve">
+    <value>Nach eigener Zählung des Spiels: {day, plural, one {# verschiedener Spieler} other {# verschiedene Spieler}} am letzten Tag.</value>
+  </data>
+  <data name="game.recentPlayers.week" xml:space="preserve">
+    <value>Nach eigener Zählung des Spiels: {week, plural, one {# verschiedener Spieler} other {# verschiedene Spieler}} in der letzten Woche.</value>
+  </data>
+  <data name="game.flag.yes" xml:space="preserve">
+    <value>ja</value>
+  </data>
+  <data name="game.flag.no" xml:space="preserve">
+    <value>nein</value>
+  </data>
   <data name="game.stale" xml:space="preserve">
     <value>{count, plural, one {# ist über das Aktualisierungsfenster hinaus. Alt, nicht falsch.} other {# sind über das Aktualisierungsfenster hinaus. Alt, nicht falsch.}}</value>
   </data>

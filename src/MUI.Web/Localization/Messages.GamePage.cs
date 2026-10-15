@@ -176,6 +176,17 @@ public static partial class Messages
         ["game.notFound"] = "Not found",
         ["game.notFound.hint"] = "No game at this address. Check the spelling.",
         ["game.endpoint.lastAnswered"] = "last answered",
+
+        // The game's own trailing counts (MSSP PLAYERS DAY / PLAYERS WEEK), beside our measured
+        // figure and never part of it: distinct people the game says it saw, not connections we
+        // counted. Each sentence opens with whose count it is.
+        ["game.recentPlayers.both"] = "By the game's own count: {day, plural, one {# different player} other {# different players}} in the last day, {week, plural, one {# in the last week} other {# in the last week}}.",
+        ["game.recentPlayers.day"] = "By the game's own count: {day, plural, one {# different player} other {# different players}} in the last day.",
+        ["game.recentPlayers.week"] = "By the game's own count: {week, plural, one {# different player} other {# different players}} in the last week.",
+
+        // A declared 1 or 0 for LOGINS, PLAYER CREATION and GUESTS. Anything else prints verbatim.
+        ["game.flag.yes"] = "yes",
+        ["game.flag.no"] = "no",
         ["game.stale"] = "{count, plural, one {# is past its refresh window. Old, not wrong.} other {# are past their refresh window. Old, not wrong.}}",
         ["game.referrals.lists"] = "This game's own referral list names:",
         ["game.referrals.listedBy"] = "Named by the referral list of:",

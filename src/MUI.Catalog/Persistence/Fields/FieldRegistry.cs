@@ -267,6 +267,12 @@ public sealed class FieldRegistry : IFieldRegistry
     /// <summary>Re-measured on every probe; a day unconfirmed means our crawler, not the game.</summary>
     public static readonly TimeSpan Measured = TimeSpan.FromDays(1);
 
+    /// <summary>
+    /// A count the game computes over a trailing window and reports on every probe. A day unconfirmed
+    /// means the figure describes a different day from the one it names.
+    /// </summary>
+    public static readonly TimeSpan Rolling = TimeSpan.FromDays(1);
+
     /// <summary>Auto-filled by the codebase, and expected to change only on a move or an upgrade.</summary>
     public static readonly TimeSpan Automatic = TimeSpan.FromDays(30);
 
@@ -433,6 +439,30 @@ public sealed class FieldRegistry : IFieldRegistry
         Add("MASTODON", Contactable, OwnerWritable.Enrichment, FieldShape.Url);
         Add("BLUESKY", Contactable, OwnerWritable.Enrichment, FieldShape.Url);
         Add("X", Contactable, OwnerWritable.Enrichment, FieldShape.Url);
+
+        // What SharpMUSH reports beyond the generic set, and any codebase may (see SelfReport).
+        //
+        // The two counts are FieldReconciler.MovingFields: stored and dated like any field, but
+        // overwritten without a change row, because a trailing count moves on most probes and a
+        // FieldChange per probe is exactly the noise §5.1 exists to keep out of the feed. Rolling
+        // rather than Volatile: the figure already covers a day, so hours unconfirmed do not make it
+        // wrong — a day does. Neither is presence: the series holds counts read at a moment, and a
+        // game's own sum over a week is not one.
+        Add(SelfReport.PlayersDay, Rolling);
+        Add(SelfReport.PlayersWeek, Rolling);
+
+        // Filled in by the codebase from its own configuration, so Automatic; a flag, so the page
+        // can say yes or no instead of printing 1. Not writable: whether logins are open is the
+        // game's to say, and it says it on every probe.
+        Add(SelfReport.Logins, Automatic, OwnerWritable.No, FieldShape.Flag);
+        Add(SelfReport.PlayerCreation, Automatic, OwnerWritable.No, FieldShape.Flag);
+        Add(SelfReport.Guests, Automatic, OwnerWritable.No, FieldShape.Flag);
+
+        // Every value kept (SelfReport.Lists), one per line, each a URL and a name. Text rather than
+        // Url: the value is a list of links, not one, and ExternalUrl would refuse the whole line —
+        // PortalApplications reads it instead. Automatic, since the codebase generates it from the
+        // pages it has.
+        Add(SelfReport.PortalApplication, Automatic);
 
         return fields;
     }

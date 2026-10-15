@@ -5,7 +5,8 @@ namespace MUI.Catalog.Persistence;
 /// <summary>
 /// Turns observations into stored fields (spec §5.1). Every observation does exactly one of two
 /// things: <b>confirm</b> — bump <c>last_confirmed_at</c> and write nothing else — or <b>change</b> —
-/// rewrite the row and append one <see cref="FieldChange"/>.
+/// rewrite the row and append one <see cref="FieldChange"/>. The one exception is
+/// <see cref="MovingFields"/>, rewritten without the append.
 /// </summary>
 /// <remarks>
 /// The distinction is the whole economics of §5.1: a game whose <c>GENRE</c> never moves costs one
@@ -25,6 +26,26 @@ public sealed partial class FieldReconciler(IGameFieldStore store) : IFieldRecon
     /// </remarks>
     public static IReadOnlySet<string> VolatileFields { get; } =
         new HashSet<string>(StringComparer.Ordinal) { "PLAYERS", "UPTIME" };
+
+    /// <summary>
+    /// Fields that move on most probes but are still worth keeping, with their age.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The middle case between <see cref="VolatileFields"/> and everything else. <c>PLAYERS DAY</c>
+    /// and <c>PLAYERS WEEK</c> are a game's own count over a trailing window: unlike <c>PLAYERS</c>
+    /// there is no presence series to hold them, so dropping them would lose the only place they are
+    /// said; but like <c>PLAYERS</c> they move whenever somebody new connects, and a
+    /// <see cref="FieldChange"/> per probe would bury every real event in the feed.
+    /// </para>
+    /// <para>
+    /// So a new value overwrites the row and appends nothing. <c>last_confirmed_at</c> still dates
+    /// it, which is all a reader of a trailing count needs; a history of one would be presence
+    /// arithmetic on a number we did not measure, and nothing here wants it.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlySet<string> MovingFields { get; } =
+        new HashSet<string>(StringComparer.Ordinal) { SelfReport.PlayersDay, SelfReport.PlayersWeek };
 
     public async Task<FieldReconciliation> ApplyAsync(
         Guid gameId,
@@ -47,6 +68,7 @@ public sealed partial class FieldReconciler(IGameFieldStore store) : IFieldRecon
         var confirmed = 0;
         var changed = 0;
         var added = 0;
+        var overwritten = 0;
 
         foreach (var observation in observed)
         {
@@ -78,6 +100,16 @@ public sealed partial class FieldReconciler(IGameFieldStore store) : IFieldRecon
                 continue;
             }
 
+            if (MovingFields.Contains(observation.Field))
+            {
+                // Overwrite: the value moved, and it is the kind that always does. No change row.
+                await store.UpsertAsync(
+                    existing with { Value = observation.Value, LastConfirmedAt = at },
+                    cancellationToken);
+                overwritten++;
+                continue;
+            }
+
             // Change: first_seen_at still means "when this (game, field, source) was first seen",
             // not "when this value was" — the change feed carries the value's history separately.
             await store.UpsertAsync(
@@ -95,7 +127,7 @@ public sealed partial class FieldReconciler(IGameFieldStore store) : IFieldRecon
             changed++;
         }
 
-        return new FieldReconciliation(confirmed, changed, added);
+        return new FieldReconciliation(confirmed, changed, added, overwritten);
     }
 
     /// <summary>

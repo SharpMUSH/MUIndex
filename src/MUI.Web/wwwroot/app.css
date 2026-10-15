@@ -1350,6 +1350,8 @@ form.locale select:focus { outline: none; }
 /* A count the game states about itself rather than one we read: amber, which is what declared means
    everywhere else here, and no glow — the glow is the accent's, and the accent means measured. */
 .game-figure .figure-count.declared { color: var(--amber); text-shadow: none; }
+/* The game's own day/week count: under our figure, smaller, never styled as part of it. */
+.game-figure .recent-players { margin: 0; max-width: 32ch; }
 .game-figure .figure-count.unknown {
     color: var(--faint); text-shadow: none; font-size: var(--fs-md); font-variant-numeric: normal;
 }
@@ -1449,6 +1451,9 @@ ol.changes li { padding: 4px 0; color: var(--dim); }
 dl.declared { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; }
 dl.declared dt { align-self: baseline; }
 dl.declared dd { margin: 0; }
+/* A game's portal pages: its own list, one page a line, the chip dating the whole list after it. */
+dl.declared ul.portal-apps { list-style: none; margin: 0; padding: 0; }
+dl.declared ul.portal-apps li { overflow-wrap: anywhere; }
 
 /* ── capability matrix ─────────────────────────────────────────────────── */
 

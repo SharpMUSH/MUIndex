@@ -381,4 +381,21 @@ public class FieldObservationTests
         await Assert.That(observed.Select(o => o.Field))
             .Contains(f => FieldReconciler.VolatileFields.Contains(f));
     }
+
+    [Test]
+    public async Task EveryPortalApplicationIsKeptAndOtherRepeatsKeepTheirLast()
+    {
+        // PORTAL APPLICATION is one value per page, so all of them are the answer; any other
+        // repeated variable keeps MSSP's own rule, last value wins.
+        var observed = FieldObservations.From(Probes.Answered(mssp: Probes.Mssp(
+            (SelfReport.PortalApplication, "https://mush.example.com/apps/chargen Character Application"),
+            (SelfReport.PortalApplication, " "),
+            (SelfReport.PortalApplication, "https://mush.example.com/apps/wiki Wiki"),
+            ("GENRE", "Fantasy"),
+            ("GENRE", "Horror"))));
+
+        await Assert.That(Value(observed, SelfReport.PortalApplication, FieldSource.Mssp)).IsEqualTo(
+            "https://mush.example.com/apps/chargen Character Application\nhttps://mush.example.com/apps/wiki Wiki");
+        await Assert.That(Value(observed, "GENRE", FieldSource.Mssp)).IsEqualTo("Horror");
+    }
 }

@@ -2858,6 +2858,26 @@
     <value>last answered</value>
     <comment>the rest of the game page</comment>
   </data>
+  <data name="game.recentPlayers.both" xml:space="preserve">
+    <value>By the game's own count: {day, plural, one {# different player} other {# different players}} in the last day, {week, plural, one {# in the last week} other {# in the last week}}.</value>
+    <comment>the game's own MSSP PLAYERS DAY and PLAYERS WEEK, shown beside but apart from our measured count; distinct people over a trailing window, never connections we counted</comment>
+  </data>
+  <data name="game.recentPlayers.day" xml:space="preserve">
+    <value>By the game's own count: {day, plural, one {# different player} other {# different players}} in the last day.</value>
+    <comment>as game.recentPlayers.both, when the game reported only the day</comment>
+  </data>
+  <data name="game.recentPlayers.week" xml:space="preserve">
+    <value>By the game's own count: {week, plural, one {# different player} other {# different players}} in the last week.</value>
+    <comment>as game.recentPlayers.both, when the game reported only the week</comment>
+  </data>
+  <data name="game.flag.yes" xml:space="preserve">
+    <value>yes</value>
+    <comment>a game's own 1 for LOGINS, PLAYER CREATION or GUESTS, under "Declared by the game"</comment>
+  </data>
+  <data name="game.flag.no" xml:space="preserve">
+    <value>no</value>
+    <comment>a game's own 0 for LOGINS, PLAYER CREATION or GUESTS, under "Declared by the game"</comment>
+  </data>
   <data name="game.stale" xml:space="preserve">
     <value>{count, plural, one {# is past its refresh window. Old, not wrong.} other {# are past their refresh window. Old, not wrong.}}</value>
     <comment>the rest of the game page</comment>

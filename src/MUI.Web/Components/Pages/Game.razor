@@ -163,6 +163,19 @@ else
                     <p class="figure-count mono unknown">@L("game.count.none")</p>
                     <p class="kicker figure-age">@L("game.count.none.why")</p>
                 }
+
+                @* The game's own count of different players over a day and a week (MSSP PLAYERS DAY,
+                   PLAYERS WEEK). Under the figure and apart from it: the figure is connections we
+                   counted at a moment, this is people the game says it saw over a window, and neither
+                   is folded into the other — not into the figure, the series or any ranking. The chip
+                   carries the declared glyph and the age; the sentence says whose count it is. *@
+                @if (Recent is { } recent)
+                {
+                    <p class="faint recent-players">
+                        @SelfReportWords.Recent(Tag, recent)
+                        <Chip Fact="recent.Provenance" Now="Now" ValueShown="false" />
+                    </p>
+                }
             </div>
         </header>
 
@@ -341,8 +354,43 @@ else
                        open set we could not translate without inventing a word for `FANDOM`. *@
                     @foreach (var (name, chip) in Page.Declared)
                     {
+                        @* Said once, in the sentence under the figure — but only a value that reads
+                           as a count is; anything else stays here exactly as the game sent it. *@
+                        if (RecentPlayers.Says(name, chip))
+                        {
+                            continue;
+                        }
+
                         <dt class="kicker" translate="no">@name</dt>
-                        <dd><Chip Fact="chip" Now="Now" /></dd>
+                        @if (SelfReportWords.IsPortal(name))
+                        {
+                            @* The game's portal pages, one per line it sent. A line is a link only
+                               when it is an http(s) address and a name (PortalApplications); any
+                               other line prints as text — refused as a link, never hidden. rel as on
+                               ReachRow: the game chose these destinations, we did not. *@
+                            <dd>
+                                <ul class="portal-apps">
+                                    @foreach (var app in PortalApplications.Parse(chip.Value))
+                                    {
+                                        <li>
+                                            @if (app.Href is { } href)
+                                            {
+                                                <a href="@href" rel="noopener nofollow ugc">@app.Name</a>
+                                            }
+                                            else
+                                            {
+                                                <span class="value">@app.Shown</span>
+                                            }
+                                        </li>
+                                    }
+                                </ul>
+                                <Chip Fact="chip" Now="Now" ValueShown="false" />
+                            </dd>
+                        }
+                        else
+                        {
+                            <dd><Chip Fact="@(chip with { Value = SelfReportWords.Value(Tag, name, chip.Value) })" Now="Now" /></dd>
+                        }
                     }
                 </dl>
                 @if (StaleCount > 0)
@@ -483,6 +531,9 @@ else
         Archived || Unlisted ? Entry.LastReachableAt : Now.AddMinutes(-4);
 
     private int StaleCount => Page?.Declared.Count(d => d.Value.IsStale) ?? 0;
+
+    /// <summary>The game's own trailing counts, or null where it reported neither as a number.</summary>
+    private RecentPlayers? Recent => Page is null ? null : RecentPlayers.From(Page.Declared);
 
     /// <summary>The label on the live count, or null where there is no count to label.</summary>
     private ProvenanceChip? Counted => Page?.Summary.PlayersNowProvenance;

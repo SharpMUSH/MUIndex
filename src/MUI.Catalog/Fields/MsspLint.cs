@@ -216,7 +216,7 @@ public static class MsspLint
             // A bare hostname like "www.slothmud.org" is not a linkable URL and we will not guess a
             // scheme for it — a link we invented would be our error published under their name. It
             // renders as text and the operator is told what edit fixes it.
-            if (FieldRegistry.Instance.Find(field) is { Shape: not FieldShape.Text } shaped
+            if (FieldRegistry.Instance.Find(field) is { Shape: FieldShape.Url or FieldShape.Email } shaped
                 && !ExternalUrl.IsLinkable(row.Value, shaped.Shape))
             {
                 findings.Add(new MsspFinding(

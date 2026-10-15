@@ -2131,6 +2131,21 @@
   <data name="game.endpoint.lastAnswered" xml:space="preserve">
     <value>最終応答</value>
   </data>
+  <data name="game.recentPlayers.both" xml:space="preserve">
+    <value>ゲーム自身の集計：過去1日に{day, plural, other {#人}}、過去1週間に{week, plural, other {#人}}の異なるプレイヤー。</value>
+  </data>
+  <data name="game.recentPlayers.day" xml:space="preserve">
+    <value>ゲーム自身の集計：過去1日に{day, plural, other {#人}}の異なるプレイヤー。</value>
+  </data>
+  <data name="game.recentPlayers.week" xml:space="preserve">
+    <value>ゲーム自身の集計：過去1週間に{week, plural, other {#人}}の異なるプレイヤー。</value>
+  </data>
+  <data name="game.flag.yes" xml:space="preserve">
+    <value>はい</value>
+  </data>
+  <data name="game.flag.no" xml:space="preserve">
+    <value>いいえ</value>
+  </data>
   <data name="game.stale" xml:space="preserve">
     <value>{count, plural, other {#件が更新期間を過ぎている。古いだけで、誤りではない。}}</value>
   </data>

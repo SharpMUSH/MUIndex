@@ -2131,6 +2131,21 @@
   <data name="game.endpoint.lastAnswered" xml:space="preserve">
     <value>laatst geantwoord</value>
   </data>
+  <data name="game.recentPlayers.both" xml:space="preserve">
+    <value>Volgens de eigen telling van het spel: {day, plural, one {# verschillende speler} other {# verschillende spelers}} in de afgelopen dag, {week, plural, one {# in de afgelopen week} other {# in de afgelopen week}}.</value>
+  </data>
+  <data name="game.recentPlayers.day" xml:space="preserve">
+    <value>Volgens de eigen telling van het spel: {day, plural, one {# verschillende speler} other {# verschillende spelers}} in de afgelopen dag.</value>
+  </data>
+  <data name="game.recentPlayers.week" xml:space="preserve">
+    <value>Volgens de eigen telling van het spel: {week, plural, one {# verschillende speler} other {# verschillende spelers}} in de afgelopen week.</value>
+  </data>
+  <data name="game.flag.yes" xml:space="preserve">
+    <value>ja</value>
+  </data>
+  <data name="game.flag.no" xml:space="preserve">
+    <value>nee</value>
+  </data>
   <data name="game.stale" xml:space="preserve">
     <value>{count, plural, one {# is voorbij zijn verversingstermijn. Oud, niet fout.} other {# zijn voorbij hun verversingstermijn. Oud, niet fout.}}</value>
   </data>

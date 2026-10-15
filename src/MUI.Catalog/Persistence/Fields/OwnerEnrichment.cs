@@ -194,7 +194,7 @@ public sealed class OwnerEnrichment(
             // A field that holds an address gets one or nothing; a clear is exempt since "" is
             // absence, not a malformed URL. Gated on the write, not only the render, so a stored
             // value is never silently un-linked with nothing saying why.
-            if (definition.Shape is not FieldShape.Text
+            if (definition.Shape is FieldShape.Url or FieldShape.Email
                 && value.Length > 0
                 && !ExternalUrl.IsLinkable(value, definition.Shape))
             {

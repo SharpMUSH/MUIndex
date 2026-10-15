@@ -102,6 +102,13 @@ public static class PlainText
             ? $"{Say(tag, "game.plain.playersNow", ("count", n))}  {Label(tag, s.PlayersNowProvenance, now)}"
             : Say(tag, "game.plain.playersNoCount")).TrimEnd());
 
+        // The game's own count over a day and a week, on a line of its own after ours — see
+        // SelfReportWords for why the two are never one figure.
+        if (RecentPlayers.From(page.Declared) is { } recent)
+        {
+            Wrap(b, $"{SelfReportWords.Recent(tag, recent)}  {Label(tag, recent.Provenance, now)}");
+        }
+
         if (page.ReachableFraction is { } r)
         {
             b.AppendLine(Say(
@@ -295,7 +302,27 @@ public static class PlainText
 
         foreach (var (name, chip) in page.Declared)
         {
-            b.AppendLine($"  {name,-10} {chip.Value}  {Label(tag, chip, now)}");
+            if (RecentPlayers.Says(name, chip))
+            {
+                continue;
+            }
+
+            // One portal page per line, each exactly as the game sent it: the list is joined on
+            // line breaks, and printing it as one value would break this surface's one-row-per-field
+            // shape.
+            if (SelfReportWords.IsPortal(name))
+            {
+                b.AppendLine($"  {name,-10} {Label(tag, chip, now)}");
+
+                foreach (var app in PortalApplications.Parse(chip.Value))
+                {
+                    b.AppendLine($"    {app.Shown}");
+                }
+
+                continue;
+            }
+
+            b.AppendLine($"  {name,-10} {SelfReportWords.Value(tag, name, chip.Value)}  {Label(tag, chip, now)}");
         }
     }
 

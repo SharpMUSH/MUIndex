@@ -211,4 +211,62 @@ public class FieldReconcilerTests
         await Assert.That(result).IsEqualTo(FieldReconciliation.Nothing);
         await Assert.That(await store.ForGameAsync(Game)).IsEmpty();
     }
+
+    [Test]
+    public async Task ATrailingCountMovesWithoutReachingTheChangeFeed()
+    {
+        // PLAYERS DAY moves whenever somebody new connects. Kept, and dated, but a change row per
+        // probe would bury every real event in the feed.
+        var store = new InMemoryGameFieldStore();
+        var reconciler = new FieldReconciler(store);
+
+        await reconciler.ApplyAsync(
+            Game, [new FieldObservation(SelfReport.PlayersDay, FieldSource.Mssp, "12")], Noon);
+        var moved = await reconciler.ApplyAsync(
+            Game, [new FieldObservation(SelfReport.PlayersDay, FieldSource.Mssp, "14")], Noon.AddHours(1));
+        var same = await reconciler.ApplyAsync(
+            Game, [new FieldObservation(SelfReport.PlayersDay, FieldSource.Mssp, "14")], Noon.AddHours(2));
+
+        var stored = (await store.ForGameAsync(Game)).Single();
+
+        await Assert.That(moved).IsEqualTo(
+            new FieldReconciliation(Confirmed: 0, Changed: 0, Added: 0, Overwritten: 1));
+        await Assert.That(same).IsEqualTo(new FieldReconciliation(Confirmed: 1, Changed: 0, Added: 0));
+        await Assert.That(store.Changes).IsEmpty();
+        await Assert.That(stored.Value).IsEqualTo("14");
+        await Assert.That(stored.LastConfirmedAt).IsEqualTo(Noon.AddHours(2));
+        await Assert.That(stored.FirstSeenAt).IsEqualTo(Noon);
+    }
+
+    [Test]
+    public async Task ATrailingCountThatIsNotANumberIsKeptAsSent()
+    {
+        // Rule 4 reads forward: the row holds what the game said, and nothing reads it as a count.
+        var store = new InMemoryGameFieldStore();
+        var reconciler = new FieldReconciler(store);
+
+        await reconciler.ApplyAsync(
+            Game, [new FieldObservation(SelfReport.PlayersWeek, FieldSource.Mssp, "-3")], Noon);
+
+        var stored = (await store.ForGameAsync(Game)).Single();
+
+        await Assert.That(stored.Value).IsEqualTo("-3");
+        await Assert.That(SelfReport.Count(stored.Value)).IsNull();
+    }
+
+    [Test]
+    public async Task AFlagStillReachesTheChangeFeedWhenItFlips()
+    {
+        // Only the trailing counts are exempt: logins closing is an event, not noise.
+        var store = new InMemoryGameFieldStore();
+        var reconciler = new FieldReconciler(store);
+
+        await reconciler.ApplyAsync(
+            Game, [new FieldObservation(SelfReport.Logins, FieldSource.Mssp, "1")], Noon);
+        var flipped = await reconciler.ApplyAsync(
+            Game, [new FieldObservation(SelfReport.Logins, FieldSource.Mssp, "0")], Noon.AddHours(1));
+
+        await Assert.That(flipped).IsEqualTo(new FieldReconciliation(Confirmed: 0, Changed: 1, Added: 0));
+        await Assert.That(store.Changes.Single().NewValue).IsEqualTo("0");
+    }
 }

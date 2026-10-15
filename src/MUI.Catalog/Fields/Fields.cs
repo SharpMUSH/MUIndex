@@ -60,6 +60,12 @@ public enum FieldShape
 
     /// <summary>An email address — or, in practice, a contact page. See <see cref="ExternalUrl"/>.</summary>
     Email,
+
+    /// <summary>
+    /// <c>1</c> or <c>0</c>, shown as yes or no. Never a link; anything else prints as written.
+    /// See <see cref="SelfReport.Flag"/>.
+    /// </summary>
+    Flag,
 }
 
 /// <summary>
@@ -142,7 +148,8 @@ public interface IGameFieldStore
 /// <summary>
 /// Turns observations into stored fields, doing exactly one of two things to each (spec §5.1):
 /// <b>confirm</b> — bump <c>last_confirmed_at</c> and write nothing else — or <b>change</b> — update
-/// the row and append a <see cref="FieldChange"/>.
+/// the row and append a <see cref="FieldChange"/>. A field that moves by nature
+/// (<c>FieldReconciler.MovingFields</c>) is changed without the append.
 /// </summary>
 public interface IFieldReconciler
 {
@@ -154,7 +161,11 @@ public interface IFieldReconciler
 }
 
 /// <summary>What a reconciliation did, so a caller can assert on it rather than on the store.</summary>
-public sealed record FieldReconciliation(int Confirmed, int Changed, int Added)
+/// <param name="Overwritten">
+/// Rows of <c>FieldReconciler.MovingFields</c> given a new value with no change row — counted apart
+/// from <paramref name="Changed"/>, which means "reached the change feed".
+/// </param>
+public sealed record FieldReconciliation(int Confirmed, int Changed, int Added, int Overwritten = 0)
 {
     public static readonly FieldReconciliation Nothing = new(0, 0, 0);
 }

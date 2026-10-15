@@ -2131,6 +2131,21 @@
   <data name="game.endpoint.lastAnswered" xml:space="preserve">
     <value>最近应答</value>
   </data>
+  <data name="game.recentPlayers.both" xml:space="preserve">
+    <value>据游戏自己统计：过去一天有{day, plural, other {#名}}不同玩家，过去一周有{week, plural, other {#名}}。</value>
+  </data>
+  <data name="game.recentPlayers.day" xml:space="preserve">
+    <value>据游戏自己统计：过去一天有{day, plural, other {#名}}不同玩家。</value>
+  </data>
+  <data name="game.recentPlayers.week" xml:space="preserve">
+    <value>据游戏自己统计：过去一周有{week, plural, other {#名}}不同玩家。</value>
+  </data>
+  <data name="game.flag.yes" xml:space="preserve">
+    <value>是</value>
+  </data>
+  <data name="game.flag.no" xml:space="preserve">
+    <value>否</value>
+  </data>
   <data name="game.stale" xml:space="preserve">
     <value>{count, plural, other {有#项已超过刷新窗口。是旧，不是错。}}</value>
   </data>
