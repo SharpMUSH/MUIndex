@@ -28,7 +28,7 @@
         break;
 
     default:
-        <figure class="ansi">
+        <figure class="@(DoubleWidth ? "ansi wide" : "ansi")">
             @* role="img" prunes the art from the a11y tree like aria-hidden would, but unlike
                aria-hidden it leaves the region focusable — needed because it scrolls and a
                keyboard is how some readers scroll it. *@
