@@ -258,6 +258,27 @@ public class AnsiTests
         await Assert.That(html).DoesNotContain($"{Ansi.DefaultColumns / 2}×");
     }
 
+    /// <summary>
+    /// Only a screen with a double-width glyph is drawn in the CJK faces.
+    /// </summary>
+    /// <remarks>Those faces draw █ and ▄ two cells wide, so an ASCII banner built from blocks came out
+    /// with every block twice the width of the spaces beside it (mygame-5).</remarks>
+    [Test]
+    public async Task OnlyAScreenWithWideGlyphsIsMarkedForTheCjkFaces()
+    {
+        var blocks = await Render.ComponentAsync<AnsiQuote>(new()
+        {
+            ["Screen"] = Ansi.Parse("  ██  ██\n  ▄▄▄▄▄▄\nconnect <name>", suppressedByOwner: false),
+        });
+        var han = await Render.ComponentAsync<AnsiQuote>(new()
+        {
+            ["Screen"] = Ansi.Parse("漢字\n漢字\n漢字", suppressedByOwner: false),
+        });
+
+        await Assert.That(blocks).Contains("<figure class=\"ansi\">");
+        await Assert.That(han).Contains("<figure class=\"ansi wide\">");
+    }
+
     [Test]
     public async Task TheTextAlternativeCarriesNoColourCodes()
     {
