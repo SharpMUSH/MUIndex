@@ -50,6 +50,25 @@ public class MxpSupportTests
     }
 
     /// <summary>
+    /// The same, as CoffeeMud actually does it: the option is agreed, no start marker follows, and the
+    /// question arrives on a lock-secure line.
+    /// </summary>
+    [Test]
+    public async Task ASupportQuestionWithNoStartMarkerIsStillAnswered()
+    {
+        await using var game = new HoldingGame { SendsStartMarker = false };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+        await Assert.That(game.Answer).IsNotNull().Because("the server asked, and was waiting");
+        await Assert.That(game.Answer!.ToUpperInvariant()).Contains("-IMAGE.URL");
+        await Assert.That(result.Banner).Contains("Welcome to the Holding Pattern");
+        await Assert.That(result.Banner).DoesNotContain("<SUPPORT");
+        await Assert.That(result.MxpObserved).IsTrue();
+    }
+
+    /// <summary>
     /// Speaks just enough telnet to agree MXP, start it, and ask; then holds its real screen until it
     /// is answered or the hold runs out, as CoffeeMud does.
     /// </summary>
@@ -70,6 +89,12 @@ public class MxpSupportTests
             _listener.Start();
             _serving = ServeAsync();
         }
+
+        /// <summary>
+        /// Whether MXP mode is started with <c>IAC SB MXP IAC SE</c>. CoffeeMud never sends it and
+        /// goes straight to its line-mode sequences.
+        /// </summary>
+        public bool SendsStartMarker { get; init; } = true;
 
         public ProbeTarget Target => new(
             IPAddress.Loopback.ToString(),
@@ -96,7 +121,11 @@ public class MxpSupportTests
                     await Task.Delay(20, _stopping.Token);
                 }
 
-                await stream.WriteAsync(new byte[] { Iac, Sb, Mxp, Iac, Se }, _stopping.Token);
+                if (SendsStartMarker)
+                {
+                    await stream.WriteAsync(new byte[] { Iac, Sb, Mxp, Iac, Se }, _stopping.Token);
+                }
+
                 await SendAsync(stream, "\n\u001b[6z\n\u001b[6z<SUPPORT IMAGE IMAGE.URL>\n");
                 await SendAsync(stream, "\n\u001b[6z\n\u001b[6z<SUPPORT>\n");
 
