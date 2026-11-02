@@ -91,11 +91,28 @@ internal static class Watched
         }
     }
 
-    internal sealed class Mxp(Action<string> note) : MXPProtocol
+    /// <remarks>
+    /// The one plugin here that also answers. A server's <c>&lt;SUPPORT&gt;</c> is a question asked of
+    /// this client, and CoffeeMud holds its connect screen for three seconds waiting for the reply
+    /// (<c>DefaultSession.HandshakeCallback</c>, <c>HANDSHAKE_MXPPAUSE</c>). Unanswered, the probe
+    /// settled on the questions themselves, stored them as the game's connect screen, and read the
+    /// real screen into the WHO phase. The answer is the truth: this client renders nothing, so every
+    /// entry asked about is refused, and a bare <c>&lt;SUPPORT&gt;</c> gets a reply that claims nothing.
+    /// It goes out on a secure line, which a server reads as protocol rather than as typing.
+    /// </remarks>
+    internal sealed class Mxp : MXPProtocol
     {
+        private readonly Action<string> _note;
+
+        public Mxp(Action<string> note)
+        {
+            _note = note;
+            OnMxpSupportRequested(asked => SendSupportsAsync([], asked));
+        }
+
         public override ValueTask OnEnabledAsync()
         {
-            note(ProtocolName);
+            _note(ProtocolName);
             return base.OnEnabledAsync();
         }
     }
