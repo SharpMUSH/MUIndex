@@ -99,6 +99,13 @@ internal static class Watched
     /// real screen into the WHO phase. The answer is the truth: this client renders nothing, so every
     /// entry asked about is refused, and a bare <c>&lt;SUPPORT&gt;</c> gets a reply that claims nothing.
     /// It goes out on a secure line, which a server reads as protocol rather than as typing.
+    /// <para>
+    /// Entities are decoded too. A server in MXP mode must escape <c>"</c>, <c>&amp;</c>, <c>&lt;</c>
+    /// and <c>&gt;</c> in its text, and CoffeeMud does from the moment option 91 is agreed, so a client
+    /// that renders nothing stored <c>&amp;quot;</c> wherever the game had printed a quote
+    /// (CoffeeMud Hardcore's connect screen, 2026-11-03). Only after MXP mode starts; before that, an
+    /// entity is text the game meant.
+    /// </para>
     /// </remarks>
     internal sealed class Mxp : MXPProtocol
     {
@@ -108,6 +115,7 @@ internal static class Watched
         {
             _note = note;
             OnMxpSupportRequested(asked => SendSupportsAsync([], asked));
+            DecodeEntities();
         }
 
         public override ValueTask OnEnabledAsync()
