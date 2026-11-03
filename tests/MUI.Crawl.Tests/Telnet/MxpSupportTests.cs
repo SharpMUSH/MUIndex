@@ -69,6 +69,26 @@ public class MxpSupportTests
     }
 
     /// <summary>
+    /// Once MXP mode starts, the server escapes its quotes, and the screen is stored with them
+    /// decoded. CoffeeMud Hardcore's ASCII art arrived as <c>.-&amp;quot;&amp;quot;-.</c>.
+    /// </summary>
+    [Test]
+    public async Task EntitiesInTheScreenAreDecoded()
+    {
+        await using var game = new HoldingGame
+        {
+            SendsStartMarker = false,
+            Screen = "  .-&quot;&quot;-.  Welcome to the Holding Pattern &amp; friends\r\nAccount name: ",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+        await Assert.That(result.Banner).Contains(".-\"\"-.  Welcome to the Holding Pattern & friends");
+        await Assert.That(result.Banner).DoesNotContain("&quot;");
+    }
+
+    /// <summary>
     /// Speaks just enough telnet to agree MXP, start it, and ask; then holds its real screen until it
     /// is answered or the hold runs out, as CoffeeMud does.
     /// </summary>
@@ -95,6 +115,9 @@ public class MxpSupportTests
         /// goes straight to its line-mode sequences.
         /// </summary>
         public bool SendsStartMarker { get; init; } = true;
+
+        /// <summary>The screen sent once the hold ends.</summary>
+        public string Screen { get; init; } = "Welcome to the Holding Pattern\r\nAccount name: ";
 
         public ProbeTarget Target => new(
             IPAddress.Loopback.ToString(),
@@ -136,7 +159,7 @@ public class MxpSupportTests
                     await Task.Delay(20, _stopping.Token);
                 }
 
-                await SendAsync(stream, "Welcome to the Holding Pattern\r\nAccount name: ");
+                await SendAsync(stream, Screen);
                 await listening;
             }
             catch (OperationCanceledException)

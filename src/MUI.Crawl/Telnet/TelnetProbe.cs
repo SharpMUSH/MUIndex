@@ -1642,6 +1642,23 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                     return ValueTask.CompletedTask;
                 })
 
+            // Pueblo's hello, "This world is Pueblo 1.10 Enhanced." (PennMUSH) or "1.0" (TinyMUX,
+            // RhostMUSH), is the server's half of a negotiation sent as a line of text, and it was
+            // being stored as the first line of the connect screen. The plugin takes it out of the
+            // stream, the same as MCP's offer above.
+            //
+            // Nothing is sent back. Answering is PUEBLOCLIENT, which is text at a login prompt and
+            // switches the session to HTML; the probe wants the screen a player without Pueblo sees.
+            //
+            // Noted on the offer, as MCP is: the hello is the server saying it speaks Pueblo, and it
+            // is measured rather than declared, beside MSSP's PUEBLO.
+            .AddPlugin<PuebloProtocol>()
+                .OnPuebloOffered(() =>
+                {
+                    Note("PUEBLO");
+                    return ValueTask.CompletedTask;
+                })
+
             // What FlushPendingLineAsync used to do by hand, done on the interpreter's own
             // byte-processing loop where the line buffer has exactly one writer — and, crucially,
             // without pretending the peer sent anything. It retires itself the moment a server

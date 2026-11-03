@@ -1867,6 +1867,35 @@ public class ProbeSessionTests
     }
 
     /// <summary>
+    /// A MUSH's Pueblo hello is the server's half of a negotiation, so it is taken out of the connect
+    /// screen and recorded as the game offering Pueblo. Both spellings: PennMUSH names 1.10, TinyMUX
+    /// and RhostMUSH name 1.0.
+    /// </summary>
+    [Test]
+    [Arguments("1.10")]
+    [Arguments("1.0")]
+    public async Task APuebloHelloIsNotPartOfTheConnectScreen(string version)
+    {
+        await using var game = new FakeGame
+        {
+            Banner = $"This world is Pueblo {version} Enhanced.\r\n"
+                + "Welcome to the MUSH.\r\n"
+                + "Type 'connect guest guest' to look around.\r\n",
+            WhoReply = "0 Players logged in.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+        await Assert.That(result.Banner).DoesNotContain("Pueblo");
+        await Assert.That(result.Banner!.Trim())
+            .IsEqualTo("Welcome to the MUSH.\nType 'connect guest guest' to look around.");
+        await Assert.That(result.Negotiation.Supported).Contains("PUEBLO");
+        await Assert.That(game.Received.Any(line => line.StartsWith("PUEBLOCLIENT", StringComparison.Ordinal))).IsFalse()
+            .Because("answering would switch the session to HTML and type at the login prompt");
+    }
+
+    /// <summary>
     /// The offer is evidence that the game speaks MCP, and is recorded as such -- in the quoted
     /// spelling here, and in the unquoted one in
     /// <see cref="AMoosMcpOfferIsNotPartOfItsConnectScreen"/>.
