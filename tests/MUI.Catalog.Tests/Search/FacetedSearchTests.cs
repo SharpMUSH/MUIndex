@@ -467,12 +467,47 @@ public class FacetedSearchTests
         await Assert.That(listing.Facets.Any(f => f.Key == FacetKeys.Unreachable)).IsFalse();
     }
 
+    [Test]
+    public async Task AGameListedByItsAddressCanBeDroppedFromTheListing()
+    {
+        // What crawlers asked for: rows whose name is only host:port, because the game published
+        // none, are one parameter away from gone — and only on request.
+        GameFacetRow[] rows =
+        [
+            Row("Convergence MUSH"),
+            Row("mud.example.org:4000"),
+            Row("203.0.113.7:23"),
+        ];
+
+        var all = FacetedSearch.Search(rows, new GameFilter());
+        var named = FacetedSearch.Search(rows, new GameFilter { Unnamed = FacetChoice.Not(FacetTokens.Yes) });
+        var unnamed = FacetedSearch.Search(rows, new GameFilter { Unnamed = FacetChoice.Of(FacetTokens.Yes) });
+
+        await Assert.That(all.Games.Count).IsEqualTo(3);
+        await Assert.That(named.Games.Select(g => g.Slug)).IsEquivalentTo(new[] { "Convergence MUSH" });
+        await Assert.That(unnamed.Games.Count).IsEqualTo(2);
+
+        var value = Value(all, FacetKeys.Unnamed, FacetTokens.Yes);
+
+        await Assert.That(value.Count).IsEqualTo(2);
+        await Assert.That(Group(all, FacetKeys.Unnamed).Evidence).IsEqualTo(FacetEvidence.Derived);
+    }
+
+    [Test]
+    public async Task AFullyNamedCatalogueOffersNoUnnamedSwitch()
+    {
+        var listing = FacetedSearch.Search([Row("busy"), Row("also")], new GameFilter());
+
+        await Assert.That(listing.Facets.Any(f => f.Key == FacetKeys.Unnamed)).IsFalse();
+    }
+
     private static GameFilter Choose(string key, string token) => key switch
     {
         FacetKeys.Band => new GameFilter { Band = Band(token) },
         FacetKeys.LastSeen => new GameFilter { LastSeen = Seen(token) },
         FacetKeys.Uncounted => new GameFilter { Uncounted = FacetChoice.Parse(token) },
         FacetKeys.Unreachable => new GameFilter { Unreachable = FacetChoice.Parse(token) },
+        FacetKeys.Unnamed => new GameFilter { Unnamed = FacetChoice.Parse(token) },
         FacetKeys.Protocol => new GameFilter { MeasuredProtocols = [token] },
         FacetKeys.Tls => new GameFilter { Tls = true },
         FacetKeys.Charset => new GameFilter { Charset = FacetChoice.Parse(token) },

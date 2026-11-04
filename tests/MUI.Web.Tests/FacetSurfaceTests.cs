@@ -43,6 +43,7 @@ public class FacetSurfaceTests
         // narrowing a listing to nothing on a typo.
         FacetKeys.Uncounted => "yes",
         FacetKeys.Unreachable => "yes",
+        FacetKeys.Unnamed => "yes",
         FacetKeys.Protocol => "GMCP",
         FacetKeys.Trending => "up",
         // Not the default. The point of the check below is that the parameter changed something,

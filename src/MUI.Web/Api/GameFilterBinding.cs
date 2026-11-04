@@ -59,6 +59,7 @@ public static class GameFilterBinding
             || !TryLastSeen(read, out var seen, out error)
             || !TryToggle(read, FacetKeys.Uncounted, out var uncounted, out error)
             || !TryToggle(read, FacetKeys.Unreachable, out var unreachable, out error)
+            || !TryToggle(read, FacetKeys.Unnamed, out var unnamed, out error)
             || !TryTrending(read, out var trending, out error)
             || !TrySort(read, out var sort, out error))
         {
@@ -98,6 +99,7 @@ public static class GameFilterBinding
             Trending = trending,
             Genre = Choice(read, FacetKeys.Genre),
             Language = Choice(read, FacetKeys.Language),
+            Unnamed = unnamed,
             Sort = sort,
         };
 
@@ -135,7 +137,7 @@ public static class GameFilterBinding
     }
 
     /// <summary>
-    /// One of the two measurement switches: <c>yes</c>, <c>!yes</c>, or not asked.
+    /// One of the yes-or-nothing switches (could not count, could not reach, listed by address): <c>yes</c>, <c>!yes</c>, or not asked.
     /// </summary>
     /// <remarks>
     /// Refused rather than ignored: its vocabulary is one word, so anything else is a typo, and a typo

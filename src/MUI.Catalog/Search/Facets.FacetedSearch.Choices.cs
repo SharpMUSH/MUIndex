@@ -84,5 +84,14 @@ public static partial class FacetedSearch
             FacetTokens.GrowthDirections),
         new(FacetKeys.Genre, FacetEvidence.Declared, r => [r.Genre], f => f.Genre),
         new(FacetKeys.Language, FacetEvidence.Declared, r => [r.Language], f => f.Language),
+
+        // Last: it is not a question about the game's character but about the row's label, and a
+        // reader browsing for a game meets it after everything that is.
+        new(
+            FacetKeys.Unnamed,
+            FacetEvidence.Derived,
+            r => [AddressName.Is(r.Summary.Name) ? FacetTokens.Yes : null],
+            f => f.Unnamed,
+            FacetTokens.YesOnly),
     ];
 }

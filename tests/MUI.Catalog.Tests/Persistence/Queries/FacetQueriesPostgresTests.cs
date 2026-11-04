@@ -353,6 +353,7 @@ public class FacetQueriesPostgresTests
         FacetKeys.LastSeen => new GameFilter { LastSeen = Seen(token) },
         FacetKeys.Uncounted => new GameFilter { Uncounted = FacetChoice.Parse(token) },
         FacetKeys.Unreachable => new GameFilter { Unreachable = FacetChoice.Parse(token) },
+        FacetKeys.Unnamed => new GameFilter { Unnamed = FacetChoice.Parse(token) },
         FacetKeys.Protocol => new GameFilter { MeasuredProtocols = [token] },
         FacetKeys.Tls => new GameFilter { Tls = true },
         FacetKeys.Charset => new GameFilter { Charset = FacetChoice.Parse(token) },

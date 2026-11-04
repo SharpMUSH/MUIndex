@@ -178,6 +178,12 @@ internal static class OpenApiDocument
         {
             parameters.Add(Parameter(key, "yes selects, !yes excludes; ~unknown is an alias for !yes.", values: ["yes", "!yes", "~unknown"]));
         }
+        parameters.Add(Parameter(
+            FacetKeys.Unnamed,
+            "Games listed under their address (host:port) because they published no name of their own. "
+                + "!yes excludes them, yes selects only them; ~unknown is an alias for !yes. "
+                + "Unset, they are included.",
+            values: ["yes", "!yes", "~unknown"]));
         parameters.Add(Parameter(FacetKeys.Trending, "Weekly count trend; prefix ! to exclude, or ~unknown for no trend."));
         return parameters;
     }

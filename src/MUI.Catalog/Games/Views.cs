@@ -397,6 +397,14 @@ public sealed record GameFilter
     public FacetChoice? Language { get; init; }
 
     /// <summary>
+    /// The games listed under their address rather than a name (<see cref="FacetKeys.Unnamed"/>).
+    /// </summary>
+    /// <remarks>
+    /// <c>!yes</c> drops them. Unset by default, so every existing caller still gets them.
+    /// </remarks>
+    public FacetChoice? Unnamed { get; init; }
+
+    /// <summary>
     /// What order the answer comes back in.
     /// </summary>
     /// <remarks>

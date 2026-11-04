@@ -243,6 +243,12 @@ public static partial class Messages
         ["facet.group.genre"] = "genre",
         ["facet.group.language"] = "language",
 
+        // Games listed under host:port because they published no name. The name is ours, so the
+        // words describe our label, never that the game has none (rule 5).
+        ["facet.group.unnamed"] = "name",
+        ["facet.unnamed.yes"] = "listed by address",
+        ["facet.excluded.unnamed"] = "hidden from this listing",
+
         // ── facet values ──────────────────────────────────────────────────────────────────────
         ["facet.band.playersNow"] = "connected now",
         ["facet.band.activeThisWeek"] = "active this week",
