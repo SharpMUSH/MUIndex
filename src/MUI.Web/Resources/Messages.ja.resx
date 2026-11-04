@@ -637,6 +637,15 @@
   <data name="facet.group.language" xml:space="preserve">
     <value>言語</value>
   </data>
+  <data name="facet.group.unnamed" xml:space="preserve">
+    <value>名前</value>
+  </data>
+  <data name="facet.unnamed.yes" xml:space="preserve">
+    <value>アドレスで掲載</value>
+  </data>
+  <data name="facet.excluded.unnamed" xml:space="preserve">
+    <value>この一覧では非表示</value>
+  </data>
   <data name="facet.band.playersNow" xml:space="preserve">
     <value>現在接続あり</value>
   </data>

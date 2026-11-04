@@ -637,6 +637,15 @@
   <data name="facet.group.language" xml:space="preserve">
     <value>语言</value>
   </data>
+  <data name="facet.group.unnamed" xml:space="preserve">
+    <value>名称</value>
+  </data>
+  <data name="facet.unnamed.yes" xml:space="preserve">
+    <value>以地址列出</value>
+  </data>
+  <data name="facet.excluded.unnamed" xml:space="preserve">
+    <value>已从此列表中隐藏</value>
+  </data>
   <data name="facet.band.playersNow" xml:space="preserve">
     <value>当前有连接</value>
   </data>

@@ -637,6 +637,15 @@
   <data name="facet.group.language" xml:space="preserve">
     <value>Sprache</value>
   </data>
+  <data name="facet.group.unnamed" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="facet.unnamed.yes" xml:space="preserve">
+    <value>unter der Adresse gelistet</value>
+  </data>
+  <data name="facet.excluded.unnamed" xml:space="preserve">
+    <value>aus dieser Auflistung ausgeblendet</value>
+  </data>
   <data name="facet.band.playersNow" xml:space="preserve">
     <value>jetzt verbunden</value>
   </data>
