@@ -278,7 +278,13 @@ public sealed record FilterView(
     GameSort Sort,
 
     /// <summary>The old name for <see cref="Codebase"/>, at the same value. Prefer the new one.</summary>
-    string? CodebaseFamily = null)
+    string? CodebaseFamily = null,
+
+    /// <summary>
+    /// Whether the games listed under their address rather than a name were asked for, or dropped.
+    /// </summary>
+    /// <remarks>Last and defaulted, so the positional shape every earlier field has is unchanged.</remarks>
+    string? Unnamed = null)
 {
     public static FilterView Of(GameFilter filter)
     {
@@ -303,7 +309,8 @@ public sealed record FilterView(
             filter.Genre?.Token,
             filter.Language?.Token,
             filter.Sort,
-            filter.Codebase?.Token);
+            filter.Codebase?.Token,
+            filter.Unnamed?.Token);
     }
 }
 

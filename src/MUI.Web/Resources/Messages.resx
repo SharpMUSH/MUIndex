@@ -808,6 +808,18 @@
     <value>language</value>
     <comment>facet groups</comment>
   </data>
+  <data name="facet.group.unnamed" xml:space="preserve">
+    <value>name</value>
+    <comment>facet over games listed under their host:port because they published no name</comment>
+  </data>
+  <data name="facet.unnamed.yes" xml:space="preserve">
+    <value>listed by address</value>
+    <comment>facet over games listed under their host:port because they published no name</comment>
+  </data>
+  <data name="facet.excluded.unnamed" xml:space="preserve">
+    <value>hidden from this listing</value>
+    <comment>facet over games listed under their host:port because they published no name</comment>
+  </data>
   <data name="facet.band.playersNow" xml:space="preserve">
     <value>connected now</value>
     <comment>facet values</comment>

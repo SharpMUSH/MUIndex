@@ -88,6 +88,7 @@ public static class IndexableFacet
             || filter.LastSeen is not null
             || filter.Uncounted is not null
             || filter.Unreachable is not null
+            || filter.Unnamed is not null
             || filter.CodebaseVersion is not null
             || filter.Family is not null
             || filter.Trending is not null

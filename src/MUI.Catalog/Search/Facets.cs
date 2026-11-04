@@ -100,6 +100,17 @@ public static class FacetKeys
     public const string Unreachable = "unreachable";
 
     /// <summary>
+    /// Games listed under their address because they told us no name — see <see cref="AddressName"/>.
+    /// </summary>
+    /// <remarks>
+    /// What crawlers and API clients reach for to skip rows like <c>mud.example.org:4000</c>:
+    /// <c>?unnamed=!yes</c>. Ours, labelled <see cref="FacetEvidence.Derived"/>: the name is the one
+    /// <em>we</em> list the game under, and a game listed by address may have a name it never
+    /// published, so this never says a game is nameless (rule 5).
+    /// </remarks>
+    public const string Unnamed = "unnamed";
+
+    /// <summary>
     /// What order the listing comes back in. A filter parameter by spelling and by plumbing, so the
     /// panel, the page and the read API cannot grow two words for one question.
     /// </summary>

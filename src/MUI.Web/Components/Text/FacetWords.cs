@@ -38,6 +38,7 @@ public static class FacetWords
         FacetKeys.Trending => "facet.group.trending",
         FacetKeys.Genre => "facet.group.genre",
         FacetKeys.Language => "facet.group.language",
+        FacetKeys.Unnamed => "facet.group.unnamed",
 
         // Named here, not in the chip builder, so a facet is put into words in one place.
         FacetKeys.Text => "facet.group.search",
@@ -176,6 +177,7 @@ public static class FacetWords
             // the same claim.
             FacetKeys.Uncounted => Messages.For(tag, "state.uncounted"),
             FacetKeys.Unreachable => Messages.For(tag, "state.unreachable"),
+            FacetKeys.Unnamed => Messages.For(tag, "facet.unnamed.yes"),
 
             // Everything else IS the value — a codebase name, version string, protocol acronym — and
             // translating it would destroy the evidence rather than localize anything.
@@ -205,6 +207,7 @@ public static class FacetWords
             // say what the reader actually did — hid some rows.
             FacetKeys.Uncounted => Messages.For(tag, "facet.excluded.uncounted"),
             FacetKeys.Unreachable => Messages.For(tag, "facet.excluded.unreachable"),
+            FacetKeys.Unnamed => Messages.For(tag, "facet.excluded.unnamed"),
 
             // A message rather than string concatenation: negation word order varies by language, and
             // concatenating here would fix English's order for every translator.
