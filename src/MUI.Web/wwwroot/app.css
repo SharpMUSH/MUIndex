@@ -1659,14 +1659,24 @@ dl.stats dd { margin: 3px 0 0; font-size: var(--fs-xl); }
 figure.ansi .quote {
     position: relative; background: #000;
     border-radius: 6px;
-    max-height: 33em; overflow: auto; overscroll-behavior: contain;
+    max-height: 30em; overflow: auto; overscroll-behavior: contain;
 }
 figure.ansi .quote:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* Terminal leading, not prose leading. The art was drawn for a terminal whose rows touch: a box
+   side of │ on five rows is one line, and a run of blue background on five rows is one bar. At 1.4
+   the rows had a gap between them and both came apart. 1.15 sits just under the natural height of
+   Cascadia Mono and DejaVu Sans Mono (1.16–1.17), so the box-drawing glyphs overlap by a hair
+   instead of missing by one. */
 figure.ansi .quote pre {
     margin: 0; padding: 14px 16px;
-    font: var(--fs-sm)/1.4 var(--mono); font-variant-ligatures: none;
+    font: var(--fs-sm)/1.15 var(--mono); font-variant-ligatures: none;
     color: #aaaaaa; white-space: pre;
 }
+/* An inline box paints its background over the font's content area, not the line, so a fallback
+   face shorter than the line height still leaves a stripe between two coloured rows. As an inline
+   block the run is exactly one line tall whatever face the reader's device picks. Runs never span
+   a row (Paint closes each at the newline), so nothing here can wrap or reflow. */
+figure.ansi .quote pre span { display: inline-block; }
 figure.ansi.wide pre { font-family: var(--mono-cjk); }
 figure.ansi figcaption { display: flex; gap: 8px; flex-wrap: wrap; }
 
