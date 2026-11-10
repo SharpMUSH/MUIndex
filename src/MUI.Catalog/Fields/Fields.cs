@@ -137,6 +137,19 @@ public interface IGameFieldStore
     /// </remarks>
     Task<DateTimeOffset?> LastChangedAtAsync(
         Guid gameId, string field, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// When this field last moved on one source's rung, or null if it never has.
+    /// </summary>
+    /// <remarks>
+    /// What §5.7's re-mint asks: how long the row it is about to name a game from has held, and
+    /// whether a game renamed itself after staff named it — neither of which a change on another
+    /// rung answers. The default answers for every source, which is never earlier than the true
+    /// answer; a store that keeps the feed overrides it.
+    /// </remarks>
+    Task<DateTimeOffset?> LastChangedAtAsync(
+        Guid gameId, string field, FieldSource source, CancellationToken cancellationToken = default) =>
+        LastChangedAtAsync(gameId, field, cancellationToken);
 }
 
 /// <summary>

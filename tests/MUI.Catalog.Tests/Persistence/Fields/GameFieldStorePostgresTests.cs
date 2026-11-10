@@ -149,6 +149,28 @@ public class GameFieldStorePostgresTests
     }
 
     [Test]
+    public async Task WhenAValueLastMovedCanBeAskedOfOneSource()
+    {
+        // §5.7 asks how long the row it names a game from has held. A change on another rung is not
+        // an answer to that, and the INFO name moving must not restart the MSSP name's clock.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var store = new NpgsqlGameFieldStore(db.DataSource);
+
+        await store.RecordChangeAsync(new FieldChange(
+            game, "NAME", FieldSource.Mssp, "Corvid", "Harbourlight", Noon.AddYears(-1)));
+        await store.RecordChangeAsync(new FieldChange(
+            game, "NAME", FieldSource.Banner, "Corvid", "Harbourlight MUSH", Noon));
+
+        await Assert.That(await store.LastChangedAtAsync(game, "name", FieldSource.Mssp))
+            .IsEqualTo(Noon.AddYears(-1));
+        await Assert.That(await store.LastChangedAtAsync(game, "NAME", FieldSource.Banner))
+            .IsEqualTo(Noon);
+        await Assert.That(await store.LastChangedAtAsync(game, "NAME", FieldSource.Staff)).IsNull();
+        await Assert.That(await store.LastChangedAtAsync(game, "NAME")).IsEqualTo(Noon);
+    }
+
+    [Test]
     public async Task AFlappingFieldShowsOnlyItsThreeNewestTransitions()
     {
         // NAME/PLAYERNAMES/MOBILES-style fields can flip every crawl; the feed caps each field at its

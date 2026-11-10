@@ -388,6 +388,17 @@ public sealed class FakeGameFieldStore : IGameFieldStore
             .DefaultIfEmpty(null)
             .Max());
 
+    /// <summary>One source's rung only, folded on the field name, as the real query is.</summary>
+    public Task<DateTimeOffset?> LastChangedAtAsync(
+        Guid gameId, string field, FieldSource source, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Changes
+            .Where(c => c.GameId == gameId
+                        && c.Source == source
+                        && string.Equals(c.Field, field, StringComparison.OrdinalIgnoreCase))
+            .Select(c => (DateTimeOffset?)c.At)
+            .DefaultIfEmpty(null)
+            .Max());
+
     public string? Value(Guid gameId, string field, FieldSource source) =>
         _fields.GetValueOrDefault((gameId, field, source))?.Value;
 }

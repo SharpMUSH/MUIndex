@@ -56,6 +56,12 @@ public static class FieldObservations
     /// </remarks>
     public const string CodebaseField = "CODEBASE";
 
+    /// <summary>
+    /// The field a game's name is stored under, whoever read it — MSSP's spelling, so a name from
+    /// <c>INFO</c> and a declared one meet on one field under different sources.
+    /// </summary>
+    public const string NameField = "NAME";
+
     /// <summary>The MSSP capability whose absence is itself a measurement. See <see cref="Measured"/>.</summary>
     public const string MsspCapability = "MSSP";
 
@@ -117,6 +123,17 @@ public static class FieldObservations
         ProbeResult result,
         IReadOnlyList<FieldObservation> alreadyObserved)
     {
+        // The name a game gave in its own INFO block — the only name an MSSP-less codebase has.
+        // CatalogueBinder lists a new game under it; without a row here nothing could ever notice
+        // the game renaming itself, so a RhostMUSH listed by INFO kept its first name for ever.
+        // Banner, as Provenance says of everything read out of INFO, and so the bottom rung: an MSSP
+        // NAME outranks it, and the I3 mudlist and AresCentral too. Before the codebase branch
+        // because that one ends the method.
+        if (LoginCommandReading.MeaningfulName(result.Info, result.Version) is { Length: > 0 } named)
+        {
+            yield return new FieldObservation(NameField, FieldSource.Banner, named);
+        }
+
         // Null unless the text labelled a value or plainly named a known family. Rule 4: a parser
         // that guessed here would be inventing a fact about somebody else's server.
         //
