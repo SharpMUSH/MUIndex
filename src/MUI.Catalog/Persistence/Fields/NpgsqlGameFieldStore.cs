@@ -132,6 +132,27 @@ public sealed class NpgsqlGameFieldStore(NpgsqlDataSource source) : IGameFieldSt
             : null;
     }
 
+    public async Task<DateTimeOffset?> LastChangedAtAsync(
+        Guid gameId, string field, FieldSource only, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(field);
+
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        // Same reading as the overload above, narrowed to one rung.
+        var at = await connection.QuerySingleOrDefaultAsync<DateTime?>(new CommandDefinition(
+            """
+            SELECT max(at) FROM field_change
+             WHERE game_id = @gameId AND lower(field) = lower(@field) AND source = @source
+            """,
+            new { gameId, field, source = SqlEnums.ToDb(only) },
+            cancellationToken: cancellationToken));
+
+        return at is { } moved
+            ? new DateTimeOffset(DateTime.SpecifyKind(moved, DateTimeKind.Utc))
+            : null;
+    }
+
     /// <summary>
     /// The per-game change feed (spec §9), newest first — public events only.
     /// </summary>

@@ -342,6 +342,51 @@ public class ProbeIngestorTests
     }
 
     [Test]
+    public async Task AGameWithNoMsspThatRenamesItsInfoBlockIsRenamed()
+    {
+        // RhostMUSH and friends name themselves only over INFO. That name is now stored as NAME
+        // under banner, so a change to it reaches the minter the way an MSSP rename does.
+        var catalogue = new Catalogue();
+        var game = catalogue.Listed(slug: "convergence-mush", name: "Convergence MUSH");
+        var ingestor = catalogue.Ingestor(grace: TimeSpan.FromDays(14));
+
+        await ingestor.IngestAsync(game, Probes.Answered(info: Info("Convergence MUSH")));
+
+        var fresh = await ingestor.IngestAsync(
+            game, Probes.Answered(info: Info("Convergence Reborn"), at: Probes.Observed.AddDays(1)));
+
+        var settled = await ingestor.IngestAsync(
+            game, Probes.Answered(info: Info("Convergence Reborn"), at: Probes.Observed.AddDays(30)));
+
+        await Assert.That(fresh.Renamed).IsNull();
+        await Assert.That(settled.Renamed!.Slug).IsEqualTo("convergence-reborn");
+        await Assert.That((await catalogue.Games.ByIdAsync(game))!.Name).IsEqualTo("Convergence Reborn");
+    }
+
+    [Test]
+    public async Task AGameListedUnderItsAddressTakesTheNameItPublishesOnTheProbeThatSeesIt()
+    {
+        // An address has no name to protect from flapping, and its URL redirects for ever once it
+        // moves. Waiting out the grace only kept a named game listed as an address.
+        var catalogue = new Catalogue();
+        var game = catalogue.Listed(slug: "mud-example-org-4201", name: "mud.example.org:4201");
+        var ingestor = catalogue.Ingestor(grace: TimeSpan.FromDays(14));
+
+        var named = await ingestor.IngestAsync(
+            game, Probes.Answered(mssp: Probes.Mssp(("NAME", "Harbourlight"))));
+
+        await Assert.That(named.Renamed!.Slug).IsEqualTo("harbourlight");
+        await Assert.That(await catalogue.Slugs.CurrentSlugAsync("mud-example-org-4201"))
+            .IsEqualTo("harbourlight");
+    }
+
+    private static string Info(string name) => $"""
+        ### Begin INFO 1
+        Name: {name}
+        ### End INFO
+        """;
+
+    [Test]
     public async Task ARenameThatCannotBeAppliedNeverCostsTheMeasurement()
     {
         // The mint asks whether a slug is taken and the write happens a moment later, so two games

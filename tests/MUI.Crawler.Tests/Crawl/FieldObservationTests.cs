@@ -285,6 +285,34 @@ public class FieldObservationTests
     }
 
     [Test]
+    public async Task TheNameAnInfoBlockGivesIsKeptSoARenameCanBeNoticed()
+    {
+        // CatalogueBinder lists an MSSP-less game under this name. Without a row, nothing could ever
+        // see it change, and the listing kept its first name for ever.
+        var observed = FieldObservations.From(Probes.Answered(
+            info: """
+                ### Begin INFO 1
+                Name: Convergence MUSH
+                Version: RhostMUSH 4.27.3
+                ### End INFO
+                """));
+
+        await Assert.That(Value(observed, FieldObservations.NameField, FieldSource.Banner))
+            .IsEqualTo("Convergence MUSH");
+    }
+
+    [Test]
+    public async Task ANamePromptIsNotAName()
+    {
+        // A game that took INFO as a character name answers with its own "Name:" prompt, outside any
+        // block. LoginCommandReading reads names only from a closed block; this pins that it still
+        // does once the name is stored.
+        var observed = FieldObservations.From(Probes.Answered(info: "Name: "));
+
+        await Assert.That(Value(observed, FieldObservations.NameField, FieldSource.Banner)).IsNull();
+    }
+
+    [Test]
     public async Task TextThatNamesNoCodebaseWritesNoCodebase()
     {
         // Rule 4. A server that answered INFO with its own house rules, or with nothing, has not

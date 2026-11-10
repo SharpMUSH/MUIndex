@@ -33,11 +33,20 @@ public sealed class SlugMinter(
     /// How long a new name must hold before it is worth a new URL.
     /// </summary>
     /// <remarks>
-    /// Twice <c>ProbeSchedule.LongestInterval</c>: a game on the slowest schedule is probed weekly, so
-    /// a shorter window could re-mint on a single sighting of a name — including one published while a
-    /// config was half-edited. Two intervals means the name survived at least one more probe.
+    /// <para>
+    /// Two days. It was fourteen — twice <c>ProbeSchedule.LongestInterval</c> — and that bought
+    /// stability at the price of every game that announced itself under one name and settled on
+    /// another a week later wearing the first one for a further fortnight. The page reads
+    /// <c>game.name</c>, which only this class moves, so the grace was never just the URL's: it was
+    /// how long the site went on calling a game something it had stopped calling itself.
+    /// </para>
+    /// <para>
+    /// Two days still outlasts a config saved half-edited and fixed the same evening, and any grace at
+    /// all means the rename happens on a later probe than the one that first saw the name. A game
+    /// probed weekly is renamed on its next visit, which is the soonest it could be either way.
+    /// </para>
     /// </remarks>
-    public static readonly TimeSpan DefaultGrace = TimeSpan.FromDays(14);
+    public static readonly TimeSpan DefaultGrace = TimeSpan.FromDays(2);
 
     private readonly TimeSpan _grace = grace ?? DefaultGrace;
 
@@ -47,6 +56,27 @@ public sealed class SlugMinter(
     /// <param name="gameId">The game a probe was just attributed to.</param>
     /// <param name="now">The instant the probe observed, not the wall clock.</param>
     /// <param name="cancellationToken">The cycle's budget.</param>
+    /// <remarks>
+    /// <para>
+    /// <b>Which name.</b> The strongest <em>meaningful</em> <c>NAME</c> row, not the strongest row:
+    /// an unedited <c>NAME "PennMUSH"</c> on the MSSP rung used to win the ladder, fail
+    /// <c>MeaningfulName</c>, and end the question — while the name the game gave over <c>INFO</c>, or
+    /// the one the I3 mudlist carries, sat one rung down unread.
+    /// </para>
+    /// <para>
+    /// <b>A staff name holds until the game renames itself.</b> Staff naming a game by hand
+    /// (<c>game_rename</c>) answers the question the report could not answer <em>then</em>. A
+    /// reported name that changed after that write is the game answering it since, and the game is
+    /// followed. First appearance is not a change — the reconciler writes no change-feed row for a new
+    /// row — so a source we only started reading after staff stepped in does not overturn them.
+    /// </para>
+    /// <para>
+    /// <b>No grace off an address.</b> A game listed as <c>host:port</c> published no name to protect
+    /// from flapping, and its address-derived URL redirects for ever once it moves. Waiting out the
+    /// grace there only kept a named game listed as an address — and out of every listing that drops
+    /// <c>unnamed</c> games.
+    /// </para>
+    /// </remarks>
     public async Task<Rename?> ConsiderAsync(
         Guid gameId,
         DateTimeOffset now,
@@ -70,36 +100,78 @@ public sealed class SlugMinter(
             return null;
         }
 
-        if (Winner(stored, IdentityMsspVariables.Name) is not { } declared)
+        if (await ChosenAsync(gameId, stored, cancellationToken) is not { } chosen
+            || string.Equals(chosen.Name, game.Name, StringComparison.Ordinal))
         {
             return null;
         }
 
-        var name = MsspDefaults.MeaningfulName(
-            declared.Value, Winner(stored, IdentityMsspVariables.Codebase)?.Value);
+        var (declared, name) = chosen;
 
-        if (name is null || string.Equals(name, game.Name, StringComparison.Ordinal))
+        if (!AddressName.Is(game.Name))
         {
-            return null;
-        }
+            // Where the value has never moved, the row's own age is when this name started. Asked of
+            // the row's own source: a change on another rung says nothing about how long this one
+            // has held.
+            var since = await fields.LastChangedAtAsync(gameId, declared.Field, declared.Source, cancellationToken)
+                ?? declared.FirstSeenAt;
 
-        // Where the value has never moved, the row's own age is when this name started.
-        var since = await fields.LastChangedAtAsync(gameId, declared.Field, cancellationToken)
-            ?? declared.FirstSeenAt;
-
-        if (now - since < _grace)
-        {
-            return null;
+            if (now - since < _grace)
+            {
+                return null;
+            }
         }
 
         return await MintAsync(game, name, now, cancellationToken);
     }
 
     /// <summary>
+    /// The row this game should be named from and the name it gives, or null when nothing it said
+    /// is a name.
+    /// </summary>
+    private async Task<(GameField Row, string Name)?> ChosenAsync(
+        Guid gameId,
+        IReadOnlyList<GameField> stored,
+        CancellationToken cancellationToken)
+    {
+        var codebase = Winner(stored, IdentityMsspVariables.Codebase)?.Value;
+        var rows = Ranked(stored, IdentityMsspVariables.Name).ToList();
+
+        // The first rung that says something, skipping the ones that only restate a default.
+        var reported = rows
+            .Where(row => row.Source is not FieldSource.Staff)
+            .Select(row => (Row: row, Name: MsspDefaults.MeaningfulName(row.Value, codebase)))
+            .FirstOrDefault(pair => pair.Name is not null);
+
+        // Not filtered: staff typed it on purpose, as an owner does (see ApplyAsync), and the
+        // operator of a PennMUSH test server may call it PennMUSH.
+        var staff = rows.FirstOrDefault(row => row.Source is FieldSource.Staff);
+
+        if (staff is null)
+        {
+            return reported.Row is null ? null : (reported.Row, reported.Name!);
+        }
+
+        var staffName = staff.Value.Trim();
+
+        if (reported.Row is not null
+            && !string.Equals(reported.Name, staffName, StringComparison.Ordinal)
+            && await fields.LastChangedAtAsync(
+                    gameId, reported.Row.Field, reported.Row.Source, cancellationToken)
+                is { } moved
+            && moved > staff.LastConfirmedAt)
+        {
+            return (reported.Row, reported.Name!);
+        }
+
+        return (staff, staffName);
+    }
+
+    /// <summary>
     /// Applies a name a verified owner chose, at once (spec §8.5).
     /// </summary>
     /// <remarks>
-    /// No grace, unlike <see cref="ConsiderAsync"/>: the fourteen days exist to tell a settled MSSP
+    /// No grace, unlike <see cref="ConsiderAsync"/>: the grace exists to tell a settled MSSP
     /// name from a flapping one, and an owner pressing save has already answered that question.
     /// <c>MsspDefaults.MeaningfulName</c> is not consulted either — that filter stops an
     /// <em>unedited</em> codebase minting listings called PennMUSH, and a name typed on purpose by a
@@ -223,18 +295,27 @@ public sealed class SlugMinter(
     /// <summary>
     /// The winning value among what a game <em>reported</em> about itself, ignoring its owner.
     /// </summary>
+    private static GameField? Winner(IReadOnlyList<GameField> stored, string field) =>
+        Ranked(stored, field).FirstOrDefault();
+
+    /// <summary>
+    /// A field's rows in precedence order, without the owner's and without the empty ones.
+    /// </summary>
     /// <remarks>
-    /// <see cref="ConsiderAsync"/> is the MSSP-driven path; an owner row would win the ladder and then
-    /// be wrong twice over — the method already returns early while an override stands, and a
+    /// <see cref="ConsiderAsync"/> is the reported-name path; an owner row would win the ladder and
+    /// then be wrong twice over — the method already returns early while an override stands, and a
     /// withdrawn override survives as an empty value that would otherwise freeze the URL for ever.
     /// That hazard is not the owner's alone, so the empty rows go too: a withdrawn staff <c>NAME</c>
     /// keeps its row (§5.1) and would otherwise outrank <see cref="FieldSource.Mssp"/> for ever.
+    /// Ordered as <see cref="FieldPrecedence.Winner"/> orders, so the head of this list is its answer.
     /// </remarks>
-    private static GameField? Winner(IReadOnlyList<GameField> stored, string field) =>
-        FieldPrecedence.Winner(stored
+    private static IEnumerable<GameField> Ranked(IReadOnlyList<GameField> stored, string field) =>
+        stored
             .Where(row => row.Source is not FieldSource.Owner)
-            .Where(row => row.Value.Length > 0)
-            .Where(row => string.Equals(row.Field, field, StringComparison.OrdinalIgnoreCase)));
+            .Where(row => !string.IsNullOrWhiteSpace(row.Value))
+            .Where(row => string.Equals(row.Field, field, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(row => FieldPrecedence.RankOf(row.Source))
+            .ThenByDescending(row => row.LastConfirmedAt);
 }
 
 /// <summary>

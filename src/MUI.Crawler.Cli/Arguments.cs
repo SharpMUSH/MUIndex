@@ -76,7 +76,7 @@ public sealed record Arguments
                                   <slug> may be a slug or a game id. Writes NAME as staff first (so
                                   the value has provenance and reaches the change feed), then takes
                                   the same immediate, no-grace mint-and-rename path a verified
-                                  owner's own rename does (spec §5.7) — not the fourteen-day grace a
+                                  owner's own rename does (spec §5.7) — not the grace a
                                   measured rename waits for. The old slug redirects to the new page
                                   for ever. Needs --because.
           -v, --verbose           Debug logging.
@@ -373,7 +373,7 @@ public sealed record Arguments
         }
 
         // The fifth. A rename mints a URL the catalogue keeps for ever, on somebody's judgement that
-        // the name has settled rather than on §5.7's usual fourteen-day wait; the reason belongs
+        // the name has settled rather than on §5.7's usual grace; the reason belongs
         // beside the row it lands on, same as the other three consequential writes above.
         if (parsed.Rename is not null && string.IsNullOrWhiteSpace(parsed.Because))
         {

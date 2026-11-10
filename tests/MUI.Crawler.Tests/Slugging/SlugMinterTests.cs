@@ -420,6 +420,117 @@ public class SlugMinterTests
         await Assert.That((await catalogue.Games.ByIdAsync(game))!.Name).IsEqualTo("엘리시안 전기");
     }
 
+    [Test]
+    public async Task AGameListedUnderItsAddressDoesNotWaitOutTheGrace()
+    {
+        // Nothing to protect from flapping: the address is not a name, and its URL redirects once
+        // the game moves off it. The row is minutes old and the grace is a fortnight.
+        var catalogue = new Catalogue();
+        var game = catalogue.Listed(slug: "mud-example-org-4201", name: "mud.example.org:4201");
+
+        await catalogue.Fields.UpsertAsync(new GameField(
+            game, IdentityMsspVariables.Name, FieldSource.Mssp, "Harbourlight", Now, Now));
+
+        var rename = await catalogue.Minter(Grace).ConsiderAsync(game, Now);
+
+        await Assert.That(rename!.Slug).IsEqualTo("harbourlight");
+        await Assert.That(rename.FormerSlug).IsEqualTo("mud-example-org-4201");
+    }
+
+    [Test]
+    public async Task AnUneditedNameOnTheReportDoesNotHideTheRealOneBelowIt()
+    {
+        // NAME "PennMUSH" on the MSSP rung used to win the ladder, fail MeaningfulName, and end the
+        // question, while the name the game gave over INFO sat one rung down unread.
+        var catalogue = new Catalogue();
+        var game = catalogue.Listed(slug: "mush-example-org-4201", name: "mush.example.org:4201");
+
+        await catalogue.Fields.UpsertAsync(new GameField(
+            game, IdentityMsspVariables.Name, FieldSource.Mssp, "PennMUSH", Now.AddYears(-1), Now));
+        await catalogue.Fields.UpsertAsync(new GameField(
+            game, IdentityMsspVariables.Codebase, FieldSource.Mssp, "PennMUSH 1.8.8p0", Now.AddYears(-1), Now));
+        await catalogue.Fields.UpsertAsync(new GameField(
+            game, IdentityMsspVariables.Name, FieldSource.Banner, "Tidewater Nights", Now, Now));
+
+        var rename = await catalogue.Minter(Grace).ConsiderAsync(game, Now);
+
+        await Assert.That(rename!.Name).IsEqualTo("Tidewater Nights");
+    }
+
+    [Test]
+    public async Task HowLongANameHasHeldIsAskedOfItsOwnRung()
+    {
+        // The MSSP name has said Harbourlight for over a fortnight. The INFO name moving yesterday
+        // says nothing about that, and used to restart the clock because the feed was read across
+        // every source.
+        var catalogue = new Catalogue();
+        var game = catalogue.Listed();
+
+        await catalogue.Fields.UpsertAsync(new GameField(
+            game, IdentityMsspVariables.Name, FieldSource.Mssp, "Harbourlight", Now.AddDays(-15), Now));
+        await catalogue.Fields.UpsertAsync(new GameField(
+            game, IdentityMsspVariables.Name, FieldSource.Banner, "Harbourlight MUSH", Now.AddYears(-1), Now));
+        await catalogue.Fields.RecordChangeAsync(new FieldChange(
+            game, IdentityMsspVariables.Name, FieldSource.Banner, "Corvid", "Harbourlight MUSH", Now.AddDays(-1)));
+
+        var rename = await catalogue.Minter(Grace).ConsiderAsync(game, Now);
+
+        await Assert.That(rename!.Name).IsEqualTo("Harbourlight");
+    }
+
+    [Test]
+    public async Task AGameThatRenamesItselfAfterStaffNamedItIsFollowed()
+    {
+        // Staff named it when the report could not. The report changing since is the game answering
+        // the question itself, and it wins under the ordinary grace.
+        var catalogue = new Catalogue();
+        var game = catalogue.Listed(slug: "harbourlight", name: "Harbourlight");
+
+        await catalogue.Fields.UpsertAsync(new GameField(
+            game, IdentityMsspVariables.Name, FieldSource.Staff, "Harbourlight",
+            Now.AddDays(-40), Now.AddDays(-40)));
+        await DeclaredAsync(catalogue, game, "Tidewater Nights", changedAt: Now.AddDays(-15));
+
+        var rename = await catalogue.Minter(Grace).ConsiderAsync(game, Now);
+
+        await Assert.That(rename!.Name).IsEqualTo("Tidewater Nights");
+        await Assert.That(rename.FormerSlug).IsEqualTo("harbourlight");
+    }
+
+    [Test]
+    public async Task AReportThatOnlyStartedAfterStaffNamedTheGameDoesNotOverturnThem()
+    {
+        // A row appearing is not a rename: the reconciler writes no change for a new row. A source
+        // we only began reading after staff stepped in is exactly this case, and staff knew more.
+        var catalogue = new Catalogue();
+        var game = catalogue.Listed(slug: "harbourlight", name: "Harbourlight");
+
+        await catalogue.Fields.UpsertAsync(new GameField(
+            game, IdentityMsspVariables.Name, FieldSource.Staff, "Harbourlight",
+            Now.AddDays(-40), Now.AddDays(-40)));
+        await catalogue.Fields.UpsertAsync(new GameField(
+            game, IdentityMsspVariables.Name, FieldSource.Banner, "Harbourlight Beta",
+            Now.AddDays(-15), Now));
+
+        await Assert.That(await catalogue.Minter(Grace).ConsiderAsync(game, Now)).IsNull();
+    }
+
+    [Test]
+    public async Task StaffMayNameAGameAfterItsCodebase()
+    {
+        // MeaningfulName is a filter for unedited configs. A name staff typed is not one, so a staff
+        // "PennMUSH" holds rather than falling through to whatever the report says.
+        var catalogue = new Catalogue();
+        var game = catalogue.Listed(slug: "pennmush", name: "PennMUSH");
+
+        await catalogue.Fields.UpsertAsync(new GameField(
+            game, IdentityMsspVariables.Codebase, FieldSource.Mssp, "PennMUSH 1.8.8p0", Now.AddYears(-1), Now));
+        await StaffDeclaredAsync(catalogue, game, "PennMUSH");
+        await DeclaredAsync(catalogue, game, "Corvid", changedAt: Now.AddDays(-60));
+
+        await Assert.That(await catalogue.Minter(Grace).ConsiderAsync(game, Now)).IsNull();
+    }
+
     /// <summary>The row <c>game_field_set</c> stores when staff overrides <c>NAME</c> by hand.</summary>
     private static Task StaffDeclaredAsync(Catalogue catalogue, Guid game, string name) =>
         catalogue.Fields.UpsertAsync(new GameField(

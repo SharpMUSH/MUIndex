@@ -139,7 +139,7 @@ public sealed class GameAdminTools(
         5.1 -- the same write game_field_set itself performs, so the value has provenance and reaches
         the change feed), then runs SlugMinter.ApplyAsync -- the SAME immediate, no-grace mint-and-
         rename path a verified owner's own rename takes (spec section 5.7) -- rather than waiting for
-        the ordinary fourteen-day grace a measured rename would. The old slug is retired into
+        the ordinary grace a measured rename would. The old slug is retired into
         game_slug_history and 301-redirects to the new page for ever (FormerSlugRedirects); nothing
         else about the game -- its other fields, its presence history, its change feed -- is touched.
 

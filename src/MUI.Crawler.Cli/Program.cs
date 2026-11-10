@@ -285,7 +285,7 @@ if (arguments.Release is { } slug)
     return released ? 0 : 1;
 }
 
-// §5.7's grace, waived by hand for one pass. The fourteen-day wait exists because the rule can't tell
+// §5.7's grace, waived by hand for one pass. The wait exists because the rule can't tell
 // a settled name from a flapping one without watching; a person with the change feed in front of them
 // can. Nothing else about the rename differs — same minter, same decision, same history row.
 if (arguments.MintNow)

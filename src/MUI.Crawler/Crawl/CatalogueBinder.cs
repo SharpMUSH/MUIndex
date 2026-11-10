@@ -260,11 +260,13 @@ public sealed class CatalogueBinder(
     /// </remarks>
     private static string NameOf(ProbeResult result) =>
         MsspReading.MeaningfulName(result.Mssp)
-        ?? MsspReading.Meaningful(result.Mssp, "HOSTNAME")
         // A name the game gave over INFO, which for an MSSP-less codebase is the only one there is.
-        // Below MSSP because a server that publishes both has said the MSSP one on purpose, and above
-        // the address because "Convergence MUSH" is what its players call it.
+        // Below MSSP's NAME because a server that publishes both has said the MSSP one on purpose,
+        // and above its HOSTNAME because "Convergence MUSH" is what its players call it and a
+        // hostname is an address. Also where SlugMinter would take the game next: INFO's name is
+        // stored as NAME and HOSTNAME is not, so listing under the hostname only queued a rename.
         ?? LoginCommandReading.MeaningfulName(result.Info, result.Version)
+        ?? MsspReading.Meaningful(result.Mssp, "HOSTNAME")
         // A target admitted by codebase or WHO signals alone lands here by design — it earned a
         // listing by existing, not a name it never gave.
         ?? $"{result.Host}:{result.Port}";
