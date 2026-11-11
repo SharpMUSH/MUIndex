@@ -1363,6 +1363,27 @@ public class ProbeSessionTests
     }
 
     /// <summary>
+    /// A game that enables NAWS is told the width its connect screen will be drawn at, once.
+    /// </summary>
+    /// <remarks>
+    /// The far end is TelnetNegotiationCore in Server mode, which sends <c>DO NAWS</c> at connect the
+    /// way a game that wraps to its client does. Before this the probe agreed and then said nothing,
+    /// and the server was left on the size it assumes when nobody says.
+    /// </remarks>
+    [Test]
+    public async Task AGameThatEnablesNawsIsToldTheWidthTheSiteDrawsAt()
+    {
+        await using var server = new NawsTestServer();
+
+        await new TelnetProbe(Fast()).ProbeAsync(server.Target);
+
+        var reports = server.Reports;
+        await Assert.That(reports.Count).IsEqualTo(1);
+        await Assert.That(reports[0].Columns).IsEqualTo(TerminalWindow.Columns);
+        await Assert.That(reports[0].Rows).IsEqualTo(TerminalWindow.Rows);
+    }
+
+    /// <summary>
     /// Wiring proof for TelnetNegotiationCore PR #84 (v2.8.3): once MSDP negotiates, the probe asks
     /// for <c>PLAYERS</c> and captures whatever comes back, through <c>SendMSDPCommand</c> and the
     /// new <c>OnMSDPMessage</c> hook.
@@ -2767,6 +2788,93 @@ public class ProbeSessionTests
             {
             }
 
+            _stopping.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// A game that asks for its client's window: TelnetNegotiationCore in Server mode, whose NAWS
+    /// plugin sends <c>DO NAWS</c> at connect and reads each <c>SB NAWS</c> that comes back.
+    /// </summary>
+    private sealed class NawsTestServer : IAsyncDisposable
+    {
+        private readonly TcpListener _listener;
+        private readonly CancellationTokenSource _stopping = new();
+        private readonly Task _serving;
+        private readonly List<(int Columns, int Rows)> _reports = [];
+
+        public NawsTestServer()
+        {
+            _listener = new TcpListener(IPAddress.Loopback, 0);
+            _listener.Start();
+            _serving = ServeAsync();
+        }
+
+        public ProbeTarget Target => new(
+            IPAddress.Loopback.ToString(),
+            ((IPEndPoint)_listener.LocalEndpoint).Port);
+
+        /// <summary>Every window size the probe reported, in order.</summary>
+        public IReadOnlyList<(int Columns, int Rows)> Reports
+        {
+            get
+            {
+                lock (_reports)
+                {
+                    return [.. _reports];
+                }
+            }
+        }
+
+        private async Task ServeAsync()
+        {
+            try
+            {
+                using var client = await _listener.AcceptTcpClientAsync(_stopping.Token);
+
+                var naws = new NAWSProtocol();
+
+                // Read from the plugin rather than from the callback's arguments, which name the two
+                // dimensions in an order this test should not have to depend on.
+                naws.OnNAWS((_, _) =>
+                {
+                    lock (_reports)
+                    {
+                        _reports.Add((naws.ClientWidth, naws.ClientHeight));
+                    }
+
+                    return ValueTask.CompletedTask;
+                });
+
+                var built = await new TelnetInterpreterBuilder()
+                    .UseMode(TelnetInterpreter.TelnetMode.Server)
+                    .UseLogger(NullLogger.Instance)
+                    .OnSubmit((_, _, _) => ValueTask.CompletedTask)
+                    .AddPlugin(naws)
+                    .BuildAndStartAsync(client, _stopping.Token);
+
+                await using var telnet = built.Interpreter;
+                await built.ReadTask;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (IOException)
+            {
+            }
+            catch (SocketException)
+            {
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await _stopping.CancelAsync();
+            _listener.Stop();
+            await _serving;
             _stopping.Dispose();
         }
     }
