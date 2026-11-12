@@ -126,6 +126,30 @@ public class I3CycleTests
         await Assert.That(FieldSources.IsMeasured(FieldSource.I3Mudlist)).IsFalse();
     }
 
+    /// <summary>
+    /// A mud that colours its own name. Measured at <c>218.35.169.78:5500</c>, whose I3 name was
+    /// listed as its page title and slug with every <c>[1;32m</c> intact.
+    /// </summary>
+    [Test]
+    public async Task AColouredI3NameIsStoredWithoutItsEscapesButStillRoutedByThem()
+    {
+        const string routed = "\u001B[1;32m時\u001B[0m\u001B[0;32m空\u001B[0m";
+        var game = Guid.CreateVersion7();
+        var targets = new FakeTargets(Now);
+        targets.Existing[("218.35.169.78", 5500)] = game;
+        var fields = new FakeFields();
+        var bindings = new FakeBindings();
+
+        var cycle = new I3Cycle(
+            new StubGateway([Mud(routed, "218.35.169.78", 5500)]),
+            targets, bindings, new FakePresence(), fields, new I3Options(), Clock());
+
+        await cycle.RunAsync(CancellationToken.None);
+
+        await Assert.That(fields.Written.Single(f => f.Field == "NAME").Value).IsEqualTo("時空");
+        await Assert.That(bindings.Rows.ContainsKey(routed)).IsTrue();
+    }
+
     [Test]
     public async Task AnUnboundMudStillContributesNothingButItsAddress()
     {

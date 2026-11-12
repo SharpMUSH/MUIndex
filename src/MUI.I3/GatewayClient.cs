@@ -39,6 +39,7 @@ public sealed class GatewayClient : II3Gateway, IAsyncDisposable
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Converters = { new RecoveringStringConverter() },
     };
 
     private readonly GatewayOptions _options;
@@ -156,7 +157,7 @@ public sealed class GatewayClient : II3Gateway, IAsyncDisposable
                     }
 
                     // The key is the canonical mud name; the body may or may not repeat it.
-                    list.Add(string.IsNullOrEmpty(mud.Name) ? mud with { Name = entry.Name } : mud);
+                    list.Add(string.IsNullOrEmpty(mud.Name) ? mud with { Name = SidecarText.Recover(entry.Name) } : mud);
                 }
 
                 break;

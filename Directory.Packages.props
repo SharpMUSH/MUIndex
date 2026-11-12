@@ -20,6 +20,7 @@
       included, arrived as zlib read as text.
     -->
     <PackageVersion Include="TelnetNegotiationCore" Version="4.6.1" />
+    <PackageVersion Include="MarkupString.Ansi" Version="2.30.0" />
 
     <!--
       No logging, hosting or DI *abstractions* here. The crawler is an in-process BackgroundService in

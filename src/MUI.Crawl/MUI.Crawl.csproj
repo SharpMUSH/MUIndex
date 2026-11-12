@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <PackageReference Include="TelnetNegotiationCore" />
+    <PackageReference Include="MarkupString.Ansi" />
   </ItemGroup>
 
   <!--

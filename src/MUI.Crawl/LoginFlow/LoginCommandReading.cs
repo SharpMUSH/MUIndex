@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using MarkupString.Ansi;
 
 namespace MUI.Crawl;
 
@@ -152,7 +153,7 @@ public static partial class LoginCommandReading
 
         List<string>? inside = null;
 
-        foreach (var raw in AnsiEscape().Replace(info, string.Empty).Replace("\r\n", "\n").Replace('\r', '\n').Split('\n'))
+        foreach (var raw in AnsiEscapeParser.Parse(info).ToPlainText().Replace("\r\n", "\n").Replace('\r', '\n').Split('\n'))
         {
             var line = raw.Trim();
 
@@ -433,10 +434,6 @@ public static partial class LoginCommandReading
     private const string ConnectedLabel = "Connected";
 
     // `### Begin INFO 1.1` (PennMUSH, RhostMUSH, TinyMUX) and `## BEGIN INFO 1.1` (Evennia).
-    // The same CSI shape WhoParser strips: SGR colour and the cursor/erase codes some prompts carry.
-    [GeneratedRegex(@"\x1B\[[0-9;?]*[ -/]*[@-~]")]
-    private static partial Regex AnsiEscape();
-
     [GeneratedRegex(@"^#{2,}\s*begin\s+info\b", RegexOptions.IgnoreCase)]
     private static partial Regex InfoBlockStart();
 

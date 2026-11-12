@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using MarkupString.Ansi;
 
 namespace MUI.Crawl;
 
@@ -29,7 +30,7 @@ public static partial class BannerCount
             return null;
         }
 
-        var text = AnsiPattern().Replace(banner, string.Empty);
+        var text = AnsiEscapeParser.Parse(banner).ToPlainText();
         int? found = null;
 
         foreach (var value in Candidates(text))
@@ -151,6 +152,4 @@ public static partial class BannerCount
         RegexOptions.IgnoreCase)]
     private static partial Regex LabelledCountPattern();
 
-    [GeneratedRegex(@"\x1B\[[0-9;?]*[ -/]*[@-~]")]
-    private static partial Regex AnsiPattern();
 }

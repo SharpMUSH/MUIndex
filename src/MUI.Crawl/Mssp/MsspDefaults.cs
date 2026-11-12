@@ -1,3 +1,5 @@
+using MarkupString.Ansi;
+
 namespace MUI.Crawl;
 
 /// <summary>
@@ -76,9 +78,13 @@ public static class MsspDefaults
     /// </summary>
     /// <remarks>
     /// Also refuses a name that merely restates the codebase, e.g. <c>NAME "PennMUSH 1.8.8p0"</c>.
+    /// Colour is not part of a name: a game that paints its <c>NAME</c> in SGR codes is listed under
+    /// the words, or its page title and slug carry <c>[1;32m</c>.
     /// </remarks>
     public static string? MeaningfulName(string? name, string? codebase)
     {
+        name = name is null ? null : AnsiEscapeParser.Parse(name).ToPlainText();
+
         if (IsPlaceholder(name))
         {
             return null;

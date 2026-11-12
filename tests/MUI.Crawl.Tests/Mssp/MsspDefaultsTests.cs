@@ -106,4 +106,15 @@ public class MsspDefaultsTests
         await Assert.That(MsspDefaults.IsPlaceholder("http://corvid.example.org")).IsFalse();
         await Assert.That(MsspDefaults.IsPlaceholder("https://coffeemud.net:27744/")).IsFalse();
     }
+
+    [Test]
+    public async Task ANamePaintedInColourIsReadAsItsWords()
+    {
+        await Assert.That(MsspDefaults.MeaningfulName("\u001B[1;32mAether\u001B[0m MUSH", null))
+            .IsEqualTo("Aether MUSH");
+
+        // Colour cannot smuggle a default past the filter either.
+        await Assert.That(MsspDefaults.MeaningfulName("\u001B[1mPennMUSH\u001B[0m", "PennMUSH 1.8.8p0")).IsNull();
+        await Assert.That(MsspDefaults.MeaningfulName("\u001B[0m", null)).IsNull();
+    }
 }
