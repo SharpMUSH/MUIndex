@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 
 namespace MUI.I3.Tests;
@@ -240,6 +241,41 @@ public class GatewayClientTests
 
         // Zero is a published fact, not a missing value: the spec permits it for a non-connectable mud.
         await Assert.That(list.Single(m => m.Name == "Epitaph").PlayerPortNumber).IsEqualTo(0);
+    }
+
+    /// <summary>
+    /// A mudlist packet the gateway had to read as Latin-1, so every UTF-8 name in it arrived as
+    /// mojibake — in a body's <c>name</c> and in a mapping's key alike.
+    /// </summary>
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task NamesTheGatewayMisreadAreRecoveredWhereverTheyArrive(bool keyed)
+    {
+        var misread = Encoding.Latin1.GetString(Encoding.UTF8.GetBytes("時空幻境"));
+        var body = new Dictionary<string, object?> { ["host"] = "218.35.169.78", ["port"] = 5500 };
+
+        object? muds = keyed
+            ? new Dictionary<string, object?> { [misread] = body }
+            : new[] { new Dictionary<string, object?>(body) { ["name"] = misread } };
+
+        await using var gateway = FakeGateway.Start(async (line, g) =>
+        {
+            if (FakeGateway.MethodOf(line) == "authenticate")
+            {
+                await Authenticate(line, g);
+                return;
+            }
+
+            await g.ReplyAsync(FakeGateway.IdOf(line), new Dictionary<string, object?> { ["muds"] = muds });
+        });
+
+        await using var client = new GatewayClient(OptionsFor(gateway));
+        await client.ConnectAsync(CancellationToken.None);
+
+        var list = await client.MudlistAsync(CancellationToken.None);
+
+        await Assert.That(list.Single().Name).IsEqualTo("時空幻境");
     }
 
     /// <summary>

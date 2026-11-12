@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using MUI.Catalog;
 using MUI.Discovery;
 using MUI.I3;
+using MarkupString.Ansi;
 
 namespace MUI.Crawler;
 
@@ -98,10 +99,13 @@ public sealed class I3Cycle(
             // had through telnet at all, and an IP is not a more honest listing than a name, just an
             // unusable one. It can't displace a name a human typed — `staff` outranks `i3_mudlist` —
             // which matters since nothing polices what a mud calls itself on the network.
-            if (target.GameId is { } named && !string.IsNullOrWhiteSpace(mud.Name))
+            //
+            // Stored without its colour codes. The router name keeps them, because it is the address
+            // `who` is routed by, but a NAME is what the page title and the slug are made from.
+            if (target.GameId is { } named && AnsiEscapeParser.Parse(mud.Name).ToPlainText().Trim() is { Length: > 0 } name)
             {
                 await fields.UpsertAsync(
-                    new GameField(named, "NAME", FieldSource.I3Mudlist, mud.Name, now, now),
+                    new GameField(named, "NAME", FieldSource.I3Mudlist, name, now, now),
                     cancellationToken);
             }
 

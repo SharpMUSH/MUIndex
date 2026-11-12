@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using MarkupString.Ansi;
 
 namespace MUI.Crawl;
 
@@ -348,7 +349,7 @@ public sealed partial class WhoParser : IWhoParser
     /// </summary>
     private static bool LooksLikeLoginPrompt(string line) => LoginPromptPattern().IsMatch(line);
 
-    private static string StripAnsi(string text) => AnsiPattern().Replace(text, string.Empty);
+    private static string StripAnsi(string text) => AnsiEscapeParser.Parse(text).ToPlainText();
 
     /// <summary>
     /// A count only counts when the sentence is about people being <em>connected</em>.
@@ -574,6 +575,4 @@ public sealed partial class WhoParser : IWhoParser
         RegexOptions.IgnoreCase)]
     private static partial Regex LoginPromptPattern();
 
-    [GeneratedRegex(@"\x1B\[[0-9;?]*[ -/]*[@-~]")]
-    private static partial Regex AnsiPattern();
 }
