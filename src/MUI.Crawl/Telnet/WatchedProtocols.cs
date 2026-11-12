@@ -150,6 +150,25 @@ internal static class Watched
             note(ProtocolName);
             return base.OnEnabledAsync();
         }
+
+        /// <summary>
+        /// Reports <see cref="TerminalWindow"/> the moment the game enables NAWS with <c>DO NAWS</c>.
+        /// </summary>
+        /// <remarks>
+        /// Only then: an <c>SB NAWS</c> the game never asked for desyncs a strict parser (RFC 1073),
+        /// and <see cref="NAWSProtocol.SendWindowSizeAsync"/> itself sends nothing before the game has
+        /// agreed. A game that answers <c>DONT NAWS</c> is told nothing. Transition-only in the base,
+        /// so a repeated <c>DO</c> does not repeat the report.
+        /// </remarks>
+        protected override async ValueTask OnNegotiationChangedAsync(bool isNegotiated)
+        {
+            await base.OnNegotiationChangedAsync(isNegotiated);
+
+            if (isNegotiated && WindowSizeReportingEnabled)
+            {
+                await SendWindowSizeAsync(TerminalWindow.Columns, TerminalWindow.Rows);
+            }
+        }
     }
 
     internal sealed class TerminalType(Action<string> note) : TerminalTypeProtocol

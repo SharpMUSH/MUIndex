@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Globalization;
 using System.Text;
+using MUI.Crawl;
 
 namespace MUI.Web.Components;
 
@@ -18,10 +19,11 @@ public static class Ansi
 {
     /// <summary>
     /// The grid a screen is laid out at when it asks for nothing wider — and the width anything
-    /// wider than the screen's own grid is folded at. 80 clipped a real cluster of AresMUSH-family
-    /// banners mid-glyph; 100 clears the widest line on 809 of the 865 screens we hold.
+    /// wider than the screen's own grid is folded at. The same number the probe reports to a game
+    /// over NAWS (<see cref="TerminalWindow.Columns"/>), so a game that wraps to its client's window
+    /// wraps to this frame.
     /// </summary>
-    public const int DefaultColumns = 100;
+    public const int DefaultColumns = TerminalWindow.Columns;
 
     /// <summary>
     /// The widest grid a screen can ask for. The widest art anyone has actually drawn us is 243
