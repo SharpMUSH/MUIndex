@@ -58,7 +58,7 @@ public static class CrawlCycles
                 new FieldReconciler(fields),
                 games,
                 new ArchiveSweeper(games, availability, availability),
-                new SlugMinter(games, fields, slugs, grace)),
+                new SlugMinter(games, fields, slugs, endpoints, grace)),
             new CatalogueBinder(
                 games,
                 endpoints,

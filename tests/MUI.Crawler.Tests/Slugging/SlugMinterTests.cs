@@ -420,6 +420,48 @@ public class SlugMinterTests
         await Assert.That((await catalogue.Games.ByIdAsync(game))!.Name).IsEqualTo("엘리시안 전기");
     }
 
+    /// <summary>
+    /// A game whose old slug came from its old name does not keep it when the new one cannot be folded.
+    /// </summary>
+    /// <remarks>
+    /// Measured at <c>218.35.169.78:5500</c>: listed under its I3 name with the colour codes left in,
+    /// at <c>/g/1-32mae-0m-0-32mc-0m-1-32ma-0m-0-32ma-0m</c>, then renamed to 時空幻境 — which folds to
+    /// nothing, so the old fallback kept the garbage URL for ever.
+    /// </remarks>
+    [Test]
+    public async Task ANameTheFoldCannotKeepMovesAGameOffASlugItsOldNameMinted()
+    {
+        var catalogue = new Catalogue();
+        var game = catalogue.Listed(slug: "1-32mae-0m", name: "\u001B[1;32mæ\u0099\u0082\u001B[0m");
+        await catalogue.Endpoints.UpsertAsync(new GameEndpoint(
+            game, "218.35.169.78", 5500, EndpointKind.Telnet, Now, Now, EndpointState.Active));
+
+        var rename = await catalogue.Minter(Grace).ApplyAsync(game, "時空幻境");
+
+        await Assert.That(rename!.Slug).IsEqualTo("218-35-169-78-5500");
+        await Assert.That(rename.FormerSlug).IsEqualTo("1-32mae-0m");
+    }
+
+    /// <summary>
+    /// Asking for the name a game already has moves a slug its old name minted, and otherwise does
+    /// nothing.
+    /// </summary>
+    [Test]
+    public async Task RenamingAGameToItsOwnNameOnlyMovesAStaleSlug()
+    {
+        var catalogue = new Catalogue();
+        var stale = catalogue.Listed(slug: "1-32mae-0m", name: "時空幻境");
+        await catalogue.Endpoints.UpsertAsync(new GameEndpoint(
+            stale, "218.35.169.78", 5500, EndpointKind.Telnet, Now, Now, EndpointState.Active));
+        var settled = catalogue.Listed(slug: "corvid", name: "Corvid");
+
+        var moved = await catalogue.Minter(Grace).ApplyAsync(stale, "時空幻境");
+
+        await Assert.That(moved!.Slug).IsEqualTo("218-35-169-78-5500");
+        await Assert.That(await catalogue.Minter(Grace).ApplyAsync(stale, "時空幻境")).IsNull();
+        await Assert.That(await catalogue.Minter(Grace).ApplyAsync(settled, "Corvid")).IsNull();
+    }
+
     [Test]
     public async Task AGameListedUnderItsAddressDoesNotWaitOutTheGrace()
     {

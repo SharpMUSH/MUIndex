@@ -220,6 +220,7 @@ public static class CrawlerServiceCollectionExtensions
             s.GetRequiredService<IGameStore>(),
             s.GetRequiredService<IGameFieldStore>(),
             s.GetRequiredService<ISlugHistoryStore>(),
+            s.GetRequiredService<IEndpointStore>(),
             grace: null,
             s.GetService<ILogger<SlugMinter>>()));
 
