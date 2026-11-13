@@ -169,9 +169,21 @@ public sealed class GameAdminTools(
 
         var trimmedName = newName.Trim();
 
+        // Already called this: the only thing left to do is move a slug its old name minted, and the
+        // staff NAME that would be written is the one already standing.
         if (string.Equals(trimmedName, game.Name, StringComparison.Ordinal))
         {
-            throw new McpException($"'{game.Slug}' is already named '{trimmedName}'; nothing to rename.");
+            var remint = await minter.ApplyAsync(game.Id, trimmedName, cancellationToken)
+                ?? throw new McpException(
+                    $"'{game.Slug}' is already named '{trimmedName}' at its current URL; nothing to rename.");
+
+            await listing.InvalidateAsync();
+
+            logger?.LogInformation(
+                "game_rename: {Old} -> {Slug} ({Name}, re-mint only) -- {Because}",
+                game.Slug, remint.Slug, remint.Name, because);
+
+            return new GameRenameResult(remint.FormerSlug ?? game.Slug, remint.Slug, remint.Name);
         }
 
         var now = time.GetUtcNow();

@@ -26,6 +26,7 @@ public sealed class SlugMinter(
     IGameStore games,
     IGameFieldStore fields,
     ISlugHistoryStore history,
+    IEndpointStore endpoints,
     TimeSpan? grace = null,
     ILogger<SlugMinter>? logger = null) : IOwnerRenames
 {
@@ -185,8 +186,10 @@ public sealed class SlugMinter(
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
-        if (await games.ByIdAsync(gameId, cancellationToken) is not { } game
-            || string.Equals(name, game.Name, StringComparison.Ordinal))
+        // The same name is not refused here: a game already called this can still be wearing a slug
+        // its old name minted, and asking again is how that is put right. MintAsync is the one that
+        // decides there is nothing to do.
+        if (await games.ByIdAsync(gameId, cancellationToken) is not { } game)
         {
             return null;
         }
@@ -213,20 +216,36 @@ public sealed class SlugMinter(
     /// Shared rather than written twice: the two callers differ only in <em>whether</em> to rename,
     /// never in <em>how</em>.
     /// </remarks>
+    /// <summary>The address the game is reached at, earliest first, or null when none is recorded.</summary>
+    private async Task<string?> AddressAsync(Guid gameId, CancellationToken cancellationToken) =>
+        (await endpoints.ForGameAsync(gameId, cancellationToken))
+            .OrderBy(endpoint => endpoint.State is not EndpointState.Active)
+            .ThenBy(endpoint => endpoint.FirstSeenAt)
+            .Select(endpoint => $"{endpoint.Host}:{endpoint.Port}")
+            .FirstOrDefault();
+
     private async Task<Rename?> MintAsync(
         GameRecord game,
         string name,
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
-        // Falls back to the slug it already has: a name this fold can't render keeps the
-        // address-derived slug and takes its real name only on the page. Not a collision, since
+        // A name this fold can't render is listed at its address, as CatalogueBinder lists a new game.
+        // Not at the slug it already has: that one was minted from the old name, and keeping it kept
+        // 218.35.169.78:5500 at /g/1-32mae-0m-… after it was renamed out of its colour codes. The
+        // current slug is the fallback only when no address is known. Not a collision, since
         // IsTakenAsync answers for everybody except this game.
         var slug = await GameSlug.UniqueAsync(
             name,
             (candidate, ct) => IsTakenAsync(game.Id, candidate, ct),
-            game.Slug,
+            await AddressAsync(game.Id, cancellationToken) ?? game.Slug,
             cancellationToken);
+
+        if (string.Equals(name, game.Name, StringComparison.Ordinal)
+            && string.Equals(slug, game.Slug, StringComparison.Ordinal))
+        {
+            return null;
+        }
 
         string? retired;
 
