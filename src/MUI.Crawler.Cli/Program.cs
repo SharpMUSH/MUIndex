@@ -291,7 +291,7 @@ if (arguments.Release is { } slug)
 if (arguments.MintNow)
 {
     var minter = new SlugMinter(
-        games, fields, slugs, grace: TimeSpan.Zero, loggerFactory.CreateLogger<SlugMinter>());
+        games, fields, slugs, endpoints, grace: TimeSpan.Zero, loggerFactory.CreateLogger<SlugMinter>());
 
     await using var connection = await source.OpenConnectionAsync();
 
@@ -493,10 +493,21 @@ if (arguments.Rename is { } renameRequest)
 
         var newName = renameRequest.NewName.Trim();
 
+        var renameMinter = new SlugMinter(
+            games, fields, slugs, endpoints, grace: null, loggerFactory.CreateLogger<SlugMinter>());
+
+        // Already called this: only a slug its old name minted can still need moving.
         if (string.Equals(newName, game.Name, StringComparison.Ordinal))
         {
-            throw new InvalidOperationException(
-                $"'{game.Slug}' is already named '{newName}'; nothing to rename.");
+            var remint = await renameMinter.ApplyAsync(gameId, newName, CancellationToken.None)
+                ?? throw new InvalidOperationException(
+                    $"'{game.Slug}' is already named '{newName}' at its current URL; nothing to rename.");
+
+            Console.WriteLine(
+                $"rename        {remint.FormerSlug ?? game.Slug,-34} → {remint.Slug,-34} {remint.Name}"
+                + $" — {arguments.Because}");
+
+            return 0;
         }
 
         var now = time.GetUtcNow();
@@ -513,9 +524,6 @@ if (arguments.Rename is { } renameRequest)
                 new FieldChange(gameId, "NAME", FieldSource.Staff, existingName?.Value, newName, now),
                 CancellationToken.None);
         }
-
-        var renameMinter = new SlugMinter(
-            games, fields, slugs, grace: null, loggerFactory.CreateLogger<SlugMinter>());
 
         var rename = await renameMinter.ApplyAsync(gameId, newName, CancellationToken.None)
             ?? throw new InvalidOperationException(
@@ -570,7 +578,7 @@ var cycle = new CrawlCycle(
         new FieldReconciler(fields),
         games,
         new ArchiveSweeper(games, availability, availability),
-        new SlugMinter(games, fields, slugs, grace: null, loggerFactory.CreateLogger<SlugMinter>()),
+        new SlugMinter(games, fields, slugs, endpoints, grace: null, loggerFactory.CreateLogger<SlugMinter>()),
         loggerFactory.CreateLogger<ProbeIngestor>()),
     new CatalogueBinder(
         games,

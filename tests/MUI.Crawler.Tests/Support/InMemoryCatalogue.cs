@@ -403,6 +403,27 @@ public sealed class FakeGameFieldStore : IGameFieldStore
         _fields.GetValueOrDefault((gameId, field, source))?.Value;
 }
 
+/// <summary><c>game_endpoint</c>, canonicalising hosts on both ends as the contract requires.</summary>
+public sealed class FakeEndpointStore : IEndpointStore
+{
+    private readonly List<GameEndpoint> _rows = [];
+
+    public Task<IReadOnlyList<GameEndpoint>> ForGameAsync(Guid gameId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<GameEndpoint>>(
+            _rows.Where(row => row.GameId == gameId).OrderBy(row => row.Host).ThenBy(row => row.Port).ToList());
+
+    public Task<GameEndpoint?> ByAddressAsync(string host, int port, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_rows.SingleOrDefault(row => row.Host == HostName.Normalize(host) && row.Port == port));
+
+    public Task UpsertAsync(GameEndpoint endpoint, CancellationToken cancellationToken = default)
+    {
+        var normalized = endpoint with { Host = HostName.Normalize(endpoint.Host) };
+        _rows.RemoveAll(row => row.Host == normalized.Host && row.Port == normalized.Port);
+        _rows.Add(normalized);
+        return Task.CompletedTask;
+    }
+}
+
 /// <summary>The whole ingestion pipeline, in memory, ready to assert on.</summary>
 public sealed class Catalogue
 {
@@ -414,6 +435,8 @@ public sealed class Catalogue
 
     public FakeGameFieldStore Fields { get; } = new();
 
+    public FakeEndpointStore Endpoints { get; } = new();
+
     /// <summary>The former-slug table these stores share (spec §5.7).</summary>
     public FakeSlugHistory Slugs => Games.Slugs;
 
@@ -422,7 +445,7 @@ public sealed class Catalogue
     {
         Games.RenamesFail = renamesFail;
         Games.RenamesFailUnexpectedly = renamesFailUnexpectedly;
-        return new SlugMinter(Games, Fields, Slugs, grace);
+        return new SlugMinter(Games, Fields, Slugs, Endpoints, grace);
     }
 
     public ProbeIngestor Ingestor(

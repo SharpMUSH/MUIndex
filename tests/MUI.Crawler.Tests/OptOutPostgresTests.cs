@@ -54,7 +54,7 @@ public class OptOutPostgresTests
                 new FieldReconciler(fields),
                 games,
                 new ArchiveSweeper(games, availability, availability),
-                new SlugMinter(games, fields, slugs)),
+                new SlugMinter(games, fields, slugs, endpoints)),
             new CatalogueBinder(
                 games,
                 endpoints,
@@ -230,7 +230,7 @@ public class OptOutPostgresTests
                 new FieldReconciler(fields),
                 games,
                 new ArchiveSweeper(games, availability, availability),
-                new SlugMinter(games, fields, slugs)),
+                new SlugMinter(games, fields, slugs, endpoints)),
             new CatalogueBinder(
                 games,
                 endpoints,
