@@ -279,6 +279,48 @@ public class AnsiTests
         await Assert.That(han).Contains("<figure class=\"ansi wide\">");
     }
 
+    /// <summary>
+    /// A wide screen links the sliced webfont for its own region, pinned, and says which on the art.
+    /// </summary>
+    /// <remarks>
+    /// Without it the grid depended on the reader's fonts: 時空幻境's Big5 banner was whole on a Linux
+    /// desktop and fell apart wherever a Latin monospace face drew box drawing one cell wide.
+    /// </remarks>
+    [Test]
+    [Arguments("big5", "tc")]
+    [Arguments("gbk", "sc")]
+    [Arguments("shift_jis", "jp")]
+    [Arguments("euc-kr", "kr")]
+    [Arguments(null, "sc")]
+    public async Task AWideScreenLinksThePinnedWebfontForItsRegion(string? charset, string han)
+    {
+        var html = await Render.ComponentAsync<AnsiQuote>(new()
+        {
+            ["Screen"] = Ansi.Parse("漢字\n╭══╮\n漢字", suppressedByOwner: false),
+            ["Charset"] = charset,
+        });
+
+        var face = ScreenFonts.For(ScreenLanguage.For(charset));
+
+        await Assert.That(face.Han).IsEqualTo(han);
+        await Assert.That(html).Contains($"data-han=\"{han}\"");
+        await Assert.That(html).Contains($"href=\"https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-{han}@");
+        await Assert.That(html).Contains($"integrity=\"{System.Text.Encodings.Web.HtmlEncoder.Default.Encode(face.Integrity)}\"");
+        await Assert.That(html).Contains("crossorigin=\"anonymous\"");
+    }
+
+    [Test]
+    public async Task AnAsciiScreenLinksNoWebfont()
+    {
+        var html = await Render.ComponentAsync<AnsiQuote>(new()
+        {
+            ["Screen"] = Ansi.Parse("  ██  ██\n  ▄▄▄▄▄▄\nconnect <name>", suppressedByOwner: false),
+        });
+
+        await Assert.That(html).DoesNotContain("<link");
+        await Assert.That(html).DoesNotContain("data-han");
+    }
+
     [Test]
     public async Task TheTextAlternativeCarriesNoColourCodes()
     {
