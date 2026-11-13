@@ -29,11 +29,18 @@
 
     default:
         <figure class="@(DoubleWidth ? "ansi wide" : "ansi")">
+            @if (DoubleWidth)
+            {
+                @* In the body rather than <HeadContent>: HeadContent is a section, and only the
+                   last one rendered reaches the head, so this would replace SitePreview's. A
+                   stylesheet link is body-ok. See ScreenFonts for the face and why it is pinned. *@
+                <link rel="stylesheet" href="@Face.Href" integrity="@Face.Integrity" crossorigin="anonymous" />
+            }
             @* role="img" prunes the art from the a11y tree like aria-hidden would, but unlike
                aria-hidden it leaves the region focusable — needed because it scrolls and a
                keyboard is how some readers scroll it. *@
             <div class="quote" role="img" aria-label="@Alternative" tabindex="0">
-                <pre lang="@Language">@Paint(Screen.Rows)</pre>
+                <pre lang="@Language" data-han="@(DoubleWidth ? Face.Han : null)">@Paint(Screen.Rows)</pre>
             </div>
             @*
                 The full text alternative stays inside this figure, folded rather than open —
@@ -104,6 +111,9 @@
     /// forms. Null leaves the attribute off entirely and the page's own lang stands.
     /// </summary>
     private string? Language => ScreenLanguage.For(Charset);
+
+    /// <summary>The webfont a double-width screen is drawn in, chosen from its language.</summary>
+    private ScreenFonts.Face Face => ScreenFonts.For(Language);
 
     /// <summary>The request, for the locale the frame around somebody else's screen is written in.</summary>
     [CascadingParameter] private HttpContext? Http { get; set; }

@@ -118,15 +118,21 @@
       at twice the width of the spaces between them. Measured in Chromium against Noto Sans Mono
       CJK SC at 12px: space 6px, █ 12px.
 
-      No webfont, deliberately. Noto Sans Mono CJK SC is some eight megabytes a weight, and
-      subsetting is per-screen — a different glyph set for every game, regenerated on every crawl.
-      A reader with none of these installed gets their system's default CJK face, which is legible
-      and merely misaligned; that is the right end to lose at.
+      So on a wide screen the CJK faces come first, and the Latin faces are only the last resort for
+      a reader who has none of them. In front, Cascadia Mono, SF Mono or Consolas took every box-drawing
+      glyph and drew it one cell wide while the Han glyphs beside it stayed two: 時空幻境's Big5
+      banner (218.35.169.78:5500) fell apart on every Windows and Mac reader and was whole only on a
+      Linux desktop that has none of those faces. Before #201 the Latin faces were in front so an ASCII
+      screen stayed unchanged; an ASCII screen no longer uses this stack.
+
+      This stack is now the fallback, for a reader whose browser cannot reach the webfont in front of
+      it — see `figure.ansi.wide pre[data-han]` and ScreenFonts. It used to be all there was, on the
+      grounds that a CJK webfont is megabytes and subsetting is per-screen; a unicode-range-sliced one
+      answers both, since the browser fetches only the slices a screen's characters fall in.
     */
-    --mono-cjk: "Cascadia Mono", ui-monospace, "SFMono-Regular", Consolas,
-        "Noto Sans Mono CJK SC", "Noto Sans Mono CJK TC", "Noto Sans Mono CJK JP",
+    --mono-cjk: "Noto Sans Mono CJK SC", "Noto Sans Mono CJK TC", "Noto Sans Mono CJK JP",
         "Noto Sans Mono CJK KR", "Sarasa Mono SC", "Sarasa Mono J", "MS Gothic", "SimSun",
-        monospace;
+        "Cascadia Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 
     /*
       Named type steps, all rem so every one of them tracks the reader's font-size preference.
@@ -1678,6 +1684,28 @@ figure.ansi .quote pre {
    a row (Paint closes each at the newline), so nothing here can wrap or reflow. */
 figure.ansi .quote pre span { display: inline-block; }
 figure.ansi.wide pre { font-family: var(--mono-cjk); }
+/*
+  The same grid for every reader, wherever their fonts came from. Han, box drawing, ● and the
+  fullwidth forms come from Fontsource's sliced Noto Sans for the screen's region (linked by AnsiQuote,
+  pinned in ScreenFonts), where all of them are one em wide. Latin comes from MUI Mono Latin, which
+  is restricted to it and scaled to exactly half an em — Noto Sans Mono's advance is 0.6em, and
+  83.333% of that is 0.5 — so ASCII sits on the half-em grid the art was drawn on, and the
+  proportional Latin in Noto Sans is never reached. Measured in Chromium on 時空幻境's banner: all
+  110 distinct glyphs at 1 or 2 cells to within 0.1%.
+*/
+@font-face {
+    font-family: "MUI Mono Latin";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url(https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-mono@5.3.0/files/noto-sans-mono-latin-400-normal.woff2) format("woff2");
+    unicode-range: U+0000-02FF;
+    size-adjust: 83.3333%;
+}
+figure.ansi.wide pre[data-han="sc"] { font-family: "MUI Mono Latin", "Noto Sans SC", var(--mono-cjk); }
+figure.ansi.wide pre[data-han="tc"] { font-family: "MUI Mono Latin", "Noto Sans TC", var(--mono-cjk); }
+figure.ansi.wide pre[data-han="jp"] { font-family: "MUI Mono Latin", "Noto Sans JP", var(--mono-cjk); }
+figure.ansi.wide pre[data-han="kr"] { font-family: "MUI Mono Latin", "Noto Sans KR", var(--mono-cjk); }
 figure.ansi figcaption { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /*
