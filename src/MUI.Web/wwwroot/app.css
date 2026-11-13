@@ -118,15 +118,21 @@
       at twice the width of the spaces between them. Measured in Chromium against Noto Sans Mono
       CJK SC at 12px: space 6px, █ 12px.
 
+      So on a wide screen the CJK faces come first, and the Latin faces are only the last resort for
+      a reader who has none of them. In front, Cascadia Mono, SF Mono or Consolas took every box-drawing
+      glyph and drew it one cell wide while the Han glyphs beside it stayed two: 時空幻境's Big5
+      banner (218.35.169.78:5500) fell apart on every Windows and Mac reader and was whole only on a
+      Linux desktop that has none of those faces. Before #201 the Latin faces were in front so an ASCII
+      screen stayed unchanged; an ASCII screen no longer uses this stack.
+
       No webfont, deliberately. Noto Sans Mono CJK SC is some eight megabytes a weight, and
       subsetting is per-screen — a different glyph set for every game, regenerated on every crawl.
       A reader with none of these installed gets their system's default CJK face, which is legible
       and merely misaligned; that is the right end to lose at.
     */
-    --mono-cjk: "Cascadia Mono", ui-monospace, "SFMono-Regular", Consolas,
-        "Noto Sans Mono CJK SC", "Noto Sans Mono CJK TC", "Noto Sans Mono CJK JP",
+    --mono-cjk: "Noto Sans Mono CJK SC", "Noto Sans Mono CJK TC", "Noto Sans Mono CJK JP",
         "Noto Sans Mono CJK KR", "Sarasa Mono SC", "Sarasa Mono J", "MS Gothic", "SimSun",
-        monospace;
+        "Cascadia Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 
     /*
       Named type steps, all rem so every one of them tracks the reader's font-size preference.
