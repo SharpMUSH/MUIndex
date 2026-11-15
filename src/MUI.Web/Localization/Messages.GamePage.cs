@@ -169,6 +169,7 @@ public static partial class Messages
 
         // ── the capability matrix's disagreements, said in prose ──────────────────────────────
         ["capability.disagree.declaredNotOffered"] = "the game declares it, and the server has never offered it in a handshake.",
+        ["capability.disagree.declaredRefused"] = "the game declares a WebSocket address, and when we dialled it, it did not answer with a telnet session.",
         ["capability.disagree.offeredNotDeclared"] = "the server offers it, and the game's own record says it does not.",
         ["capability.disagree.note"] = "Usually a stale hand-typed field, not a lie. Shown because a client should not rely on what the two disagree about.",
 

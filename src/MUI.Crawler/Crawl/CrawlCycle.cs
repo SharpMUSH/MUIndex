@@ -531,6 +531,91 @@ public sealed class CrawlCycle(
         {
             await targets.RecordWhoAnswersAsync(target.Id, whoAnswers, cancellationToken);
         }
+
+        if (answered && binding is not null)
+        {
+            await CheckWebSocketAsync(target, binding.GameId, result, now, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Dials the WebSocket URL this probe's report declares, when it is due, and writes whether it
+    /// answered telnet — see <see cref="WebSocketCheck"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The URL is the game's own, so it goes through both gates a referral does: the opt-out first,
+    /// then the scope guard on the URL's host, with no operator-seed exemption — the seed's exemption
+    /// covers the address a person typed, not one its report names. A refusal writes nothing and
+    /// records no check: we declined, we did not measure.
+    /// </para>
+    /// <para>
+    /// The probe types nothing (<see cref="ProbeTarget.AsksNothing"/>); the measurement just asked
+    /// what there was to ask. Nothing from the check reaches presence, availability or the change of
+    /// any field but the one it measures. A fault here is logged and costs nothing already stored.
+    /// </para>
+    /// </remarks>
+    private async Task CheckWebSocketAsync(
+        CrawlTarget target,
+        Guid gameId,
+        ProbeResult result,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        if (WebSocketCheck.Declared(result) is not { } url
+            || !WebSocketCheck.Due(target, now, options.WebSocketCheckInterval))
+        {
+            return;
+        }
+
+        try
+        {
+            if (await optOut.RuleOnAsync(url.IdnHost, url.Port, cancellationToken) is not null)
+            {
+                return;
+            }
+
+            var decision = await scope.InspectAsync(url.IdnHost, cancellationToken);
+
+            if (decision.Ruling is not HostScopeRuling.Allowed)
+            {
+                logger?.LogInformation(
+                    "{Host}:{Port} declares {Url}, which we will not dial: {Detail}",
+                    target.Host, target.Port, url, decision.Detail);
+                return;
+            }
+
+            await limiter.WaitForTurnAsync(url.IdnHost, cancellationToken);
+
+            using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            budget.CancelAfter(options.ProbeTimeout);
+
+            var check = await probe.ProbeAsync(
+                ProbeTarget.ForWebSocket(url) with
+                {
+                    Addresses = decision.Addresses,
+                    AsksNothing = true,
+                    Charset = target.Charset,
+                    MsspCharset = target.MsspCharset,
+                },
+                budget.Token);
+
+            await targets.RecordWebSocketCheckAsync(target.Id, time.GetUtcNow(), cancellationToken);
+
+            if (WebSocketCheck.Observation(check) is { } observation)
+            {
+                await ingestor.RecordAsync(gameId, [observation], check.ObservedAt, cancellationToken);
+            }
+
+            logger?.LogInformation(
+                "{Host}:{Port} declares {Url}: {Outcome}{Cause}",
+                target.Host, target.Port, url, check.Outcome,
+                check.Failure is { } failure ? $" ({failure.Cause}: {failure.Detail})" : string.Empty);
+        }
+        catch (Exception error) when (!cancellationToken.IsCancellationRequested)
+        {
+            logger?.LogWarning(error, "{Host}:{Port}'s WebSocket check failed; the measurement stands", target.Host, target.Port);
+        }
     }
 
     /// <summary>

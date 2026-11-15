@@ -239,7 +239,12 @@ lifetime.
 a `SocketsHttpHandler` that lives for one dial and whose `ConnectCallback` dials **the addresses the
 scope guard vetted**, never a fresh lookup of the name — the same rule the TCP path follows. No
 proxy, no cookies, no redirects. It is a probe transport, not a fetch: nothing it reads is anything
-but a telnet session. The crawl loop does not dial one yet; `mui-probe wss://…` does.
+but a telnet session. The crawl loop dials one only to check the `WEBSOCKET` URL a game's MSSP
+declares (`WebSocketCheck`, at most daily per address, `crawl_target.websocket_checked_at`, migration
+0045): through the opt-out and the scope guard on the URL's host, **typing nothing**
+(`ProbeTarget.AsksNothing`), and writing `capability.websocket.measured` beside the declaration and
+nothing else — no presence, no availability, no endpoint. A timeout writes nothing (rule 5).
+`mui-probe wss://…` dials one by hand.
 
 `game_icon` and `icon_attempt` are the **two tables here that may be dropped and refilled**. The fact
 is the `ICON` field; those are bytes fetched from the URL it names and our own notes about fetching

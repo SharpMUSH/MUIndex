@@ -92,6 +92,16 @@ public sealed record DiscoveryOptions
     /// </remarks>
     public TimeSpan ConfirmationDelay { get; init; } = TimeSpan.FromSeconds(5);
 
+    /// <summary>
+    /// How long after one check of a game's declared WebSocket URL the next one waits.
+    /// </summary>
+    /// <remarks>
+    /// The check is a second dial to somebody's server on top of the measurement, so it is spaced
+    /// out rather than repeated every crawl. A day keeps the measured value fresh against a declared
+    /// one that changes rarely.
+    /// </remarks>
+    public TimeSpan WebSocketCheckInterval { get; init; } = TimeSpan.FromDays(1);
+
     /// <summary>At or above this score the probe is merged into the candidate game (spec §7.3).</summary>
     public double AutoMergeThreshold { get; init; } = IdentityWeights.AutoMergeThreshold;
 
@@ -150,6 +160,11 @@ public sealed record DiscoveryOptions
         if (ConfirmationDelay < TimeSpan.Zero)
         {
             throw new ArgumentException("ConfirmationDelay cannot be negative.");
+        }
+
+        if (WebSocketCheckInterval < TimeSpan.Zero)
+        {
+            throw new ArgumentException("WebSocketCheckInterval cannot be negative.");
         }
 
         if (ProbeTimeout <= TimeSpan.Zero)

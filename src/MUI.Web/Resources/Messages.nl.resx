@@ -2125,6 +2125,9 @@
   <data name="capability.disagree.declaredNotOffered" xml:space="preserve">
     <value>het spel geeft het op, en de server heeft het nooit aangeboden in een handshake.</value>
   </data>
+  <data name="capability.disagree.declaredRefused" xml:space="preserve">
+    <value>het spel geeft een WebSocket-adres op, en toen we het belden, antwoordde het niet met een telnetsessie.</value>
+  </data>
   <data name="capability.disagree.offeredNotDeclared" xml:space="preserve">
     <value>de server biedt het aan, en het spel zegt in zijn eigen opgave van niet.</value>
   </data>

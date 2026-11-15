@@ -67,13 +67,17 @@
 {
     <details class="disagreement">
         <summary>@Messages.For(Tag, "capability.whereTheyDisagree", new Dictionary<string, object?> { ["count"] = Disagreements.Count })</summary>
+        @* WEBSOCKET is measured by dialling the URL the game declares, not in a handshake, so its
+           sentence says what was actually done. *@
         @foreach (var row in Disagreements)
         {
             <p>
                 <strong class="mono">@row.Protocol</strong> —
-                @Messages.For(Tag, row.Measured is CapabilityState.Absent
-                    ? "capability.disagree.declaredNotOffered"
-                    : "capability.disagree.offeredNotDeclared")
+                @Messages.For(Tag, row.Measured is not CapabilityState.Absent
+                    ? "capability.disagree.offeredNotDeclared"
+                    : row.Protocol is "WEBSOCKET"
+                        ? "capability.disagree.declaredRefused"
+                        : "capability.disagree.declaredNotOffered")
             </p>
         }
         @* Said once, under the whole list. Inside the loop it repeated verbatim per protocol. *@

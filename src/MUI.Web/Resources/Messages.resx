@@ -2850,6 +2850,10 @@
     <value>the game declares it, and the server has never offered it in a handshake.</value>
     <comment>the capability matrix's disagreements, said in prose</comment>
   </data>
+  <data name="capability.disagree.declaredRefused" xml:space="preserve">
+    <value>the game declares a WebSocket address, and when we dialled it, it did not answer with a telnet session.</value>
+    <comment>the capability matrix's disagreements, said in prose: a declared WebSocket URL that did not answer telnet</comment>
+  </data>
   <data name="capability.disagree.offeredNotDeclared" xml:space="preserve">
     <value>the server offers it, and the game's own record says it does not.</value>
     <comment>the capability matrix's disagreements, said in prose</comment>

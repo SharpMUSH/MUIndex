@@ -72,6 +72,17 @@ public sealed class ProbeIngestor(
     SlugMinter slugs,
     ILogger<ProbeIngestor>? logger = null)
 {
+    /// <summary>
+    /// Applies observations made outside a probe of the game's own address — a check of a second
+    /// door it declares — and nothing else: no presence, no availability, no archive sweep.
+    /// </summary>
+    public Task<FieldReconciliation> RecordAsync(
+        Guid gameId,
+        IReadOnlyList<FieldObservation> observations,
+        DateTimeOffset at,
+        CancellationToken cancellationToken = default) =>
+        fields.ApplyAsync(gameId, observations, at, cancellationToken);
+
     /// <summary>Applies everything one probe of one game means.</summary>
     /// <param name="gameId">
     /// The game this probe is attributed to. Resolving that is identity's job (§7.3) and deliberately

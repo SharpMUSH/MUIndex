@@ -135,6 +135,34 @@ public class WebSocketTransportTests
         await Assert.That(result.Transport).IsEqualTo(ProbeTransport.WebSocket);
     }
 
+    /// <summary>
+    /// A check types nothing: the measurement already asked what there was to ask.
+    /// </summary>
+    [Test]
+    public async Task ACheckReadsTheScreenAndTypesNothing()
+    {
+        await using var game = new WebSocketGame { Banner = "Welcome.\r\nBy what name are you known? " };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target with { AsksNothing = true });
+
+        await Assert.That(game.Fault?.ToString() ?? "none").IsEqualTo("none");
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+        await Assert.That(result.Banner).Contains("Welcome.");
+        await Assert.That(result.Who.Attempted).IsFalse();
+        await Assert.That(game.Received).IsEmpty();
+    }
+
+    /// <summary>The control for the test above: the same screen, measured, is asked WHO.</summary>
+    [Test]
+    public async Task AMeasurementOfTheSameScreenAsksWho()
+    {
+        await using var game = new WebSocketGame { Banner = "Welcome.\r\nBy what name are you known? " };
+
+        await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(game.Received).Contains(TelnetProbe.WhoCommand);
+    }
+
     [Test]
     public async Task ARefusedConnectIsClassifiedThroughTheWrappers()
     {
@@ -209,6 +237,20 @@ public class WebSocketTransportTests
 
         public Exception? Fault { get; private set; }
 
+        /// <summary>Every line the probe sent, in order.</summary>
+        public IReadOnlyList<string> Received
+        {
+            get
+            {
+                lock (_received)
+                {
+                    return [.. _received];
+                }
+            }
+        }
+
+        private readonly List<string> _received = [];
+
         public async ValueTask DisposeAsync()
         {
             await _stopping.CancelAsync();
@@ -269,7 +311,15 @@ public class WebSocketTransportTests
                 var builder = new TelnetInterpreterBuilder()
                     .UseMode(TelnetInterpreter.TelnetMode.Server)
                     .UseLogger(NullLogger.Instance)
-                    .OnSubmit((_, _, _) => ValueTask.CompletedTask);
+                    .OnSubmit((bytes, encoding, _) =>
+                    {
+                        lock (_received)
+                        {
+                            _received.Add(encoding.GetString(bytes).Trim());
+                        }
+
+                        return ValueTask.CompletedTask;
+                    });
 
                 if (Mssp)
                 {

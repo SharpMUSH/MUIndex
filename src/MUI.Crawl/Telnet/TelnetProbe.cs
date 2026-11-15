@@ -317,6 +317,31 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // measurement.
             await SettleInitialBannerAsync(telnet, Arrived, lines, budget.Token);
 
+            // A check rather than a measurement: the connect screen and the negotiation that came
+            // with it are the whole question, so nothing is typed — no prompt answer, no WHO, no
+            // INFO. See ProbeTarget.AsksNothing.
+            if (target.AsksNothing)
+            {
+                var screen = Arrived();
+                WireReading quiet;
+                lock (lines)
+                {
+                    quiet = WireEncoding.Read(
+                        lines, target.Charset, MsspReport.RawValues(seen.Mssp), target.MsspCharset);
+                }
+
+                return new Session(
+                    BuildAnsweredResult(
+                        target, observedAt, started, seen, quiet,
+                        new PhaseCursors
+                        {
+                            Banner = screen, Flush = screen, Who = screen, Info = screen, Version = screen,
+                        },
+                        null, null, asked: false, published: null, telnet.CurrentEncoding, transport,
+                        PlaintextMsspOutcome.NotAsked),
+                    Heard());
+            }
+
             var answeredAPrompt = await AnswerPromptsAsync(telnet, Arrived, lines, connection, budget.Token);
 
             // Every cursor below is a line count into the same `lines` list, marking where one
