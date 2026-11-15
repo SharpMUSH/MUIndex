@@ -6,6 +6,7 @@ using MUI.Catalog;
 using Microsoft.Extensions.Options;
 
 using MUI.Web.Api;
+using MUI.Web.Components;
 using MUI.Web.Data;
 using MUI.Web.Reference;
 
@@ -126,9 +127,18 @@ public static class SiteIndex
     /// it, and the evidence for citation lift is absent. It is here because what it points at is true
     /// independently: a text rendering of every page, and a documented, versioned API.
     /// <para>
+    /// <b>The llmstxt.org shape, exactly</b>: one H1, one blockquote, prose with no headings, then H2
+    /// sections that hold nothing but <c>- [name](url): note</c> lines, the last of them
+    /// <c>Optional</c>. A parser for the format reads each H2 as a file list, so the reading rules and
+    /// the licence sit in the prose above the first H2 rather than under headings of their own, where
+    /// such a parser drops them. Pages are linked at their <c>?plain=1</c> address, the text
+    /// rendering the convention asks for, wherever <see cref="TextMirror"/> says one exists.
+    /// </para>
+    /// <para>
     /// English, since it addresses a program. The licence comes from configuration so this cannot
-    /// claim terms the dump does not go out under, and over the fixture it says so in the first line
-    /// — no banner reaches this file.
+    /// claim terms the dump does not go out under, and over the fixture the summary opens by saying
+    /// so — no banner reaches this file. The reference pages come from the shipped library, so the
+    /// list cannot name one that is not served.
     /// </para>
     /// </remarks>
     private static string Llms(HttpContext http, bool measured, DatasetLicenceOptions licence)
@@ -141,8 +151,8 @@ public static class SiteIndex
         if (!measured)
         {
             text.AppendLine("> DEMO DATA — no database is configured on this deployment, so every "
-                + "game below is a fixture and nothing here was measured. Do not cite it.");
-            text.AppendLine();
+                + "game here is a fixture and nothing here was measured. Do not cite it.");
+            text.AppendLine(">");
         }
 
         text.AppendLine("> A directory of the MU* hobby — MUSHes, MUDs, MUCKs and MOOs. Every value "
@@ -158,27 +168,13 @@ public static class SiteIndex
             + "colour or a cell shape.");
         text.AppendLine();
 
-        text.AppendLine("## Data");
-        text.AppendLine();
-        Link(text, "OpenAPI contract", ApiRoutes.OpenApi, "every endpoint below, machine-readable");
-        Link(text, "API guide", ApiRoutes.Documentation, "what each endpoint is for, and the limits on it");
-        Link(text, "Games", ApiRoutes.Games, "the catalogue, with the same facets the listing page offers");
-        Link(text, "Bulk export", ApiRoutes.Dump, "the whole catalogue as one JSON document");
-        Link(text, "Bulk export, by line", ApiRoutes.DumpLines, "the same, one game per line, for a loader");
+        text.AppendLine("One game is `" + ApiRoutes.Games + "/{id}` in the API, with `"
+            + ApiRoutes.PresenceSuffix + "` and `" + ApiRoutes.AvailabilitySuffix + "` beneath it "
+            + "for its presence and reachability series, and `/g/{slug}` on the site. The id is "
+            + "durable; a slug can change, and an old one redirects for ever.");
         text.AppendLine();
 
-        text.AppendLine("## Pages");
-        text.AppendLine();
-        Link(text, "Games", "/games", "every game we have reached, faceted on what we measured");
-        Link(text, "Rankings", "/rankings", "busiest and most reachable, computed from measurements");
-        Link(text, "Ecosystem", "/ecosystem", "codebase share and protocol adoption, as shares never totals");
-        Link(text, "Reference", "/reference", "written pages on the codebases, clients and protocols");
-        Link(text, "Archive", "/archive", "games that went dark, still probed, nothing deleted");
-        Link(text, "Crawler", "/crawler", "what the crawler did, and what it is due to do");
-        Link(text, "About", "/about", "how the catalogue is built, and how an operator opts out");
-        text.AppendLine();
-
-        text.AppendLine("## Reading a value correctly");
+        text.AppendLine("Reading a value correctly:");
         text.AppendLine();
         text.AppendLine("- **Measured** means we connected and observed it. **Declared** means the "
             + "game published it about itself and we did not verify it. **Derived** means it is a "
@@ -196,19 +192,69 @@ public static class SiteIndex
             + "measures a game's quality and nothing here should be cited as ranking one.");
         text.AppendLine();
 
-        text.AppendLine("## Licence");
-        text.AppendLine();
         text.AppendLine(licence.LicenceUrl is { } url
-            ? $"The published data is {licence.LicenceName} ({licence.LicenceId}), {url}."
-            : $"The published data is {licence.LicenceName} ({licence.LicenceId}).");
-        text.AppendLine($"Attribute it to {licence.Attribution}.");
+            ? $"The published data is {licence.LicenceName} ({licence.LicenceId}), {url}. "
+                + $"Attribute it to {licence.Attribution}."
+            : $"The published data is {licence.LicenceName} ({licence.LicenceId}). "
+                + $"Attribute it to {licence.Attribution}.");
+        text.AppendLine();
+
+        text.AppendLine("## Data");
+        text.AppendLine();
+        Link(text, "OpenAPI contract", ApiRoutes.OpenApi, "every endpoint, machine-readable");
+        Link(text, "API guide", ApiRoutes.Documentation, "what each endpoint is for, and the limits on it");
+        Link(text, "Games", ApiRoutes.Games, "the catalogue, with the same facets the listing page offers");
+        Link(text, "Bulk export", ApiRoutes.Dump, "the whole catalogue as one JSON document");
+        Link(text, "Bulk export, by line", ApiRoutes.DumpLines, "the same, one game per line, for a loader");
+        Link(text, "Change feeds", ApiRoutes.Feeds, "games newly discovered, gone dark and come back, as JSON");
+        text.AppendLine();
+
+        text.AppendLine("## Pages");
+        text.AppendLine();
+        Plain(text, "Games", "/games", "every game we have reached, faceted on what we measured");
+        Plain(text, "Find a game", "/find", "a short set of questions that narrows the listing");
+        Plain(text, "Rankings", "/rankings", "busiest and most reachable, computed from measurements");
+        Plain(text, "Ecosystem", "/ecosystem", "codebase share and protocol adoption, as shares never totals");
+        Plain(text, "Reference", "/reference", "written pages on the codebases, clients and protocols");
+        Plain(text, "Archive", "/archive", "games that went dark, still probed, nothing deleted");
+        Plain(text, "Crawler", "/crawler", "what the crawler did, and what it is due to do");
+        Plain(text, "About", "/about", "how the catalogue is built, and how an operator opts out");
+        text.AppendLine();
+
+        text.AppendLine("## Optional");
+        text.AppendLine();
+        // The feeds' own titles and descriptions, so this cannot describe one differently.
+        foreach (var register in Enum.GetValues<FeedRegister>())
+        {
+            Link(text, RssFeed.Title(register) + " (RSS)", RssFeed.Path(register), RssFeed.Description(register));
+        }
+
+        Plain(text, "Submit a game", "/submit", "how an address is proposed, and what has to be true before it is listed");
+
+        foreach (var document in ReferenceLibrary.Shipped.Documents)
+        {
+            Plain(text, document.Title, document.Path, document.Summary);
+        }
 
         return text.ToString();
 
+        // TextMirror is the one list of pages that have a text rendering, so a page without one is
+        // linked as itself rather than at an address that would serve the same markup.
+        void Plain(StringBuilder to, string name, string path, string note) =>
+            Link(to, name, TextMirror.Offers(path) ? path + "?plain=1" : path, note);
+
         void Link(StringBuilder to, string name, string path, string note) =>
             to.AppendLine(CultureInfo.InvariantCulture,
-                $"- [{name}]({SiteUrls.Absolute(http, path)}): {note}");
+                $"- [{Label(name)}]({SiteUrls.Absolute(http, path)}): {OneLine(note)}");
     }
+
+    /// <summary>A link label that cannot close itself early.</summary>
+    private static string Label(string name) =>
+        name.Replace("[", "\\[", StringComparison.Ordinal).Replace("]", "\\]", StringComparison.Ordinal);
+
+    /// <summary>A note folded to one line, since a line break ends the list item that holds it.</summary>
+    private static string OneLine(string note) =>
+        string.Join(' ', note.Split((char[])['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 
     private static string Sitemap(
         HttpContext http, IReadOnlyList<GameSummary> games, IReadOnlyList<string> categories)

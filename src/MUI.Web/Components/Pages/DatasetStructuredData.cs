@@ -32,7 +32,10 @@ public static class DatasetStructuredData
 
         var root = origin.ToString().TrimEnd('/');
         var page = root + ApiRoutes.Documentation;
-        var publisher = new JsonObject { ["@id"] = root + SiteStructuredData.OrganizationId };
+
+        // A fresh node per use: a JsonNode has one parent, and attaching the same instance a second
+        // time throws, which answered every measured request for the API guide with a 500.
+        JsonObject Publisher() => new() { ["@id"] = root + SiteStructuredData.OrganizationId };
 
         var dataset = new JsonObject
         {
@@ -42,8 +45,8 @@ public static class DatasetStructuredData
             ["description"] = licence.Notice,
             ["url"] = page,
             ["isAccessibleForFree"] = true,
-            ["creator"] = publisher,
-            ["publisher"] = publisher,
+            ["creator"] = Publisher(),
+            ["publisher"] = Publisher(),
             ["license"] = (JsonNode?)licence.LicenceUrl ?? licence.LicenceId,
 
             ["keywords"] = new JsonArray("MUD", "MUSH", "MUCK", "MOO", "MU*", "telnet", "MSSP", "text games"),
@@ -63,7 +66,7 @@ public static class DatasetStructuredData
             ["@id"] = $"{root}#catalog",
             ["name"] = "MUIndex",
             ["url"] = page,
-            ["publisher"] = publisher,
+            ["publisher"] = Publisher(),
             ["dataset"] = new JsonObject { ["@id"] = $"{root}#dataset" },
         };
 
