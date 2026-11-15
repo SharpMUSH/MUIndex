@@ -26,6 +26,11 @@ public static class MsspDefaults
         "PennMUSH", "TinyMUSH", "TinyMUX", "MUX", "RhostMUSH", "Rhost", "CobraMUSH", "AresMUSH",
         "Evennia", "CoffeeMud", "CircleMUD", "tbaMUD", "ROM", "SMAUG", "Diku", "DikuMUD",
         "MudOS", "FluffOS", "LPMud", "LDMud", "MOO", "LambdaMOO", "TinyMUCK", "MUCK", "Fuzzball",
+        "SharpMUSH",
+
+        // Not a codebase name but the mud_name SharpMUSH ships in mushcnf.dst, so every unedited
+        // SharpMUSH publishes it as NAME and as INFO's Name: — the NAME "PennMUSH" problem again.
+        "PennMUSH Emulation by SharpMUSH",
     };
 
     /// <summary>

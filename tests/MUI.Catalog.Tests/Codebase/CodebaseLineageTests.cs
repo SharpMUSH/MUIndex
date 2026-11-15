@@ -20,6 +20,7 @@ public class CodebaseLineageTests
     [Arguments("RhostMUSH")]
     [Arguments("AresMUSH")]
     [Arguments("CobraMUSH")]
+    [Arguments("SharpMUSH 1.0.0")]
     public async Task TheMushCodebasesAreOneLineage(string codebase)
     {
         await Assert.That(CodebaseLineage.Of(codebase)).IsEqualTo(CodebaseLineage.Mush);

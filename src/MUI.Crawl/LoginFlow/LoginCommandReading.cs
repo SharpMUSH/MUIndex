@@ -28,6 +28,11 @@ public static partial class LoginCommandReading
         ["tinymux"] = "TinyMUX",
         ["aresmush"] = "AresMUSH",
         ["cobramush"] = "CobraMUSH",
+
+        // SharpMUSH's VERSION ends "PennMUSH emulated in SharpMUSH 1.0.0" and its default mud_name is
+        // "PennMUSH Emulation by SharpMUSH", so both lines mention PennMUSH. Extract takes the longest
+        // marker on a line, which is what makes those lines read as SharpMUSH and not as PennMUSH.
+        ["sharpmush"] = "SharpMUSH",
         ["muck"] = "MUCK",
         ["tinymuck"] = "TinyMUCK",
         ["protomuck"] = "ProtoMUCK",
