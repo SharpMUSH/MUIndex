@@ -273,7 +273,8 @@ public class SiteIndexTests
         // the format reads every H2 as a file list, so a rule written under one is dropped.
         await using var site = await SiteHost.StartAsync(measured: measured);
 
-        var lines = (await site.Client.GetStringAsync("/llms.txt")).Split('\n');
+        // ReplaceLineEndings: AppendLine writes the host's newline, so Windows serves CRLF.
+        var lines = (await site.Client.GetStringAsync("/llms.txt")).ReplaceLineEndings("\n").Split('\n');
 
         await Assert.That(lines[0]).IsEqualTo("# mu*index");
         await Assert.That(lines.Count(l => l.StartsWith("# ", StringComparison.Ordinal))).IsEqualTo(1);
@@ -311,7 +312,7 @@ public class SiteIndexTests
         foreach (var url in urls)
         {
             using var response = await site.Client.GetAsync(url);
-            await Assert.That(response.IsSuccessStatusCode).IsTrue().Because(url);
+            await Assert.That((int)response.StatusCode).IsEqualTo(200).Because(url);
         }
     }
 

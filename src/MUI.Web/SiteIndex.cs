@@ -6,6 +6,7 @@ using MUI.Catalog;
 using Microsoft.Extensions.Options;
 
 using MUI.Web.Api;
+using MUI.Web.Components;
 using MUI.Web.Data;
 using MUI.Web.Reference;
 
@@ -131,7 +132,7 @@ public static class SiteIndex
     /// <c>Optional</c>. A parser for the format reads each H2 as a file list, so the reading rules and
     /// the licence sit in the prose above the first H2 rather than under headings of their own, where
     /// such a parser drops them. Pages are linked at their <c>?plain=1</c> address, the text
-    /// rendering the convention asks for, except the API guide, which has none.
+    /// rendering the convention asks for, wherever <see cref="TextMirror"/> says one exists.
     /// </para>
     /// <para>
     /// English, since it addresses a program. The licence comes from configuration so this cannot
@@ -237,8 +238,10 @@ public static class SiteIndex
 
         return text.ToString();
 
+        // TextMirror is the one list of pages that have a text rendering, so a page without one is
+        // linked as itself rather than at an address that would serve the same markup.
         void Plain(StringBuilder to, string name, string path, string note) =>
-            Link(to, name, path + "?plain=1", note);
+            Link(to, name, TextMirror.Offers(path) ? path + "?plain=1" : path, note);
 
         void Link(StringBuilder to, string name, string path, string note) =>
             to.AppendLine(CultureInfo.InvariantCulture,
