@@ -192,7 +192,8 @@ public static class ApiMapper
         endpoint.TlsMeasured,
         endpoint.FirstSeenAt,
         endpoint.LastSeenAt,
-        endpoint.State);
+        endpoint.State,
+        endpoint.Path);
 
     public static FeedEntryView Feed(FeedEntry entry) => new(
         entry.Id,

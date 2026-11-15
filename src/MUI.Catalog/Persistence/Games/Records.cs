@@ -53,7 +53,16 @@ public enum EndpointKind
 {
     Telnet,
     Tls,
+
+    /// <summary>A WebSocket (<c>ws://</c>) carrying telnet. Always has a <see cref="GameEndpoint.Path"/>.</summary>
     WebSocket,
+
+    /// <summary>
+    /// A WebSocket behind TLS (<c>wss://</c>): the handshake completed, as <see cref="Tls"/> means for telnet.
+    /// Always has a <see cref="GameEndpoint.Path"/>.
+    /// </summary>
+    SecureWebSocket,
+
     Http,
 }
 
@@ -69,6 +78,10 @@ public enum EndpointState
 }
 
 /// <summary>An address a game answers on (spec §5.5).</summary>
+/// <param name="Path">
+/// The request path of a WebSocket endpoint (<c>/ws-play/</c>), and null for every other kind: migration 0045's
+/// CHECK holds the two together.
+/// </param>
 public sealed record GameEndpoint(
     Guid GameId,
     string Host,
@@ -76,7 +89,12 @@ public sealed record GameEndpoint(
     EndpointKind Kind,
     DateTimeOffset FirstSeenAt,
     DateTimeOffset LastSeenAt,
-    EndpointState State);
+    EndpointState State,
+    string? Path = null)
+{
+    /// <summary>Whether this is a WebSocket, behind TLS or not.</summary>
+    public bool IsWebSocket => Kind is EndpointKind.WebSocket or EndpointKind.SecureWebSocket;
+}
 
 /// <summary>
 /// Who measured an availability interval.

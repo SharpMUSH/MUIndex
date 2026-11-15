@@ -417,7 +417,13 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         "aardwolf" => [Endpoint("aardmud.org", 4000, "telnet", tls: false, sinceDays: 4000)],
         "midnight-sun" => [Endpoint("midnightsun2.org", 3000, "telnet", tls: false, sinceDays: 1500)],
         "batmud" => [Endpoint("bat.org", 23, "telnet", tls: false, sinceDays: 5000)],
-        "ashen-court" => [Endpoint("ashen.example", 4000, "tls", tls: true, sinceDays: 600)],
+        "ashen-court" =>
+        [
+            Endpoint("ashen.example", 4000, "tls", tls: true, sinceDays: 600),
+
+            // A WebSocket the game declared in MSSP and that upgraded (migration 0045).
+            Endpoint("ashen.example", 443, "websocket", tls: true, sinceDays: 30, path: "/play/"),
+        ],
         "hollow-bell" => [Endpoint("hollowbell.example", 4201, "telnet", tls: false, sinceDays: 2400)],
         "gaslight-row" => [Endpoint("gaslight.example", 4201, "telnet", tls: false, sinceDays: 3000)],
         "verdigris" => [Endpoint("verdigris.example", 6250, "telnet", tls: false, sinceDays: 800)],
@@ -426,14 +432,15 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
 
     /// <param name="goneDays">How long ago we last reached it, for an address the game has left.</param>
     private static GameEndpointView Endpoint(
-        string host, int port, string kind, bool tls, int sinceDays, int? goneDays = null) => new(
+        string host, int port, string kind, bool tls, int sinceDays, int? goneDays = null, string? path = null) => new(
         host,
         port,
         kind,
         TlsMeasured: tls,
         Now.AddDays(-sinceDays),
         goneDays is { } left ? Now.AddDays(-left) : Now,
-        goneDays is null ? "active" : "gone");
+        goneDays is null ? "active" : "gone",
+        path);
 
     private static string? Screen(GameSummary g) => g.Slug switch
     {

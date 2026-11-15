@@ -128,6 +128,24 @@ public class GameApiTests
         await Assert.That(game.GetProperty("availability").GetArrayLength()).IsGreaterThan(0);
     }
 
+    [Test]
+    public async Task AWebSocketEndpointCarriesItsPathAndATelnetOneCarriesNone()
+    {
+        // A client dials a WebSocket at host, port and path; TLS is tlsMeasured, as for telnet.
+        await using var host = await ApiHost.StartAsync();
+
+        var game = await Json.ElementAsync(
+            await host.Client.GetAsync($"{ApiRoutes.Games}/ashen-court"));
+
+        var endpoints = game.GetProperty("endpoints").EnumerateArray().ToList();
+        var socket = endpoints.Single(e => e.GetProperty("kind").GetString() == "websocket");
+        var telnet = endpoints.Single(e => e.GetProperty("kind").GetString() == "tls");
+
+        await Assert.That(socket.GetProperty("path").GetString()).IsEqualTo("/play/");
+        await Assert.That(socket.GetProperty("tlsMeasured").GetBoolean()).IsTrue();
+        await Assert.That(telnet.GetProperty("path").ValueKind).IsEqualTo(System.Text.Json.JsonValueKind.Null);
+    }
+
     /// <summary>A suppressed screen is withheld here as well as on the page (spec §11).</summary>
     [Test]
     public async Task AScreenItsOwnerAskedUsNotToRepublishIsNotRepublishedByTheApiEither()

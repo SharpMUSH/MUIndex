@@ -24,7 +24,8 @@ public static class CrawlCycles
         IHostResolver? resolver = null,
         DiscoveryOptions? options = null,
         TimeSpan? grace = null,
-        IDnsTxtResolver? dns = null)
+        IDnsTxtResolver? dns = null,
+        IWebSocketProbe? webSockets = null)
     {
         var discovery = options ?? new DiscoveryOptions
         {
@@ -85,7 +86,15 @@ public static class CrawlCycles
             payloads: null,
             // Issue #185 — a suite asserting what a cycle wrote has to be given the same register
             // the deployment has, or "a refusal left a record" is untestable here.
-            refusals: new NpgsqlCrawlRefusalStore(source));
+            refusals: new NpgsqlCrawlRefusalStore(source),
+            webSockets: webSockets is null
+                ? null
+                : new WebSocketEndpointWriter(
+                    webSockets,
+                    new OptOutGate(new NpgsqlCrawlOptOutRepository(source), dns ?? new ScriptedDns(), time),
+                    new HostScopeGuard(effectiveResolver),
+                    endpoints,
+                    time));
     }
 
     /// <summary>Confirmation on, with no wait, so a suite asserts the behaviour and not the delay.</summary>
