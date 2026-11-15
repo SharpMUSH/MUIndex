@@ -500,9 +500,11 @@ public sealed class CrawlCycle(
         // Only on a session that actually got somewhere, and only when it disagrees with the row.
         // A failed dial says nothing about which door to knock on next time — writing the transport
         // of a probe that never had a conversation would unlearn a good answer on one bad night.
+        // A WebSocket session answers a different question — which URL, not which door on this
+        // port — so it teaches the flag nothing either way.
         var transport = result.Transport is ProbeTransport.Tls;
 
-        if (answered && transport != target.UseTls)
+        if (answered && result.Transport is not ProbeTransport.WebSocket && transport != target.UseTls)
         {
             await targets.RecordTransportAsync(target.Id, transport, cancellationToken);
         }
