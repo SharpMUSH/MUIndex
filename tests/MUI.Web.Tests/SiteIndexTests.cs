@@ -264,6 +264,71 @@ public class SiteIndexTests
     }
 
     [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task LlmsTxtHasTheShapeTheConventionDefines(bool measured)
+    {
+        // llmstxt.org: one H1 first, then one blockquote, then prose with no headings, then H2
+        // sections holding nothing but "- [name](url): note" lines, "Optional" last. A parser for
+        // the format reads every H2 as a file list, so a rule written under one is dropped.
+        await using var site = await SiteHost.StartAsync(measured: measured);
+
+        var lines = (await site.Client.GetStringAsync("/llms.txt")).Split('\n');
+
+        await Assert.That(lines[0]).IsEqualTo("# mu*index");
+        await Assert.That(lines.Count(l => l.StartsWith("# ", StringComparison.Ordinal))).IsEqualTo(1);
+        await Assert.That(lines.Any(l => l.StartsWith("### ", StringComparison.Ordinal))).IsFalse();
+
+        // The blockquote is the first thing after the title, and there is only one.
+        await Assert.That(lines.Skip(1).SkipWhile(string.IsNullOrEmpty).First()).StartsWith(">");
+        var quoted = lines.Select((l, i) => (l, i)).Where(x => x.l.StartsWith('>')).Select(x => x.i).ToArray();
+        await Assert.That(quoted[^1] - quoted[0] + 1).IsEqualTo(quoted.Length);
+
+        var sections = lines
+            .Select((l, i) => (l, i))
+            .Where(x => x.l.StartsWith("## ", StringComparison.Ordinal))
+            .ToArray();
+        await Assert.That(string.Join('|', sections.Select(s => s.l))).IsEqualTo("## Data|## Pages|## Optional");
+
+        var item = new System.Text.RegularExpressions.Regex(@"^- \[[^\]]+\]\((https?://[^)\s]+)\): \S");
+        foreach (var line in lines.Skip(sections[0].i + 1).Where(l => l.Length > 0 && !l.StartsWith("## ", StringComparison.Ordinal)))
+        {
+            await Assert.That(item.IsMatch(line)).IsTrue().Because(line);
+        }
+    }
+
+    [Test]
+    public async Task EveryAddressLlmsTxtNamesIsServed()
+    {
+        await using var site = await SiteHost.StartAsync(measured: true);
+
+        var text = await site.Client.GetStringAsync("/llms.txt");
+        var urls = System.Text.RegularExpressions.Regex.Matches(text, @"\]\((https?://[^)\s]+)\)")
+            .Select(m => new Uri(m.Groups[1].Value).PathAndQuery)
+            .ToArray();
+
+        await Assert.That(urls.Length).IsGreaterThan(10);
+        foreach (var url in urls)
+        {
+            using var response = await site.Client.GetAsync(url);
+            await Assert.That(response.IsSuccessStatusCode).IsTrue().Because(url);
+        }
+    }
+
+    [Test]
+    public async Task LlmsTxtListsEveryShippedReferencePage()
+    {
+        await using var site = await SiteHost.StartAsync();
+
+        var text = await site.Client.GetStringAsync("/llms.txt");
+
+        foreach (var document in MUI.Web.Reference.ReferenceLibrary.Shipped.Documents)
+        {
+            await Assert.That(text).Contains(document.Path + "?plain=1");
+        }
+    }
+
+    [Test]
     public async Task LlmsTxtIsServedAsText()
     {
         await using var site = await SiteHost.StartAsync();
