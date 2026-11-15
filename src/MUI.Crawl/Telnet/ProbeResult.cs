@@ -59,6 +59,16 @@ public sealed record ProbeResult
     public string? Banner { get; init; }
 
     /// <summary>
+    /// The pictures the connect screen draws over its own cells — sixel, Kitty or iTerm2 sent inline,
+    /// or an MXP <c>IMAGE</c>'s address — read by <see cref="MUI.Crawl.ScreenPictures"/>.
+    /// </summary>
+    /// <remarks>
+    /// Positions are in <see cref="Banner"/>, which leaves those cells blank. Empty for nearly every
+    /// game: a screen of text and ANSI art draws no picture, and that is not a missing reading.
+    /// </remarks>
+    public IReadOnlyList<ScreenPicture> ScreenPictures { get; init; } = [];
+
+    /// <summary>
     /// Whether the server emitted MXP in anything it sent us.
     /// </summary>
     /// <remarks>

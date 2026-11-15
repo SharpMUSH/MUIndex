@@ -58,6 +58,10 @@ public static class CodebaseLineage
             ["CobraMUSH"] = Mush,
             ["AresMUSH"] = Mush,
 
+            // A .NET server built to run PennMUSH softcode. MSSP CODEBASE "SharpMUSH 1.0.0",
+            // FAMILY "TinyMUD" (SharpMUSH MsspReportService), so FAMILY could not place it either.
+            ["SharpMUSH"] = Mush,
+
             ["TinyMUCK"] = Muck,
             ["MUCK"] = Muck,
             ["Fuzzball"] = Muck,

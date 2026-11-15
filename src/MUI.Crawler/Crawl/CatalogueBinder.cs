@@ -26,7 +26,8 @@ public sealed class CatalogueBinder(
     IDuplicateReviewRepository reviews,
     IMergeLog merges,
     TimeProvider time,
-    ILogger<CatalogueBinder>? logger = null)
+    ILogger<CatalogueBinder>? logger = null,
+    IScreenPictureStore? pictures = null)
 {
     /// <summary>
     /// The game this probe belongs to, minting one if §7.2 and §7.3 say it should be listed, or null
@@ -372,6 +373,24 @@ public sealed class CatalogueBinder(
         await fields.UpsertAsync(
             new GameField(gameId, ConnectScreenField, FieldSource.Banner, banner, now, now),
             cancellationToken);
+
+        // In step with the screen they are drawn on: the positions are in the text just written, so
+        // a screen read and found to draw no picture clears the ones an earlier screen drew.
+        if (pictures is not null)
+        {
+            await pictures.ReplaceAsync(
+                gameId,
+                [.. result.ScreenPictures.Select(picture => new ScreenPictureCapture(
+                    picture.Line,
+                    picture.Column,
+                    picture.Columns,
+                    picture.Rows,
+                    picture.Address,
+                    picture.MediaType,
+                    picture.Bytes))],
+                now,
+                cancellationToken);
+        }
     }
 
     /// <summary>The field the ANSI-rendered connect screen is stored under (spec §4.8, §6.2).</summary>

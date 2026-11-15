@@ -86,10 +86,28 @@ public sealed class IconFetcher(
     /// an image we serve" are one answer between them, because none of them is a fact about the game;
     /// "unchanged" is its own, because it is the far end telling us we are already right.
     /// </returns>
-    public async Task<IconFetchResult> FetchAsync(
+    public Task<IconFetchResult> FetchAsync(
         Guid gameId,
         string url,
         string? etag = null,
+        CancellationToken cancellationToken = default) =>
+        FetchAsync(gameId, url, etag, MaxBytes, MaxDimension, cancellationToken);
+
+    /// <summary>
+    /// The same fetch through the same gate, to ceilings of the caller's own.
+    /// </summary>
+    /// <remarks>
+    /// A connect screen's picture is drawn across a dozen rows of the screen rather than at the size
+    /// of a favicon, so <c>ScreenPictureRefresher</c> holds more than an icon may. Everything else —
+    /// the gate, the one hop, reading the type from the bytes — is the icon's, on purpose: there is
+    /// one way here to fetch an address somebody else chose.
+    /// </remarks>
+    public async Task<IconFetchResult> FetchAsync(
+        Guid gameId,
+        string url,
+        string? etag,
+        int maxBytes,
+        int maxDimension,
         CancellationToken cancellationToken = default)
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)
@@ -156,7 +174,7 @@ public sealed class IconFetcher(
                     return IconFetchResult.Nothing;
                 }
 
-                if (await ReadBoundedAsync(response, cancellationToken) is not { } bytes)
+                if (await ReadBoundedAsync(response, maxBytes, cancellationToken) is not { } bytes)
                 {
                     return IconFetchResult.Nothing;
                 }
@@ -169,7 +187,7 @@ public sealed class IconFetcher(
                     return IconFetchResult.Nothing;
                 }
 
-                if (header.Width > MaxDimension || header.Height > MaxDimension)
+                if (header.Width > maxDimension || header.Height > maxDimension)
                 {
                     return IconFetchResult.Nothing;
                 }
@@ -230,11 +248,12 @@ public sealed class IconFetcher(
     /// </summary>
     /// <remarks>
     /// Read to a ceiling rather than trusted to <c>Content-Length</c>, which the far end could declare
-    /// falsely. An image of exactly <see cref="MaxBytes"/> is kept; one byte more is refused, not
+    /// falsely. An image of exactly <paramref name="maxBytes"/> is kept; one byte more is refused, not
     /// truncated.
     /// </remarks>
     private static async Task<byte[]?> ReadBoundedAsync(
         HttpResponseMessage response,
+        int maxBytes,
         CancellationToken cancellationToken)
     {
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
@@ -253,7 +272,7 @@ public sealed class IconFetcher(
 
             buffer.Write(chunk, 0, read);
 
-            if (buffer.Length > MaxBytes)
+            if (buffer.Length > maxBytes)
             {
                 return null;
             }

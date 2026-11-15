@@ -225,6 +225,12 @@ public static class CrawlerServiceCollectionExtensions
             s.GetService<ILogger<SlugMinter>>()));
 
         services.TryAddSingleton<ProbeIngestor>();
+        // The connect screen's pictures, written beside the screen (migration 0044). Here rather than
+        // with the web tier, which fetches the addresses and serves the bytes, because the binder is
+        // what writes them, and a binder without a store would quietly keep the pictures of a screen
+        // that stopped drawing them.
+        services.TryAddSingleton<IScreenPictureStore>(
+            s => new NpgsqlScreenPictureStore(s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<CatalogueBinder>();
         // §9's adoption curves. Registered here rather than with the web tier because the pass that
         // writes them runs beside the crawler, and the read side resolves the same one.

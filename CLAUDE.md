@@ -240,6 +240,12 @@ them, so §7.5's "nothing is ever deleted" does not reach either. A failed fetch
 about the game** — no field, no API value, no change-feed entry — and the page renders the monogram
 it would have rendered anyway.
 
+`screen_picture` (migration 0044) may be dropped on the same reasoning: the fact is `connect_screen`,
+and its rows are the pictures that screen draws, rewritten every time a probe reads it. One it names by
+address (an MXP `IMAGE`, once the probe answers `+image`) is fetched by `ScreenPictureRefresher`
+**through `IconFetcher`** with larger ceilings: the same client, gate and single hop, not a third HTTP
+client.
+
 It does write down **that we tried, and when to try again**, and that is a reversal of the original
 rule ("no row, no marker, no attempt counter") worth knowing the reason for. Rule 5 is about a game's
 public record, and none of `icon_attempt` reaches one. What the absolute version produced instead was

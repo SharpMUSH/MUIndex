@@ -78,6 +78,8 @@ public static partial class CodebaseCredits
         ("aresmush", "AresMUSH", Tier.Engine),
         ("ranvier", "Ranvier", Tier.Engine),
         ("rapture runtime", "Rapture", Tier.Engine),
+        // Before PennMUSH: a SharpMUSH screen that credits its compatibility target names both.
+        ("sharpmush", "SharpMUSH", Tier.Engine),
         ("pennmush", "PennMUSH", Tier.Engine),
         ("rhostmush", "RhostMUSH", Tier.Engine),
         ("cobramush", "CobraMUSH", Tier.Engine),

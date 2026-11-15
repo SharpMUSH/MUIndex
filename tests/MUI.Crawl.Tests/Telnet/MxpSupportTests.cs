@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using MarkupString.Ansi;
 using MUI.Crawl;
 
 namespace MUI.Crawl.Tests;
@@ -41,9 +42,11 @@ public class MxpSupportTests
         await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
         await Assert.That(game.Answer).IsNotNull().Because("the server asked, and was waiting");
         await Assert.That(game.Answer!.ToUpperInvariant()).Contains("-IMAGE.URL")
-            .Because("this client renders nothing, so it refuses what it was asked about");
-        await Assert.That(game.Answer!).DoesNotContain("+")
-            .Because("nothing is claimed that the probe does not do");
+            .Because("an attribute is not the element, and the site reads only the element");
+        await Assert.That(game.Answer!.ToUpperInvariant()).Contains("+IMAGE")
+            .Because("the site draws a connect screen's IMAGE, so the probe says so");
+        await Assert.That(game.Answer!.Count(c => c == '+')).IsEqualTo(1)
+            .Because("nothing else is claimed that the site does not do");
         await Assert.That(result.Banner).Contains("Welcome to the Holding Pattern");
         await Assert.That(result.Banner).DoesNotContain("<SUPPORT");
         await Assert.That(result.MxpObserved).IsTrue();
@@ -66,6 +69,42 @@ public class MxpSupportTests
         await Assert.That(result.Banner).Contains("Welcome to the Holding Pattern");
         await Assert.That(result.Banner).DoesNotContain("<SUPPORT");
         await Assert.That(result.MxpObserved).IsTrue();
+    }
+
+    /// <summary>
+    /// A figure sent as MXP once the probe claims <c>+image</c>: the tag comes out of the screen, the
+    /// blank cells after it stay, and the picture is the address it named. SharpMUSH writes exactly
+    /// this — <c>MarkupString.Mxp</c>'s emitter, for a client that answered <c>+image</c>.
+    /// </summary>
+    [Test]
+    public async Task AnImageOverItsCellsIsTakenOutOfTheScreenAsAPicture()
+    {
+        await using var game = new HoldingGame
+        {
+            Screen = "\u001b[1zWelcome to Ravenmoor\r\n"
+                + "\u001b[1z<IMAGE castle.png URL=https://ravenmoor.example/pictures/ W=6c H=3c>      \r\n"
+                + "\u001b[1z      \r\n"
+                + "\u001b[1z      \r\n"
+                + "\u001b[1zconnect &lt;name&gt; &lt;password&gt;\r\n"
+                + "Account name: ",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+        await Assert.That(result.Banner).DoesNotContain("<IMAGE");
+        await Assert.That(result.Banner).Contains("connect <name> <password>")
+            .Because("a decoded entity is the legend's text, not a tag to be dropped");
+
+        var picture = await Assert.That(result.ScreenPictures).HasSingleItem();
+        await Assert.That(picture!.Address).IsEqualTo("https://ravenmoor.example/pictures/castle.png");
+        var lines = result.Banner!.Split('\n');
+        await Assert.That(lines[picture.Line - 1]).Contains("Welcome to Ravenmoor")
+            .Because("the picture is on the line the tag was on, which is the one after the greeting");
+        await Assert.That(AnsiEscapeParser.Parse(lines[picture.Line]).ToPlainText().Trim()).IsEmpty()
+            .Because("the cells the server left for the picture are still there, and still blank");
+        await Assert.That((picture.Column, picture.Columns, picture.Rows)).IsEqualTo((0, 6, 3));
+        await Assert.That(picture.Bytes).IsNull();
     }
 
     /// <summary>

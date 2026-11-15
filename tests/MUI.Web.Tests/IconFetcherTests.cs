@@ -356,6 +356,33 @@ public class IconFetcherTests
         await Assert.That(icon.FetchedAt).IsEqualTo(Now);
     }
 
+    /// <summary>
+    /// A caller's own ceilings replace the icon's and nothing else: a connect screen's picture is
+    /// larger than a favicon, and goes through the same gate to get here.
+    /// </summary>
+    [Test]
+    public async Task ACallersCeilingsReplaceTheIconsAndNothingElse()
+    {
+        var wide = Png(IconFetcher.MaxDimension + 88, 300);
+
+        await AssertNothing(await Fetcher(new StubHandler().Responds(Ok(wide)))
+            .FetchAsync(Game, "https://icons.example.org/screen.png"));
+
+        var result = await Fetcher(new StubHandler().Responds(Ok(wide)))
+            .FetchAsync(Game, "https://icons.example.org/screen.png", null, 1024 * 1024, 4096);
+
+        await Assert.That(result.Outcome).IsEqualTo(IconFetchOutcome.Fetched);
+        await Assert.That(result.Icon!.Width).IsEqualTo(IconFetcher.MaxDimension + 88);
+
+        var refused = new StubHandler();
+        await AssertNothing(await Fetcher(refused, resolving: "10.0.0.5")
+            .FetchAsync(Game, "https://icons.example.org/screen.png", null, 1024 * 1024, 4096));
+        await Assert.That(refused.Requests).IsEmpty();
+
+        await AssertNothing(await Fetcher(new StubHandler().Responds(Ok(wide)))
+            .FetchAsync(Game, "https://icons.example.org/screen.png", null, wide.Length - 1, 4096));
+    }
+
     /// <summary>Nothing came back and nothing is to be written — said once, for the many refusals.</summary>
     private static async Task AssertNothing(IconFetchResult result)
     {
