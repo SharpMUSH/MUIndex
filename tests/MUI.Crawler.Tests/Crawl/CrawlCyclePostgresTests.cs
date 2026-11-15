@@ -901,6 +901,64 @@ public class CrawlCyclePostgresTests
         await Assert.That(endpoints.Select(e => e.GameId).Distinct().Count()).IsEqualTo(1);
     }
 
+    /// <summary>
+    /// A connect screen's pictures are written beside it, keep a fetched address's bytes while the
+    /// screen still names it, and go when a screen is read that draws none.
+    /// </summary>
+    [Test]
+    public async Task AScreensPicturesAreWrittenBesideItAndGoWithIt()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        var source = database.DataSource;
+
+        await SeedAsync(source, new CrawlSeed("mush.example.org", 4201));
+
+        IReadOnlyList<ScreenPicture> pictures =
+        [
+            new(1, 0, 6, 3, "https://ravenmoor.example/pictures/castle.png", null, null),
+            new(5, 2, 2, 1, null, "image/png", [0x89, 0x50, 0x4e, 0x47]),
+        ];
+
+        var probe = new ScriptedProbe(target => Probes.Answered(
+            host: target.Host,
+            port: target.Port,
+            mssp: Probes.Mssp(("NAME", "Ravenmoor")),
+            banner: "Welcome to Ravenmoor\n      \n      \n      \nconnect <name>") with
+        {
+            ScreenPictures = pictures,
+        });
+
+        var cycle = Build(source, probe, new StepClock());
+        await cycle.RunAsync();
+
+        await using var connection = await source.OpenConnectionAsync();
+
+        var rows = (await connection.QueryAsync<(int Ordinal, int Line, int Col, string? Url, string? Type)>(
+            "SELECT ordinal, line, col, source_url, content_type FROM screen_picture ORDER BY ordinal")).ToList();
+
+        await Assert.That(rows).Count().IsEqualTo(2);
+        await Assert.That(rows[0]).IsEqualTo((0, 1, 0, "https://ravenmoor.example/pictures/castle.png", (string?)null));
+        await Assert.That(rows[1]).IsEqualTo((1, 5, 2, (string?)null, "image/png"));
+
+        // The web tier fetched the address; the next probe reads the same screen, and the bytes stay.
+        await connection.ExecuteAsync(
+            "UPDATE screen_picture SET bytes = '\\x47494638'::bytea, content_type = 'image/gif' WHERE ordinal = 0");
+        await MakeDueAsync(source);
+        await cycle.RunAsync();
+
+        await Assert.That(await connection.ExecuteScalarAsync<string>(
+                "SELECT content_type FROM screen_picture WHERE ordinal = 0"))
+            .IsEqualTo("image/gif");
+
+        // Then a screen that draws nothing, and nothing is kept.
+        pictures = [];
+        await MakeDueAsync(source);
+        await cycle.RunAsync();
+
+        await Assert.That(await connection.ExecuteScalarAsync<long>("SELECT count(*) FROM screen_picture"))
+            .IsEqualTo(0L);
+    }
+
     private static async Task MakeDueAsync(NpgsqlDataSource source)
     {
         await using var connection = await source.OpenConnectionAsync();

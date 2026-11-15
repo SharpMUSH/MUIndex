@@ -58,47 +58,62 @@ public static class Render
         bool yielding = false,
         ClaimService? claimService = null,
         HttpContext? http = null,
-        IGameQueries? queries = null)
+        IGameQueries? queries = null,
+        Action<IServiceCollection>? services = null)
         where TComponent : IComponent =>
-        ComponentAsync<TComponent>(parameters, services =>
+        ComponentAsync<TComponent>(parameters, registry =>
         {
-            var fixture = new FixtureGameQueries();
-
-            services.AddSingleton<IGameQueries>(queries ?? (yielding ? new Suspending(fixture) : fixture));
-            services.AddSingleton<IAvailabilityHistory>(fixture);
-            services.AddSingleton(TimeProvider.System);
-
-            // Absent by default, matching the demo fixture's "no database" state — several pages
-            // switch on whether this resolves.
-            if (claimService is not null)
-            {
-                services.AddSingleton(claimService);
-            }
-
-            // The demo path's own answer: no crawler behind a fixture, so the strip renders nothing
-            // rather than an unmeasured heartbeat.
-            services.AddSingleton<ICrawlerPulse, NoCrawlerPulse>();
-
-            // The stored rows, for surfaces that read a game rather than a game page — claiming, and
-            // the submission form's link. Registered only when a caller supplies them.
-            if (games is not null)
-            {
-                services.AddSingleton<IGameStore>(new StubGameStore(games));
-            }
-
-            // Whether a database is configured, which several surfaces switch on: claiming and
-            // submitting are absent over the fixture rather than present and unable to do anything.
-            services.AddSingleton(new CatalogueSource(measured));
-            services.AddSingleton<NavigationManager>(new StubNavigation(query));
-            services.AddSingleton<AntiforgeryStateProvider, StubAntiforgery>();
-
-            // Absent by default, matching a component rendered with no HttpContext at all. Supplied
-            // only by a caller with something to ask of the request, e.g. an Accept-Language header.
-            if (http is not null)
-            {
-                services.AddCascadingValue(_ => http);
-            }
+            ConfigurePage(registry, query, measured, games, yielding, claimService, http, queries);
+            services?.Invoke(registry);
         });
+
+    private static void ConfigurePage(
+        IServiceCollection services,
+        string query,
+        bool measured,
+        IReadOnlyList<GameRecord>? games,
+        bool yielding,
+        ClaimService? claimService,
+        HttpContext? http,
+        IGameQueries? queries)
+    {
+        var fixture = new FixtureGameQueries();
+
+        services.AddSingleton<IGameQueries>(queries ?? (yielding ? new Suspending(fixture) : fixture));
+        services.AddSingleton<IAvailabilityHistory>(fixture);
+        services.AddSingleton(TimeProvider.System);
+
+        // Absent by default, matching the demo fixture's "no database" state — several pages
+        // switch on whether this resolves.
+        if (claimService is not null)
+        {
+            services.AddSingleton(claimService);
+        }
+
+        // The demo path's own answer: no crawler behind a fixture, so the strip renders nothing
+        // rather than an unmeasured heartbeat.
+        services.AddSingleton<ICrawlerPulse, NoCrawlerPulse>();
+
+        // The stored rows, for surfaces that read a game rather than a game page — claiming, and
+        // the submission form's link. Registered only when a caller supplies them.
+        if (games is not null)
+        {
+            services.AddSingleton<IGameStore>(new StubGameStore(games));
+        }
+
+        // Whether a database is configured, which several surfaces switch on: claiming and
+        // submitting are absent over the fixture rather than present and unable to do anything.
+        services.AddSingleton(new CatalogueSource(measured));
+        services.AddSingleton<NavigationManager>(new StubNavigation(query));
+        services.AddSingleton<AntiforgeryStateProvider, StubAntiforgery>();
+
+        // Absent by default, matching a component rendered with no HttpContext at all. Supplied
+        // only by a caller with something to ask of the request, e.g. an Accept-Language header.
+        if (http is not null)
+        {
+            services.AddCascadingValue(_ => http);
+        }
+    }
 
     /// <summary>
     /// The fixture's answers, delivered on a later turn of the scheduler.

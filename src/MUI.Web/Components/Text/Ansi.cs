@@ -81,7 +81,13 @@ public static class Ansi
         "#555555", "#ff5555", "#55ff55", "#ffff55", "#5555ff", "#ff55ff", "#55ffff", "#ffffff",
     ];
 
-    public static AnsiScreen Parse(string? raw, bool suppressedByOwner)
+    /// <param name="raw">The stored screen, as sent.</param>
+    /// <param name="suppressedByOwner">Whether the game's owner has hidden it.</param>
+    /// <param name="drawnLines">
+    /// The screen's lines a picture is drawn over. They count as drawn although their cells are
+    /// blank: a screen that is one large picture and a login prompt is not a screen with nothing on it.
+    /// </param>
+    public static AnsiScreen Parse(string? raw, bool suppressedByOwner, IReadOnlySet<int>? drawnLines = null)
     {
         // The owner's choice is a fact about us, not the game — answered before parsing, never
         // dressed up as an empty or broken screen.
@@ -96,7 +102,8 @@ public static class Ansi
         }
 
         var rows = Layout(raw, Grid(raw));
-        var substantial = rows.Count(r => r.Text.Trim().Length > 0);
+        var substantial = rows.Count(r =>
+            r.Text.Trim().Length > 0 || (r.Offset == 0 && drawnLines?.Contains(r.Line) == true));
 
         // Below three rows there is nothing to show, and a frame around it would be a layout hole
         // pretending to be evidence.
@@ -215,6 +222,13 @@ public static class Ansi
         var emitted = style;
         var column = 0;
 
+        // Where each row came from: the screen's own line, and how many cells of it earlier rows
+        // took. A row the frame wrapped is still part of the line the game sent, and a picture is
+        // placed by the game's line and cell (ScreenPictures), not by the frame's row.
+        var line = 0;
+        var offset = 0;
+        var cellsOnLine = 0;
+
         void FlushRun()
         {
             if (text.Length == 0)
@@ -226,12 +240,20 @@ public static class Ansi
             text.Clear();
         }
 
-        void FlushRow()
+        void FlushRow(bool endsLine = false)
         {
             FlushRun();
-            rows.Add(new AnsiRow(runs.ToArray()));
+            rows.Add(new AnsiRow(runs.ToArray()) { Line = line, Offset = offset });
             runs = [];
             column = 0;
+
+            if (endsLine)
+            {
+                line++;
+                cellsOnLine = 0;
+            }
+
+            offset = cellsOnLine;
         }
 
         for (var i = 0; i < raw.Length; i++)
@@ -249,7 +271,7 @@ public static class Ansi
                 case '\r':
                     continue;
                 case '\n':
-                    FlushRow();
+                    FlushRow(endsLine: true);
                     continue;
                 case '\t':
                 {
@@ -314,6 +336,7 @@ public static class Ansi
 
             text.Append(glyph);
             column += cells;
+            cellsOnLine += cells;
         }
     }
 
@@ -569,6 +592,16 @@ public sealed record AnsiRun(string Text, AnsiStyle Style);
 
 public sealed record AnsiRow(IReadOnlyList<AnsiRun> Runs)
 {
+    /// <summary>The screen's own line this row is drawn from, from 0.</summary>
+    /// <remarks>
+    /// Not the row's index: a line wider than the frame's grid is drawn as several rows, each with
+    /// this line's number and a larger <see cref="Offset"/>.
+    /// </remarks>
+    public int Line { get; init; }
+
+    /// <summary>How many cells of <see cref="Line"/> the rows before this one drew.</summary>
+    public int Offset { get; init; }
+
     public string Text => string.Concat(Runs.Select(r => r.Text));
 
     /// <summary>
@@ -646,3 +679,9 @@ public sealed record AnsiScreen(AnsiScreenState State, IReadOnlyList<AnsiRow> Ro
     /// <summary>Whether any rune anywhere on the screen is drawn two cells wide.</summary>
     public bool HasWideRunes => Rows.Any(r => r.HasWideRunes);
 }
+
+/// <summary>
+/// One picture to draw over the quoted screen: where the game put it, in its own lines and cells,
+/// and the address on this site that serves it.
+/// </summary>
+public sealed record ScreenOverlay(string Url, int Line, int Column, int Columns, int Rows);

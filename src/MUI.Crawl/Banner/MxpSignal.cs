@@ -24,6 +24,14 @@ public static partial class MxpSignal
     public static bool IsPresent(string? text) =>
         !string.IsNullOrEmpty(text) && (LineModePattern().IsMatch(text) || TagPattern().IsMatch(text));
 
+    /// <summary>Whether this text carries MXP's line-mode sequences, the one conclusive tell.</summary>
+    /// <remarks>
+    /// The tags alone are not enough to treat a tag as a tag: a game that never spoke MXP and prints
+    /// <c>&lt;IMAGE&gt;</c> has printed a word.
+    /// </remarks>
+    public static bool HasLineModes(string? text) =>
+        !string.IsNullOrEmpty(text) && LineModePattern().IsMatch(text);
+
     /// <summary>
     /// The text with MXP's own markup removed, so a fingerprint is taken over what a player would
     /// see.

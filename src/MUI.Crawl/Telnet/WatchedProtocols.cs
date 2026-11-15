@@ -96,8 +96,12 @@ internal static class Watched
     /// this client, and CoffeeMud holds its connect screen for three seconds waiting for the reply
     /// (<c>DefaultSession.HandshakeCallback</c>, <c>HANDSHAKE_MXPPAUSE</c>). Unanswered, the probe
     /// settled on the questions themselves, stored them as the game's connect screen, and read the
-    /// real screen into the WHO phase. The answer is the truth: this client renders nothing, so every
-    /// entry asked about is refused, and a bare <c>&lt;SUPPORT&gt;</c> gets a reply that claims nothing.
+    /// real screen into the WHO phase. The answer is the truth, and it has one entry: <c>image</c>,
+    /// because the site draws a connect screen's <c>IMAGE</c> over the cells the server left for it
+    /// (<see cref="ScreenPictures"/>). Every other entry asked about is refused, and a bare
+    /// <c>&lt;SUPPORT&gt;</c> is answered with <c>+image</c> alone. Claiming it is what makes a
+    /// SharpMUSH send the picture's address rather than half-block art: its MXP writer sends
+    /// <c>IMAGE</c> only to a client that answered <c>+image</c>.
     /// It goes out on a secure line, which a server reads as protocol rather than as typing.
     /// <para>
     /// Entities are decoded too. A server in MXP mode must escape <c>"</c>, <c>&amp;</c>, <c>&lt;</c>
@@ -114,7 +118,7 @@ internal static class Watched
         public Mxp(Action<string> note)
         {
             _note = note;
-            OnMxpSupportRequested(asked => SendSupportsAsync([], asked));
+            OnMxpSupportRequested(asked => SendSupportsAsync(Supported(asked), Refused(asked)));
             DecodeEntities();
         }
 
@@ -123,6 +127,25 @@ internal static class Watched
             _note(ProtocolName);
             return base.OnEnabledAsync();
         }
+
+        /// <summary>The one element this client draws.</summary>
+        internal const string Image = "image";
+
+        /// <summary>
+        /// What to claim: <c>image</c>, when it was asked about or nothing in particular was.
+        /// </summary>
+        /// <remarks>
+        /// The element and not its arguments: <c>image.url</c> is a question about one attribute, and
+        /// the answer to <c>image</c> already covers what the site reads.
+        /// </remarks>
+        internal static IReadOnlyList<string> Supported(IReadOnlyList<string> asked) =>
+            asked.Count == 0 || asked.Any(IsImage) ? [Image] : [];
+
+        /// <summary>Everything else asked about.</summary>
+        internal static IReadOnlyList<string> Refused(IReadOnlyList<string> asked) =>
+            [.. asked.Where(entry => !IsImage(entry))];
+
+        private static bool IsImage(string entry) => entry.Equals(Image, StringComparison.OrdinalIgnoreCase);
     }
 
     internal sealed class Eor(Action<string> note) : EORProtocol

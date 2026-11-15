@@ -107,6 +107,12 @@
     [Parameter] public string? Charset { get; set; }
 
     /// <summary>
+    /// The pictures the screen draws over its own cells, placed by the game's line and cell. Empty for
+    /// almost every game, and for one whose owner hid the screen.
+    /// </summary>
+    [Parameter] public IReadOnlyList<ScreenOverlay> Pictures { get; set; } = [];
+
+    /// <summary>
     /// The language tag the screen is rendered under, so a browser picks the right regional Han
     /// forms. Null leaves the attribute off entirely and the page's own lang stands.
     /// </summary>
@@ -176,5 +182,57 @@
 
             builder.AddContent(sequence++, "\n");
         }
+
+        // Inside the <pre>, so 1ch and 1lh are the screen's own cell. Absolutely positioned, so they
+        // take no room in the text: the cells the game left blank for the picture are still there
+        // underneath, and are what a reader without images sees. alt is empty because the frame's
+        // label and "read as text" already stand for the whole screen; a picture of a stranger's
+        // art is not ours to describe (rule 5).
+        var list = rows as IReadOnlyList<AnsiRow> ?? [.. rows];
+
+        foreach (var picture in Pictures)
+        {
+            if (Place(list, picture) is not { } at)
+            {
+                continue;
+            }
+
+            builder.OpenElement(sequence++, "img");
+            builder.AddAttribute(sequence++, "class", "screen-picture");
+            builder.AddAttribute(sequence++, "src", picture.Url);
+            builder.AddAttribute(sequence++, "alt", "");
+            builder.AddAttribute(sequence++, "loading", "lazy");
+            builder.AddAttribute(sequence++, "decoding", "async");
+            builder.AddAttribute(sequence++, "style",
+                FormattableString.Invariant(
+                    $"--row:{at.Row};--col:{at.Column};--cols:{picture.Columns};--rows:{picture.Rows}"));
+            builder.CloseElement();
+        }
     };
+
+    /// <summary>
+    /// The frame's row and cell a picture starts at, or null where the screen no longer has its line.
+    /// </summary>
+    /// <remarks>
+    /// The game placed it by its own line and cell; the frame may have wrapped that line into several
+    /// rows, so the row is the last one of that line starting at or before the picture's cell.
+    /// </remarks>
+    internal static (int Row, int Column)? Place(IReadOnlyList<AnsiRow> rows, ScreenOverlay picture)
+    {
+        (int Row, int Column)? found = null;
+
+        for (var i = 0; i < rows.Count; i++)
+        {
+            if (rows[i].Line == picture.Line && rows[i].Offset <= picture.Column)
+            {
+                found = (i, picture.Column - rows[i].Offset);
+            }
+            else if (rows[i].Line > picture.Line)
+            {
+                break;
+            }
+        }
+
+        return found;
+    }
 }

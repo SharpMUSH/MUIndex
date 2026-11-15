@@ -76,6 +76,7 @@ public static class SiteComposition
             // After AddMuiCrawler, which owns §7.2's address gate and the contact address the icon
             // client announces — both reused rather than restated.
             services.AddMuiIcons();
+            services.AddMuiScreenPictures();
 
             // The authenticated MCP endpoint that replaces the ssh/scp/mui-crawl administration
             // dance (CLAUDE.md). After AddMuiAccounts, so the default authentication scheme it sets
@@ -199,6 +200,7 @@ public static class SiteComposition
 
             // Served from this origin so a reader's address is never spent on a third-party host.
             app.MapMuiIcons();
+            app.MapMuiScreenPictures();
 
             // The MCP route. Inside the guard for the same reason as the two above: every tool needs
             // the Postgres-backed crawler graph, and there is nothing for this route to do against

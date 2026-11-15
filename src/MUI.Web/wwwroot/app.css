@@ -1683,6 +1683,17 @@ figure.ansi .quote pre {
    block the run is exactly one line tall whatever face the reader's device picks. Runs never span
    a row (Paint closes each at the newline), so nothing here can wrap or reflow. */
 figure.ansi .quote pre span { display: inline-block; }
+/* A picture the screen draws (sixel, Kitty, iTerm2, MXP IMAGE) over the cells the game left blank
+   for it. Placed in the screen's own units — 1ch is a cell's width and 1lh a row's height in this
+   pre — so it lands on the same cells at whatever size the reader's font draws them. The offsets
+   are the pre's padding above. Stretched to the cells, as a terminal does, rather than kept at its
+   own pixels: the game laid the screen out in cells and never knew our pixels. */
+figure.ansi .quote pre { position: relative; }
+figure.ansi .quote pre img.screen-picture {
+    position: absolute;
+    top: calc(14px + var(--row) * 1lh); left: calc(16px + var(--col) * 1ch);
+    width: calc(var(--cols) * 1ch); height: calc(var(--rows) * 1lh);
+}
 figure.ansi.wide pre { font-family: var(--mono-cjk); }
 /*
   The same grid for every reader, wherever their fonts came from. Han, box drawing, ● and the

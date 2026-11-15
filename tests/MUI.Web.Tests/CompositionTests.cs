@@ -180,6 +180,10 @@ public class CompositionTests
         // And the refresher is actually hosted, not merely constructible — otherwise the cache stays
         // empty forever.
         await Assert.That(provider.GetServices<IHostedService>().OfType<IconRefresher>()).IsNotEmpty();
+
+        // The connect screen's pictures ride the same fetcher, and need their own loop hosted too.
+        await Assert.That(provider.GetRequiredService<IScreenPictureStore>()).IsNotNull();
+        await Assert.That(provider.GetServices<IHostedService>().OfType<ScreenPictureRefresher>()).IsNotEmpty();
     }
 
     /// <summary>

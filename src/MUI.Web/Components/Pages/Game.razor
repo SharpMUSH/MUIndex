@@ -216,7 +216,8 @@ else
             <AnsiQuote Screen="ConnectScreen" CapturedAt="Captured" Now="Now"
                        Name="@Page.Summary.Name"
                        Frozen="@(Archived || Unlisted)"
-                       Charset="@Page.ConnectScreenCharset" />
+                       Charset="@Page.ConnectScreenCharset"
+                       Pictures="ScreenPictures" />
         </section>
 
             <section aria-labelledby="activity-heading">
@@ -442,6 +443,9 @@ else
     private ArchiveEntry Entry = default!;
     private AnsiScreen ConnectScreen = default!;
 
+    /// <summary>The pictures the connect screen draws, where there are any we hold.</summary>
+    private IReadOnlyList<ScreenOverlay> ScreenPictures = [];
+
     private DateTimeOffset Now => Clock.GetUtcNow();
 
     /// <summary>
@@ -515,7 +519,19 @@ else
         var intervals = await History.ForGameAsync(Page.Summary.Id);
         Reach = ReachSeries.Build(intervals, Now);
         Entry = ArchiveEntry.For(Page.Summary, intervals, Now);
-        ConnectScreen = Ansi.Parse(Page.ConnectScreen, Page.ConnectScreenSuppressed);
+        // Service-located like the icon store: the demo fixture has no pictures, and a screen the
+        // owner hid has none to show either — not asked for at all, rather than fetched and dropped.
+        ScreenPictures = !Page.ConnectScreenSuppressed
+            && Services.GetService<IScreenPictureStore>() is { } pictures
+            ? [.. (await pictures.ForGameAsync(Page.Summary.Id)).Select(p => new ScreenOverlay(
+                Icons.ScreenPictureEndpoint.For(Page.Summary.Slug, p.Ordinal, p.Version),
+                p.Line, p.Column, p.Columns, p.Rows))]
+            : [];
+
+        ConnectScreen = Ansi.Parse(
+            Page.ConnectScreen,
+            Page.ConnectScreenSuppressed,
+            ScreenPictures.SelectMany(p => Enumerable.Range(p.Line, p.Rows)).ToHashSet());
     }
 
     /// <summary>The locale this page is being answered in.</summary>

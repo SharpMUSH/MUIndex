@@ -1143,7 +1143,13 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             || PuebloSignal.IsPresent(infoSent)
             || PuebloSignal.IsPresent(versionSent);
 
-        var banner = pueblo ? PuebloSignal.StripKnown(asSent) : asSent;
+        // The pictures before anything else reads the screen: a sixel is a line of base64 to every
+        // reader below, and the rewritten screen keeps blank cells where each picture is drawn.
+        var pictures = ScreenPictures.Read(
+            pueblo ? PuebloSignal.StripKnown(asSent) : asSent,
+            mxp: seen.Supported.Any(protocol => protocol.StartsWith("MXP", StringComparison.OrdinalIgnoreCase))
+                || MxpSignal.HasLineModes(asSent));
+        var banner = pictures.Banner;
         var whoText = pueblo ? PuebloSignal.StripKnown(whoSent) : whoSent;
         var infoText = pueblo ? PuebloSignal.StripKnown(infoSent) : infoSent;
         var versionText = pueblo ? PuebloSignal.StripKnown(versionSent) : versionSent;
@@ -1166,6 +1172,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             ReadAs = reading.Charset,
             CharsetSource = reading.Source,
             Banner = banner,
+            ScreenPictures = pictures.Pictures,
 
             // Every phase, not just the banner: a server may answer the connect screen in plain
             // text and then mark up its WHO table, and one occurrence anywhere is the same fact.
