@@ -11,7 +11,7 @@ public class WebSocketProbeTests
     [Test]
     public async Task ABridgeThatRefusesUnknownSubprotocolsUpgradesTheProbe()
     {
-        // websockify answers 400 to a subprotocol it does not know; the probe offers none.
+        // websockify answers 400 to a subprotocol it does not know; the probe asks again offering none.
         await using var bridge = Bridge.Start(refuseAnyOffer: true);
 
         var handshake = await new WebSocketProbe().HandshakeAsync(
@@ -19,8 +19,40 @@ public class WebSocketProbeTests
             [IPAddress.Loopback]);
 
         await Assert.That(handshake.Answered).IsTrue();
+        await Assert.That(handshake.SubProtocol).IsNull();
         await Assert.That(bridge.Paths).Contains("/ws/telnet/");
-        await Assert.That(bridge.Offers).Contains((string?)null);
+        await Assert.That(bridge.Offers.Count).IsEqualTo(2);
+        await Assert.That(bridge.Offers[0]).IsEqualTo(string.Join(", ", WebSocketProbe.Offered));
+        await Assert.That(bridge.Offers[1]).IsNull();
+    }
+
+    [Test]
+    public async Task TheSubprotocolTheServerChoseIsReported()
+    {
+        // Evennia 6.1 chooses terminal.mudstandards.org from the offer and never telnet.
+        await using var bridge = Bridge.Start(choose: "terminal.mudstandards.org");
+
+        var handshake = await new WebSocketProbe().HandshakeAsync(
+            new WebSocketAddress("localhost", bridge.Port, false, "/"),
+            [IPAddress.Loopback]);
+
+        await Assert.That(handshake.Answered).IsTrue();
+        await Assert.That(handshake.SubProtocol).IsEqualTo("terminal.mudstandards.org");
+        await Assert.That(bridge.Offers.Count).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task AServerThatIgnoresTheOfferUpgradesWithNoSubprotocolAtOnce()
+    {
+        await using var bridge = Bridge.Start();
+
+        var handshake = await new WebSocketProbe().HandshakeAsync(
+            new WebSocketAddress("localhost", bridge.Port, false, "/"),
+            [IPAddress.Loopback]);
+
+        await Assert.That(handshake.Answered).IsTrue();
+        await Assert.That(handshake.SubProtocol).IsNull();
+        await Assert.That(bridge.Offers.Count).IsEqualTo(1);
     }
 
     [Test]
@@ -34,6 +66,7 @@ public class WebSocketProbeTests
 
         await Assert.That(handshake.Answered).IsFalse();
         await Assert.That(handshake.Detail).IsEqualTo("HTTP 400");
+        await Assert.That(bridge.Offers.Count).IsEqualTo(2);
     }
 
     [Test]
@@ -78,10 +111,10 @@ public class WebSocketProbeTests
         private readonly CancellationTokenSource _stop = new();
         private readonly Task _loop;
 
-        private Bridge(TcpListener listener, bool refuseAnyOffer, bool refuseEverything)
+        private Bridge(TcpListener listener, bool refuseAnyOffer, bool refuseEverything, string? choose)
         {
             _listener = listener;
-            _loop = Task.Run(() => AcceptAsync(refuseAnyOffer, refuseEverything));
+            _loop = Task.Run(() => AcceptAsync(refuseAnyOffer, refuseEverything, choose));
         }
 
         public int Port => ((IPEndPoint)_listener.LocalEndpoint).Port;
@@ -90,14 +123,14 @@ public class WebSocketProbeTests
 
         public List<string?> Offers { get; } = [];
 
-        public static Bridge Start(bool refuseAnyOffer = false, bool refuseEverything = false)
+        public static Bridge Start(bool refuseAnyOffer = false, bool refuseEverything = false, string? choose = null)
         {
             var listener = new TcpListener(IPAddress.Loopback, 0);
             listener.Start();
-            return new Bridge(listener, refuseAnyOffer, refuseEverything);
+            return new Bridge(listener, refuseAnyOffer, refuseEverything, choose);
         }
 
-        private async Task AcceptAsync(bool refuseAnyOffer, bool refuseEverything)
+        private async Task AcceptAsync(bool refuseAnyOffer, bool refuseEverything, string? choose)
         {
             while (!_stop.IsCancellationRequested)
             {
@@ -140,8 +173,12 @@ public class WebSocketProbeTests
                     {
                         var accept = Convert.ToBase64String(SHA1.HashData(Encoding.ASCII.GetBytes(
                             Header("Sec-WebSocket-Key") + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")));
+                        var chosen = choose is not null && offer is not null
+                            && offer.Split(',').Select(o => o.Trim()).Contains(choose, StringComparer.Ordinal)
+                            ? $"Sec-WebSocket-Protocol: {choose}\r\n"
+                            : string.Empty;
                         response = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
-                            + $"Sec-WebSocket-Accept: {accept}\r\n\r\n";
+                            + $"Sec-WebSocket-Accept: {accept}\r\n{chosen}\r\n";
                     }
 
                     await stream.WriteAsync(Encoding.ASCII.GetBytes(response));

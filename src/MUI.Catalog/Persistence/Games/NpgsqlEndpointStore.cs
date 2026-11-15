@@ -9,7 +9,7 @@ public sealed class NpgsqlEndpointStore(NpgsqlDataSource source) : IEndpointStor
 {
     private const string Columns = """
         game_id AS GameId, host AS Host, port AS Port, kind AS Kind,
-        first_seen_at AS FirstSeenAt, last_seen_at AS LastSeenAt, state AS State, path AS Path
+        first_seen_at AS FirstSeenAt, last_seen_at AS LastSeenAt, state AS State, path AS Path, subprotocol AS SubProtocol
         """;
 
     public async Task<IReadOnlyList<GameEndpoint>> ForGameAsync(
@@ -99,11 +99,12 @@ public sealed class NpgsqlEndpointStore(NpgsqlDataSource source) : IEndpointStor
         // how long we have known the address, not how long the current answer has been true.
         await connection.ExecuteAsync(new CommandDefinition(
             """
-            INSERT INTO game_endpoint (game_id, host, port, kind, first_seen_at, last_seen_at, state, path)
-            VALUES (@gameId, @host, @port, @kind, @firstSeenAt, @lastSeenAt, @state, @path)
+            INSERT INTO game_endpoint (game_id, host, port, kind, first_seen_at, last_seen_at, state, path, subprotocol)
+            VALUES (@gameId, @host, @port, @kind, @firstSeenAt, @lastSeenAt, @state, @path, @subprotocol)
             ON CONFLICT (game_id, host, port) DO UPDATE
                SET kind = EXCLUDED.kind,
                    path = EXCLUDED.path,
+                   subprotocol = EXCLUDED.subprotocol,
                    last_seen_at = GREATEST(game_endpoint.last_seen_at, EXCLUDED.last_seen_at),
                    state = EXCLUDED.state
             """,
@@ -117,6 +118,7 @@ public sealed class NpgsqlEndpointStore(NpgsqlDataSource source) : IEndpointStor
                 lastSeenAt = endpoint.LastSeenAt.ToUniversalTime(),
                 state = SqlEnums.ToDb(endpoint.State),
                 path = endpoint.Path,
+                subprotocol = endpoint.SubProtocol,
             },
             cancellationToken: cancellationToken));
     }
@@ -139,8 +141,10 @@ public sealed class NpgsqlEndpointStore(NpgsqlDataSource source) : IEndpointStor
 
         public string? Path { get; init; }
 
+        public string? SubProtocol { get; init; }
+
         public GameEndpoint ToRecord() => new(
             GameId, Host, Port, SqlEnums.ToEndpointKind(Kind), FirstSeenAt, LastSeenAt,
-            SqlEnums.ToEndpointState(State), Path);
+            SqlEnums.ToEndpointState(State), Path, SubProtocol);
     }
 }

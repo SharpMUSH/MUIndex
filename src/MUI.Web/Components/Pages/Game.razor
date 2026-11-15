@@ -101,6 +101,11 @@ else
                         {
                             <span class="state-present">● tls</span>
                         }
+                        @* What a client must speak once connected: the server's own choice, a name, not prose. *@
+                        @if (e.SubProtocol is { } subProtocol)
+                        {
+                            <span class="faint">@subProtocol</span>
+                        }
                         @if (e.IsCurrent)
                         {
                             <span class="faint">@L("game.answeringSince", ("date", Dates.Absolute(Http.LocaleOf().Tag, e.FirstSeenAt)))</span>

@@ -157,7 +157,8 @@ public sealed partial class NpgsqlGameQueries
                     e.FirstSeenAt,
                     e.LastSeenAt,
                     SqlEnums.ToDb(e.State),
-                    e.Path))
+                    e.Path,
+                    e.SubProtocol))
                 .ToList(),
             ConnectScreen: Winner(fields, InternalFields.ConnectScreen)?.Value,
             ConnectScreenSuppressed: string.Equals(

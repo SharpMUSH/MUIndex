@@ -26,7 +26,7 @@ public class WebSocketEndpointPostgresTests
         mssp: Probes.Mssp(("NAME", "Multi-Users in Middle-earth"), ("WEBSOCKET", value)),
         banner: "Welcome to MUME"));
 
-    private sealed class Handshakes(bool answer) : IWebSocketProbe
+    private sealed class Handshakes(bool answer, string? subProtocol = null) : IWebSocketProbe
     {
         public ConcurrentQueue<(WebSocketAddress Address, IReadOnlyList<IPAddress> Addresses)> Asked { get; } = [];
 
@@ -36,7 +36,7 @@ public class WebSocketEndpointPostgresTests
             CancellationToken cancellationToken = default)
         {
             Asked.Enqueue((address, addresses));
-            return Task.FromResult(answer ? WebSocketHandshake.Upgraded : new WebSocketHandshake(false, "HTTP 502"));
+            return Task.FromResult(answer ? WebSocketHandshake.UpgradedWith(subProtocol) : new WebSocketHandshake(false, "HTTP 502"));
         }
     }
 
@@ -69,6 +69,27 @@ public class WebSocketEndpointPostgresTests
 
         // And dialled at the address the scope guard ruled on, not at a second lookup.
         await Assert.That(handshakes.Asked.Single().Addresses.Single()).IsEqualTo(IPAddress.Parse("198.51.100.7"));
+    }
+
+    [Test]
+    public async Task TheSubprotocolTheServerChoseIsKeptWithTheEndpoint()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        var source = database.DataSource;
+
+        await CrawlCycles.SeedAsync(source, new CrawlSeed("mume.org", 4242));
+
+        await CrawlCycles.Build(
+                source, Declaring("wss://mume.org/ws-play/"), TimeProvider.System,
+                options: CrawlCycles.Confirming(),
+                webSockets: new Handshakes(answer: true, subProtocol: "terminal.mudstandards.org"))
+            .RunAsync();
+
+        await using var connection = await source.OpenConnectionAsync();
+
+        await Assert.That(await connection.ExecuteScalarAsync<string>(
+                "SELECT subprotocol FROM game_endpoint WHERE host = 'mume.org' AND port = 443"))
+            .IsEqualTo("terminal.mudstandards.org");
     }
 
     [Test]

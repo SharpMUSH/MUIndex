@@ -12,6 +12,12 @@
 -- observed, and the writer refuses an address another game holds rather than taking it.
 ALTER TABLE game_endpoint ADD COLUMN path text;
 
+-- The subprotocol the server chose when the handshake offered the mudstandards.org names, or null
+-- when it chose none. It is the measurement that says what a client must speak once connected:
+-- Evennia answers telnet bytes on a socket with no subprotocol as malformed JSON, and only the chosen
+-- name tells a client that the socket is not telnet.
+ALTER TABLE game_endpoint ADD COLUMN subprotocol text;
+
 -- Nothing has written 'websocket' yet, but a row that did would otherwise fail the CHECK below.
 UPDATE game_endpoint SET path = '/' WHERE kind = 'websocket' AND path IS NULL;
 
@@ -26,3 +32,8 @@ ALTER TABLE game_endpoint ADD CONSTRAINT game_endpoint_path_only_on_websockets
 -- and a bound. The value comes from a game's MSSP, so it is somebody else's text.
 ALTER TABLE game_endpoint ADD CONSTRAINT game_endpoint_path_is_a_path
     CHECK (path IS NULL OR (path ~ '^/[!-~]*$' AND length(path) <= 256));
+
+-- Only a WebSocket has a subprotocol, and it is an RFC 6455 token: one the probe offered, so short.
+ALTER TABLE game_endpoint ADD CONSTRAINT game_endpoint_subprotocol_only_on_websockets
+    CHECK (subprotocol IS NULL OR (kind IN ('websocket', 'wss')
+        AND subprotocol ~ '^[!#-''*+.0-9A-Z^-z|~-]+$' AND length(subprotocol) <= 64));

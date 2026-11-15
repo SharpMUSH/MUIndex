@@ -100,6 +100,11 @@ public enum PlayerCountState
 /// <remarks><c>state</c> is the catalogue's own word (<c>active</c>/<c>stale</c>/<c>gone</c>), not a threshold applied here, so this can't disagree with the page.</remarks>
 /// <param name="Kind"><c>telnet</c>, <c>tls</c> or <c>websocket</c>; a <c>wss://</c> endpoint is <c>websocket</c> with <c>tlsMeasured</c>.</param>
 /// <param name="Path">A WebSocket's request path, such as <c>/ws-play/</c>; absent for telnet.</param>
+/// <param name="SubProtocol">
+/// The WebSocket subprotocol the server chose when offered the mudstandards.org names
+/// (<c>telnet.mudstandards.org</c>, <c>terminal.mudstandards.org</c>, …); absent when it chose none, which
+/// is what a bare telnet bridge such as websockify does, and for telnet.
+/// </param>
 public sealed record EndpointView(
     string Host,
     int Port,
@@ -108,7 +113,8 @@ public sealed record EndpointView(
     DateTimeOffset FirstSeenAt,
     DateTimeOffset LastSeenAt,
     string State,
-    string? Path = null);
+    string? Path = null,
+    string? SubProtocol = null);
 
 public sealed record ChangeView(DateTimeOffset At, string Summary);
 

@@ -957,7 +957,7 @@ public class GameQueriesPostgresTests
         var endpoints = new NpgsqlEndpointStore(db.DataSource);
 
         await endpoints.UpsertAsync(new GameEndpoint(
-            game, "mume.org", 443, EndpointKind.SecureWebSocket, Now, Now, EndpointState.Active, "/ws-play/"));
+            game, "mume.org", 443, EndpointKind.SecureWebSocket, Now, Now, EndpointState.Active, "/ws-play/", "telnet.mudstandards.org"));
         await endpoints.UpsertAsync(new GameEndpoint(
             game, "mume.org", 8080, EndpointKind.WebSocket, Now, Now, EndpointState.Active, "/"));
 
@@ -970,6 +970,8 @@ public class GameQueriesPostgresTests
         await Assert.That(secure.TlsMeasured).IsTrue();
         await Assert.That(secure.Path).IsEqualTo("/ws-play/");
         await Assert.That(secure.Url).IsEqualTo("wss://mume.org:443/ws-play/");
+        await Assert.That(secure.SubProtocol).IsEqualTo("telnet.mudstandards.org");
+        await Assert.That(plain.SubProtocol).IsNull();
         await Assert.That(plain.TlsMeasured).IsFalse();
         await Assert.That(plain.Url).IsEqualTo("ws://mume.org:8080/");
     }
@@ -989,6 +991,21 @@ public class GameQueriesPostgresTests
             .Throws<Npgsql.PostgresException>();
         await Assert.That(async () => await endpoints.UpsertAsync(new GameEndpoint(
                 game, "mume.org", 443, EndpointKind.SecureWebSocket, Now, Now, EndpointState.Active, "ws play")))
+            .Throws<Npgsql.PostgresException>();
+    }
+
+    [Test]
+    public async Task OnlyAWebSocketEndpointCarriesASubprotocolAndItIsAToken()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var endpoints = new NpgsqlEndpointStore(db.DataSource);
+
+        await Assert.That(async () => await endpoints.UpsertAsync(new GameEndpoint(
+                game, "mume.org", 4242, EndpointKind.Telnet, Now, Now, EndpointState.Active, null, "telnet.mudstandards.org")))
+            .Throws<Npgsql.PostgresException>();
+        await Assert.That(async () => await endpoints.UpsertAsync(new GameEndpoint(
+                game, "mume.org", 443, EndpointKind.SecureWebSocket, Now, Now, EndpointState.Active, "/", "two words")))
             .Throws<Npgsql.PostgresException>();
     }
 

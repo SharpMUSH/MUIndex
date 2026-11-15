@@ -143,7 +143,9 @@ public class GameApiTests
 
         await Assert.That(socket.GetProperty("path").GetString()).IsEqualTo("/play/");
         await Assert.That(socket.GetProperty("tlsMeasured").GetBoolean()).IsTrue();
+        await Assert.That(socket.GetProperty("subProtocol").GetString()).IsEqualTo("telnet.mudstandards.org");
         await Assert.That(telnet.GetProperty("path").ValueKind).IsEqualTo(System.Text.Json.JsonValueKind.Null);
+        await Assert.That(telnet.GetProperty("subProtocol").ValueKind).IsEqualTo(System.Text.Json.JsonValueKind.Null);
     }
 
     /// <summary>A suppressed screen is withheld here as well as on the page (spec §11).</summary>

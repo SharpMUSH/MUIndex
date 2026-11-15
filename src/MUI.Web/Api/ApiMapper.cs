@@ -193,7 +193,8 @@ public static class ApiMapper
         endpoint.FirstSeenAt,
         endpoint.LastSeenAt,
         endpoint.State,
-        endpoint.Path);
+        endpoint.Path,
+        endpoint.SubProtocol);
 
     public static FeedEntryView Feed(FeedEntry entry) => new(
         entry.Id,

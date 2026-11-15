@@ -115,7 +115,8 @@ public sealed class WebSocketEndpointWriter(
                 existing?.FirstSeenAt ?? now,
                 now,
                 EndpointState.Active,
-                address.Path),
+                address.Path,
+                handshake.SubProtocol),
             cancellationToken);
 
         return true;

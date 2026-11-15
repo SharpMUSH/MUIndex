@@ -82,6 +82,10 @@ public enum EndpointState
 /// The request path of a WebSocket endpoint (<c>/ws-play/</c>), and null for every other kind: migration 0045's
 /// CHECK holds the two together.
 /// </param>
+/// <param name="SubProtocol">
+/// The WebSocket subprotocol the server chose (<c>terminal.mudstandards.org</c>), or null when it chose
+/// none; always null for a non-WebSocket kind.
+/// </param>
 public sealed record GameEndpoint(
     Guid GameId,
     string Host,
@@ -90,7 +94,8 @@ public sealed record GameEndpoint(
     DateTimeOffset FirstSeenAt,
     DateTimeOffset LastSeenAt,
     EndpointState State,
-    string? Path = null)
+    string? Path = null,
+    string? SubProtocol = null)
 {
     /// <summary>Whether this is a WebSocket, behind TLS or not.</summary>
     public bool IsWebSocket => Kind is EndpointKind.WebSocket or EndpointKind.SecureWebSocket;

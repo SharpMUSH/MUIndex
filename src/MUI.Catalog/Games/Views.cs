@@ -269,6 +269,10 @@ public sealed record ReferralNeighbour(
 /// <paramref name="TlsMeasured"/> set, the way a telnet one is <c>tls</c>.
 /// </param>
 /// <param name="Path">A WebSocket's request path (<c>/ws-play/</c>); null for every other kind.</param>
+/// <param name="SubProtocol">
+/// The subprotocol a WebSocket's server chose when offered the mudstandards.org names; null when it
+/// chose none, and for every other kind.
+/// </param>
 public sealed record GameEndpointView(
     string Host,
     int Port,
@@ -277,7 +281,8 @@ public sealed record GameEndpointView(
     DateTimeOffset FirstSeenAt,
     DateTimeOffset LastSeenAt,
     string State,
-    string? Path = null)
+    string? Path = null,
+    string? SubProtocol = null)
 {
     /// <summary>Whether we still reach the game here.</summary>
     public bool IsCurrent => string.Equals(State, "active", StringComparison.Ordinal);

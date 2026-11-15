@@ -7,9 +7,13 @@ namespace MUI.Crawl;
 /// <summary>What came of one WebSocket handshake.</summary>
 /// <param name="Answered">True only when the server completed the upgrade.</param>
 /// <param name="Detail">Why not, for a log line. Never written to a game's record.</param>
-public sealed record WebSocketHandshake(bool Answered, string? Detail = null)
+/// <param name="SubProtocol">The subprotocol the server chose, or null when it chose none.</param>
+public sealed record WebSocketHandshake(bool Answered, string? Detail = null, string? SubProtocol = null)
 {
     public static readonly WebSocketHandshake Upgraded = new(true);
+
+    public static WebSocketHandshake UpgradedWith(string? subProtocol) =>
+        string.IsNullOrEmpty(subProtocol) ? Upgraded : new(true, SubProtocol: subProtocol);
 }
 
 /// <summary>
@@ -36,11 +40,15 @@ public interface IWebSocketProbe
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>No subprotocol is offered.</b> The real bridges are strict about it: websockify answers 400 to a
-/// name it does not know, and MUME's Apache answers 502 to <c>telnet.mudstandards.org</c>, while both
-/// accept a handshake that names none. The question here is whether a client can reach the game at
-/// this address, and offering a name the bridge refuses would record our choice of offer as the
-/// game's failure (rule 5).
+/// <b>The mudstandards.org names are offered first, then none.</b> Which one the server chooses is
+/// the fact a client needs: Evennia 6.1 chooses <c>terminal.</c>, <c>gmcp.</c> or
+/// <c>json.mudstandards.org</c> and never <c>telnet.</c>, and with none chosen it talks its own JSON,
+/// so a socket that upgraded says nothing about what a client must speak until the choice is known.
+/// But the plain bridges are strict: websockify answers 400 to a name it does not know, and MUME's
+/// Apache answers 502 to <c>telnet.mudstandards.org</c>, while both accept a handshake that names
+/// none. So an HTTP refusal of the offer is retried once with no offer, and an upgrade there is an
+/// upgrade with no subprotocol — offering a name the bridge refuses must not become the game's
+/// failure (rule 5).
 /// </para>
 /// <para>
 /// <b>The socket goes to the addresses the scope gate ruled on</b>, never to a second lookup of the
@@ -55,6 +63,18 @@ public interface IWebSocketProbe
 /// </remarks>
 public sealed class WebSocketProbe(TimeSpan? timeout = null) : IWebSocketProbe
 {
+    /// <summary>
+    /// The subprotocols offered, in the order a client of this site's would prefer them: telnet first,
+    /// since that is what a MU* client already speaks, then the three the spec adds beside it.
+    /// </summary>
+    public static readonly IReadOnlyList<string> Offered =
+    [
+        "telnet.mudstandards.org",
+        "gmcp.mudstandards.org",
+        "terminal.mudstandards.org",
+        "json.mudstandards.org",
+    ];
+
     /// <summary>The whole handshake's budget, connect and TLS included.</summary>
     public static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(15);
 
@@ -76,6 +96,30 @@ public sealed class WebSocketProbe(TimeSpan? timeout = null) : IWebSocketProbe
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         budget.CancelAfter(_timeout);
 
+        var offered = await AttemptAsync(address, addresses, Offered, budget.Token, cancellationToken);
+
+        // A status means the server read the request and turned down the offer; anything else (no
+        // answer, a reset, the budget) would fail the same way without it, and is not retried.
+        if (offered.Answered || offered.Status is null)
+        {
+            return offered.Result;
+        }
+
+        return (await AttemptAsync(address, addresses, [], budget.Token, cancellationToken)).Result;
+    }
+
+    private sealed record Attempt(WebSocketHandshake Result, int? Status)
+    {
+        public bool Answered => Result.Answered;
+    }
+
+    private async Task<Attempt> AttemptAsync(
+        WebSocketAddress address,
+        IReadOnlyList<IPAddress> addresses,
+        IReadOnlyList<string> subProtocols,
+        CancellationToken budget,
+        CancellationToken cancellationToken)
+    {
         using var handler = new SocketsHttpHandler
         {
             UseProxy = false,
@@ -103,24 +147,34 @@ public sealed class WebSocketProbe(TimeSpan? timeout = null) : IWebSocketProbe
         using var socket = new ClientWebSocket();
         socket.Options.CollectHttpResponseDetails = true;
 
-        try
+        foreach (var subProtocol in subProtocols)
         {
-            await socket.ConnectAsync(address.Uri, invoker, budget.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            return new WebSocketHandshake(false, $"no upgrade within {_timeout.TotalSeconds:0} s");
-        }
-        catch (Exception error) when (error is WebSocketException or HttpRequestException or IOException or SocketException)
-        {
-            return new WebSocketHandshake(
-                false,
-                socket.HttpStatusCode != 0 ? $"HTTP {(int)socket.HttpStatusCode}" : error.Message);
+            socket.Options.AddSubProtocol(subProtocol);
         }
 
         try
         {
-            await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, budget.Token).ConfigureAwait(false);
+            await socket.ConnectAsync(address.Uri, invoker, budget).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new Attempt(new WebSocketHandshake(false, $"no upgrade within {_timeout.TotalSeconds:0} s"), null);
+        }
+        catch (Exception error) when (error is WebSocketException or HttpRequestException or IOException or SocketException)
+        {
+            var status = socket.HttpStatusCode != 0 ? (int?)socket.HttpStatusCode : null;
+
+            return new Attempt(
+                new WebSocketHandshake(false, status is { } code ? $"HTTP {code}" : error.Message),
+                status);
+        }
+
+        // ClientWebSocket refuses a choice that was not offered, so what is here is one of ours.
+        var chosen = socket.SubProtocol;
+
+        try
+        {
+            await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, budget).ConfigureAwait(false);
         }
         catch (Exception error) when (error is WebSocketException or OperationCanceledException or IOException)
         {
@@ -128,6 +182,6 @@ public sealed class WebSocketProbe(TimeSpan? timeout = null) : IWebSocketProbe
             socket.Abort();
         }
 
-        return WebSocketHandshake.Upgraded;
+        return new Attempt(WebSocketHandshake.UpgradedWith(chosen), null);
     }
 }
