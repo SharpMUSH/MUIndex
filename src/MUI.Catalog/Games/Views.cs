@@ -264,6 +264,15 @@ public sealed record ReferralNeighbour(
 /// carried through rather than re-derived from the dates, so a surface cannot invent a threshold the
 /// writer does not share.
 /// </remarks>
+/// <param name="Kind">
+/// <c>telnet</c>, <c>tls</c> or <c>websocket</c>. A WebSocket behind TLS is <c>websocket</c> with
+/// <paramref name="TlsMeasured"/> set, the way a telnet one is <c>tls</c>.
+/// </param>
+/// <param name="Path">A WebSocket's request path (<c>/ws-play/</c>); null for every other kind.</param>
+/// <param name="SubProtocol">
+/// The subprotocol a WebSocket's server chose when offered the mudstandards.org names; null when it
+/// chose none, and for every other kind.
+/// </param>
 public sealed record GameEndpointView(
     string Host,
     int Port,
@@ -271,10 +280,23 @@ public sealed record GameEndpointView(
     bool TlsMeasured,
     DateTimeOffset FirstSeenAt,
     DateTimeOffset LastSeenAt,
-    string State)
+    string State,
+    string? Path = null,
+    string? SubProtocol = null)
 {
     /// <summary>Whether we still reach the game here.</summary>
     public bool IsCurrent => string.Equals(State, "active", StringComparison.Ordinal);
+
+    /// <summary>Whether this is a WebSocket, which a telnet client cannot open.</summary>
+    public bool IsWebSocket => string.Equals(Kind, "websocket", StringComparison.Ordinal);
+
+    /// <summary>
+    /// The URL a WebSocket client dials (<c>wss://mume.org:443/ws-play/</c>), or null for a telnet endpoint.
+    /// The port is always written: the catalogue measured it, and leaving the default implied is a guess.
+    /// </summary>
+    public string? Url => IsWebSocket
+        ? $"{(TlsMeasured ? "wss" : "ws")}://{(Host.Contains(':', StringComparison.Ordinal) ? $"[{Host}]" : Host)}:{Port.ToString(System.Globalization.CultureInfo.InvariantCulture)}{Path ?? "/"}"
+        : null;
 }
 
 public sealed record ChangeEntry(DateTimeOffset At, string Summary);

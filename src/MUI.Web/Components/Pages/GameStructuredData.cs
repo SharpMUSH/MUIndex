@@ -156,7 +156,12 @@ public static class GameStructuredData
     /// </remarks>
     private static JsonObject? Server(GamePage page)
     {
-        var endpoint = page.Endpoints.FirstOrDefault(e => e.IsCurrent) ?? page.Endpoints.FirstOrDefault();
+        // Telnet first: a WebSocket's URL is not a telnet:// one, and a page that has both is better
+        // described by the address most clients can dial.
+        var endpoint = page.Endpoints.FirstOrDefault(e => e.IsCurrent && !e.IsWebSocket)
+            ?? page.Endpoints.FirstOrDefault(e => !e.IsWebSocket)
+            ?? page.Endpoints.FirstOrDefault(e => e.IsCurrent)
+            ?? page.Endpoints.FirstOrDefault();
 
         if (endpoint is null)
         {
@@ -166,7 +171,8 @@ public static class GameStructuredData
         return new JsonObject
         {
             ["@type"] = "GameServer",
-            ["url"] = $"telnet://{endpoint.Host}:{endpoint.Port.ToString(CultureInfo.InvariantCulture)}",
+            ["url"] = endpoint.Url
+                ?? $"telnet://{endpoint.Host}:{endpoint.Port.ToString(CultureInfo.InvariantCulture)}",
         };
     }
 

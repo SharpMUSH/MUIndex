@@ -611,7 +611,15 @@ var cycle = new CrawlCycle(
     // Issue #185 — and it writes down what it declined to dial, for the same reason: an operator
     // running a cycle by hand is the reader most likely to want to know.
     new NpgsqlCrawlRefusalStore(source),
-    loggerFactory.CreateLogger<CrawlCycle>());
+    loggerFactory.CreateLogger<CrawlCycle>(),
+    // The WebSocket addresses a game declares, written once one has upgraded.
+    new WebSocketEndpointWriter(
+        new WebSocketProbe(),
+        optOut,
+        new HostScopeGuard(hostResolver),
+        endpoints,
+        time,
+        loggerFactory.CreateLogger<WebSocketEndpointWriter>()));
 
 if (arguments.DryRun)
 {

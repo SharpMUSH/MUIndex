@@ -95,10 +95,16 @@ else
                 @foreach (var e in Page.Endpoints.OrderByDescending(e => e.IsCurrent).ThenBy(e => e.Port))
                 {
                     <p class="endpoint mono @(e.IsCurrent ? null : "former")" translate="no">
-                        <span class="address">@e.Host @e.Port</span>
-                        @if (e.TlsMeasured)
+                        @* A WebSocket is a URL a web client dials, not a host and port to type into telnet. *@
+                        <span class="address">@(e.Url ?? $"{e.Host} {e.Port}")</span>
+                        @if (e.TlsMeasured && !e.IsWebSocket)
                         {
                             <span class="state-present">● tls</span>
+                        }
+                        @* What a client must speak once connected: the server's own choice, a name, not prose. *@
+                        @if (e.SubProtocol is { } subProtocol)
+                        {
+                            <span class="faint">@subProtocol</span>
                         }
                         @if (e.IsCurrent)
                         {

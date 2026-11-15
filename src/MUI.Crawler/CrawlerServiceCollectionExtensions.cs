@@ -237,6 +237,11 @@ public static class CrawlerServiceCollectionExtensions
         services.TryAddSingleton<IEcosystemSnapshots>(s => new NpgsqlEcosystemSnapshots(
             s.GetRequiredService<NpgsqlDataSource>()));
 
+        // The WebSocket addresses a game declares in MSSP: one handshake each, an endpoint for the
+        // ones that upgrade. Registered here so CrawlCycle's optional parameter is filled.
+        services.TryAddSingleton<IWebSocketProbe>(_ => new WebSocketProbe());
+        services.TryAddSingleton<WebSocketEndpointWriter>();
+
         services.TryAddSingleton<CrawlCycle>();
 
         // §5.3's third reason a transition is written: elapsed time. See CrawlGapGuard for why the

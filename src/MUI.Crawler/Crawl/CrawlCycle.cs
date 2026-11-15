@@ -57,7 +57,11 @@ public sealed class CrawlCycle(
     // reads it — it exists so an operator can see an address that is otherwise indistinguishable
     // from a healthy target.
     ICrawlRefusalStore? refusals = null,
-    ILogger<CrawlCycle>? logger = null)
+    ILogger<CrawlCycle>? logger = null,
+    // The WebSocket addresses a game declares in MSSP, handshaken and written as endpoints. Optional:
+    // a crawl that cannot is a crawl doing slightly less. After the logger so the positional callers
+    // that pass one keep compiling.
+    WebSocketEndpointWriter? webSockets = null)
 {
     /// <summary>Probes everything that is due, and returns what the pass did.</summary>
     public async Task<CycleReport> RunAsync(CancellationToken cancellationToken = default)
@@ -468,6 +472,11 @@ public sealed class CrawlCycle(
                 tally.Referred(intake);
 
                 await SettleClaimsAsync(binding.GameId, result, cancellationToken);
+
+                if (webSockets is not null)
+                {
+                    await webSockets.ApplyAsync(binding.GameId, result, cancellationToken);
+                }
             }
         }
 
