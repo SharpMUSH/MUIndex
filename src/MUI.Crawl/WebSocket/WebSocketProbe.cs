@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Net.WebSockets;
+using TelnetNegotiationCore.WebSockets;
 
 namespace MUI.Crawl;
 
@@ -40,20 +41,24 @@ public interface IWebSocketProbe
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The mudstandards.org names are offered first, then none.</b> Which one the server chooses is
-/// the fact a client needs: Evennia 6.1 chooses <c>terminal.</c>, <c>gmcp.</c> or
-/// <c>json.mudstandards.org</c> and never <c>telnet.</c>, and with none chosen it talks its own JSON,
-/// so a socket that upgraded says nothing about what a client must speak until the choice is known.
-/// But the plain bridges are strict: websockify answers 400 to a name it does not know, and MUME's
-/// Apache answers 502 to <c>telnet.mudstandards.org</c>, while both accept a handshake that names
-/// none. So an HTTP refusal of the offer is retried once with no offer, and an upgrade there is an
-/// upgrade with no subprotocol — offering a name the bridge refuses must not become the game's
-/// failure (rule 5).
+/// <b>TelnetNegotiationCore makes the handshake</b> (<see cref="TelnetWebSocketClient"/>), so the probe offers
+/// exactly what a client built on it offers, in its order, and is refused exactly where such a client is. Which
+/// one the server chooses is the fact a client needs: Evennia 6.1 chooses <c>terminal.</c>, <c>gmcp.</c> or
+/// <c>json.mudstandards.org</c> and never <c>telnet.</c>, and with none chosen it talks its own JSON, so a
+/// socket that upgraded says nothing about what a client must speak until the choice is known.
+/// </para>
+/// <para>
+/// <b>An HTTP refusal of the offer is retried once with no offer</b>, by the library. The plain bridges are
+/// strict: websockify answers 400 to a name it does not know, and MUME's Apache answers 502 to
+/// <c>telnet.mudstandards.org</c>, while both accept a handshake that names none. An upgrade there is an
+/// upgrade with no subprotocol — offering a name the bridge refuses must not become the game's failure
+/// (rule 5). A failure with no HTTP answer (no route, a reset, the budget) is not retried.
 /// </para>
 /// <para>
 /// <b>The socket goes to the addresses the scope gate ruled on</b>, never to a second lookup of the
-/// name — <see cref="TelnetProbe"/>'s rule, and §7.2's. TLS still names the host, so SNI and the
-/// certificate check are the host's. The certificate is checked: a reader's client would refuse one
+/// name — <see cref="TelnetProbe"/>'s rule, and §7.2's. Both dials, the offer and the retry, go through
+/// one invoker whose <c>ConnectCallback</c> dials those addresses. TLS still names the host, so SNI and
+/// the certificate check are the host's. The certificate is checked: a reader's client would refuse one
 /// that does not verify, so an address that needs it ignored is not an address to show them.
 /// </para>
 /// <para>
@@ -64,15 +69,22 @@ public interface IWebSocketProbe
 public sealed class WebSocketProbe(TimeSpan? timeout = null) : IWebSocketProbe
 {
     /// <summary>
-    /// The subprotocols offered, in the order a client of this site's would prefer them: telnet first,
-    /// since that is what a MU* client already speaks, then the three the spec adds beside it.
+    /// What the library offers after the telnet names: its bridged <c>gmcp.</c> and <c>terminal.</c>, then
+    /// <c>json.mudstandards.org</c>, which no client here speaks but which Evennia may choose.
+    /// </summary>
+    /// <remarks>The probe closes the socket at the upgrade, so no bridge is ever made.</remarks>
+    private static readonly WebSocketClientBridges Bridges = WebSocketClientBridges.Default
+        .Add("json.mudstandards.org", static () => throw new NotSupportedException("The probe runs no session."));
+
+    /// <summary>
+    /// The subprotocols offered, in the order a TelnetNegotiationCore client offers them: the telnet names
+    /// first, since that is what a MU* client already speaks, then the names the spec adds beside them.
     /// </summary>
     public static readonly IReadOnlyList<string> Offered =
     [
-        "telnet.mudstandards.org",
-        "gmcp.mudstandards.org",
-        "terminal.mudstandards.org",
-        "json.mudstandards.org",
+        MudWebSocketSubprotocols.Telnet,
+        MudWebSocketSubprotocols.TelnetAlias,
+        .. Bridges.Names,
     ];
 
     /// <summary>The whole handshake's budget, connect and TLS included.</summary>
@@ -96,31 +108,7 @@ public sealed class WebSocketProbe(TimeSpan? timeout = null) : IWebSocketProbe
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         budget.CancelAfter(_timeout);
 
-        var offered = await AttemptAsync(address, addresses, Offered, budget.Token, cancellationToken);
-
-        // A status means the server read the request and turned down the offer; anything else (no
-        // answer, a reset, the budget) would fail the same way without it, and is not retried.
-        if (offered.Answered || offered.Status is null)
-        {
-            return offered.Result;
-        }
-
-        return (await AttemptAsync(address, addresses, [], budget.Token, cancellationToken)).Result;
-    }
-
-    private sealed record Attempt(WebSocketHandshake Result, int? Status)
-    {
-        public bool Answered => Result.Answered;
-    }
-
-    private async Task<Attempt> AttemptAsync(
-        WebSocketAddress address,
-        IReadOnlyList<IPAddress> addresses,
-        IReadOnlyList<string> subProtocols,
-        CancellationToken budget,
-        CancellationToken cancellationToken)
-    {
-        using var handler = new SocketsHttpHandler
+        var status = new LastStatus(new SocketsHttpHandler
         {
             UseProxy = false,
             AllowAutoRedirect = false,
@@ -141,47 +129,58 @@ public sealed class WebSocketProbe(TimeSpan? timeout = null) : IWebSocketProbe
                     throw;
                 }
             },
-        };
+        });
 
-        using var invoker = new HttpMessageInvoker(handler);
-        using var socket = new ClientWebSocket();
-        socket.Options.CollectHttpResponseDetails = true;
-
-        foreach (var subProtocol in subProtocols)
-        {
-            socket.Options.AddSubProtocol(subProtocol);
-        }
+        using var invoker = new HttpMessageInvoker(status);
+        ClientWebSocket socket;
 
         try
         {
-            await socket.ConnectAsync(address.Uri, invoker, budget).ConfigureAwait(false);
+            socket = await TelnetWebSocketClient.ConnectAsync(address.Uri, invoker, null, Bridges, budget.Token)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            return new Attempt(new WebSocketHandshake(false, $"no upgrade within {_timeout.TotalSeconds:0} s"), null);
+            return new WebSocketHandshake(false, $"no upgrade within {_timeout.TotalSeconds:0} s");
         }
         catch (Exception error) when (error is WebSocketException or HttpRequestException or IOException or SocketException)
         {
-            var status = socket.HttpStatusCode != 0 ? (int?)socket.HttpStatusCode : null;
-
-            return new Attempt(
-                new WebSocketHandshake(false, status is { } code ? $"HTTP {code}" : error.Message),
-                status);
+            return new WebSocketHandshake(false, status.Code is { } code and not 101 ? $"HTTP {code}" : error.Message);
         }
 
-        // ClientWebSocket refuses a choice that was not offered, so what is here is one of ours.
-        var chosen = socket.SubProtocol;
-
-        try
+        using (socket)
         {
-            await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, budget).ConfigureAwait(false);
-        }
-        catch (Exception error) when (error is WebSocketException or OperationCanceledException or IOException)
-        {
-            // The upgrade is the measurement; how the close went is not.
-            socket.Abort();
-        }
+            // ClientWebSocket refuses a choice that was not offered, so what is here is one of ours.
+            var chosen = socket.SubProtocol;
 
-        return new Attempt(WebSocketHandshake.UpgradedWith(chosen), null);
+            try
+            {
+                await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, budget.Token).ConfigureAwait(false);
+            }
+            catch (Exception error) when (error is WebSocketException or OperationCanceledException or IOException)
+            {
+                // The upgrade is the measurement; how the close went is not.
+                socket.Abort();
+            }
+
+            return WebSocketHandshake.UpgradedWith(chosen);
+        }
+    }
+
+    /// <summary>
+    /// Remembers the status of the last answer to an upgrade request, for the log line. The library disposes
+    /// a socket whose handshake failed, and its status with it.
+    /// </summary>
+    private sealed class LastStatus(HttpMessageHandler inner) : DelegatingHandler(inner)
+    {
+        public int? Code { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Code = null;
+            var response = await base.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            Code = (int)response.StatusCode;
+            return response;
+        }
     }
 }
