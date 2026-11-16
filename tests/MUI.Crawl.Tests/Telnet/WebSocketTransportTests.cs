@@ -51,7 +51,8 @@ public class WebSocketTransportTests
         await Assert.That(result.Banner).Contains("A quiet little place.");
         await Assert.That(game.RequestedPath).IsEqualTo("/ws");
         await Assert.That(game.Offered).IsEquivalentTo(
-            [MudWebSocketSubprotocols.Telnet, MudWebSocketSubprotocols.TelnetAlias]);
+            [MudWebSocketSubprotocols.Telnet, MudWebSocketSubprotocols.TelnetAlias,
+                MudWebSocketSubprotocols.Gmcp, MudWebSocketSubprotocols.Terminal]);
     }
 
     /// <summary>
@@ -88,6 +89,32 @@ public class WebSocketTransportTests
         await Assert.That(game.Fault?.ToString() ?? "none").IsEqualTo("none");
         await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
         await Assert.That(result.Banner).Contains("Bridged.");
+    }
+
+    /// <summary>
+    /// A server with no telnet layer, which picks <c>terminal.mudstandards.org</c>, is read through
+    /// the bridge: its text is the screen, and none of the probe's telnet commands reach it.
+    /// </summary>
+    /// <remarks>
+    /// Such a server reads an <c>IAC DO</c> as text in front of its login, so the bridge dropping
+    /// them is what keeps the probe from typing noise at it.
+    /// </remarks>
+    [Test]
+    public async Task AGameWithNoTelnetLayerIsReadThroughTheTerminalBridge()
+    {
+        await using var game = new WebSocketGame
+        {
+            Banner = "Plain Realm\r\nWhat is your name? ",
+            Chosen = MudWebSocketSubprotocols.Terminal,
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(game.Fault?.ToString() ?? "none").IsEqualTo("none");
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+        await Assert.That(result.Banner).Contains("Plain Realm");
+        await Assert.That(game.RawReceived.Count).IsGreaterThan(0);
+        await Assert.That(game.RawReceived.Any(bytes => bytes.Contains((byte)0xFF))).IsFalse();
     }
 
     /// <summary>
@@ -251,6 +278,20 @@ public class WebSocketTransportTests
 
         private readonly List<string> _received = [];
 
+        /// <summary>Every message a server with no telnet layer was sent.</summary>
+        public IReadOnlyList<byte[]> RawReceived
+        {
+            get
+            {
+                lock (_raw)
+                {
+                    return [.. _raw];
+                }
+            }
+        }
+
+        private readonly List<byte[]> _raw = [];
+
         public async ValueTask DisposeAsync()
         {
             await _stopping.CancelAsync();
@@ -308,6 +349,12 @@ public class WebSocketTransportTests
                 using var socket = WebSocket.CreateFromStream(
                     stream, new WebSocketCreationOptions { IsServer = true, SubProtocol = Chosen });
 
+                if (Chosen == MudWebSocketSubprotocols.Terminal)
+                {
+                    await ServeTerminalAsync(socket);
+                    return;
+                }
+
                 var builder = new TelnetInterpreterBuilder()
                     .UseMode(TelnetInterpreter.TelnetMode.Server)
                     .UseLogger(NullLogger.Instance)
@@ -345,6 +392,40 @@ public class WebSocketTransportTests
             catch (Exception error)
             {
                 Fault ??= error;
+            }
+        }
+
+        /// <summary>
+        /// <c>terminal.mudstandards.org</c>: the screen in a BINARY message, and every message the
+        /// client sends kept as it arrived.
+        /// </summary>
+        private async Task ServeTerminalAsync(WebSocket socket)
+        {
+            await socket.SendAsync(Encoding.UTF8.GetBytes(Banner), WebSocketMessageType.Binary, true, _stopping.Token);
+
+            var buffer = new byte[4096];
+            using var message = new MemoryStream();
+
+            while (true)
+            {
+                var read = await socket.ReceiveAsync(buffer, _stopping.Token);
+
+                if (read.MessageType is WebSocketMessageType.Close)
+                {
+                    return;
+                }
+
+                message.Write(buffer, 0, read.Count);
+
+                if (read.EndOfMessage)
+                {
+                    lock (_raw)
+                    {
+                        _raw.Add(message.ToArray());
+                    }
+
+                    message.SetLength(0);
+                }
             }
         }
 

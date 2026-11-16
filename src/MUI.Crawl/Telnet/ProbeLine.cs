@@ -77,14 +77,22 @@ internal sealed class ProbeLine : IAsyncDisposable
     }
 
     /// <summary>
-    /// Connects a WebSocket offering the telnet subprotocols, through the vetted addresses.
+    /// Connects a WebSocket offering the telnet subprotocols and the bridged ones, through the vetted
+    /// addresses.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The subprotocols are the ones <c>TelnetWebSocketClient.ConnectAsync</c> offers,
-    /// <c>telnet.mudstandards.org</c> and then <c>telnet</c>; a server that names neither is taken as
-    /// telnet, because most wss-to-telnet bridges name none. That helper is not used directly because
-    /// it resolves the name itself, and the scope guard's ruling is on addresses (spec §7.2): the
+    /// The subprotocols are the ones <c>TelnetWebSocketClient.ConnectAsync</c> offers:
+    /// <c>telnet.mudstandards.org</c> and <c>telnet</c>, then <c>gmcp.mudstandards.org</c> and
+    /// <c>terminal.mudstandards.org</c> (<see cref="WebSocketClientBridges.Default"/>). A server that
+    /// names none is taken as telnet, because most wss-to-telnet bridges name none. One that picks a
+    /// bridged name (Evennia picks <c>gmcp</c>; it has no telnet layer on its WebSocket) is read
+    /// through the bridge, which turns its frames into a telnet stream and opens GMCP as though the
+    /// server had offered it, so the session above reads the same either way.
+    /// </para>
+    /// <para>
+    /// That helper is not used directly because it resolves the name itself, and the scope guard's
+    /// ruling is on addresses (spec §7.2): the
     /// <see cref="SocketsHttpHandler.ConnectCallback"/> here dials exactly the addresses the guard
     /// vetted, the same as the TCP path.
     /// </para>
@@ -134,13 +142,21 @@ internal sealed class ProbeLine : IAsyncDisposable
         _socket.Options.AddSubProtocol(MudWebSocketSubprotocols.Telnet);
         _socket.Options.AddSubProtocol(MudWebSocketSubprotocols.TelnetAlias);
 
+        foreach (var name in Bridges.Names)
+        {
+            _socket.Options.AddSubProtocol(name);
+        }
+
         await _socket.ConnectAsync(uri, _invoker, cancellationToken);
 
-        // Throws ArgumentException for a server that picked a subprotocol that is not a telnet
-        // stream. It cannot, having been offered only telnet ones, but if it does that is not a game
-        // this probe can read.
-        Transport = TelnetTransport.WebSocket(_socket);
+        // Throws ArgumentException for a server that picked a subprotocol that is neither telnet nor
+        // bridged. It cannot, having been offered only those, but if it does that is not a game this
+        // probe can read.
+        Transport = TelnetTransport.WebSocketClient(_socket, Bridges);
     }
+
+    /// <summary>The subprotocols offered after the telnet ones, and read through a bridge.</summary>
+    private static readonly WebSocketClientBridges Bridges = WebSocketClientBridges.Default;
 
     /// <summary>
     /// The TLS settings for every handshake this probe makes, raw TLS and <c>wss://</c> alike.
