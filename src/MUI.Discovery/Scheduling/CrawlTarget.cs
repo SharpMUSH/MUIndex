@@ -146,6 +146,12 @@ public sealed record CrawlTarget
     /// known to answer one (migration 0043). <see cref="WhoAnswers"/> owns how it changes.
     /// </summary>
     public DateTimeOffset? WhoAnswersAt { get; init; }
+
+    /// <summary>
+    /// Whether <c>INFO</c> and <c>VERSION</c> have been answering here (migration 0046).
+    /// <see cref="MUI.Discovery.LoginCommands"/> owns both what it asks for and how it changes.
+    /// </summary>
+    public LoginCommandMemory LoginCommands { get; init; }
 }
 
 /// <summary>
@@ -205,6 +211,12 @@ public interface ICrawlTargetRepository
     /// <see cref="RecordMsspRouteAsync"/>.
     /// </summary>
     Task RecordWhoAnswersAsync(Guid id, DateTimeOffset? at, CancellationToken ct);
+
+    /// <summary>
+    /// Records whether <c>INFO</c> and <c>VERSION</c> have been answering at this address. Written
+    /// only on a change, like <see cref="RecordWhoAnswersAsync"/>.
+    /// </summary>
+    Task RecordLoginCommandsAsync(Guid id, LoginCommandMemory memory, CancellationToken ct);
 
     Task AttachGameAsync(Guid id, Guid gameId, CancellationToken ct);
 }

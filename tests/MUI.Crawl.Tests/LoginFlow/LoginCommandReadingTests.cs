@@ -5,6 +5,30 @@ namespace MUI.Crawl.Tests;
 public class LoginCommandReadingTests
 {
     /// <summary>
+    /// Whether a session's <c>INFO</c> and <c>VERSION</c> held anything a reader stands behind — the
+    /// question that decides whether they keep being typed at an address (issue #182).
+    /// </summary>
+    [Test]
+    [Arguments("### Begin INFO 1\r\nName: Mortal Realms\r\nConnected: 7\r\n### End INFO\r\n", null)]
+    [Arguments(null, "PennMUSH version 1.8.8 patchlevel 0")]
+    [Arguments("Codebase: CorvidMUSH", null)]
+    [Arguments(null, "FooMUCK, a TinyMUCK descendant")]
+    public async Task AReplyAReaderUsesIsAnAnswer(string? info, string? version)
+    {
+        await Assert.That(LoginCommandReading.Answered(info, version)).IsTrue();
+    }
+
+    [Test]
+    [Arguments(null, null)]
+    [Arguments("", "")]
+    [Arguments("Huh?  (Type \"help\" for help.)", "Huh?  (Type \"help\" for help.)")]
+    [Arguments("好吧﹐那麼請重新輸入您的英文名字﹕", "使用 version 這個名字將會創造一個新的人物﹐您確定嗎(y/n)﹖")]
+    public async Task NothingAReaderUsesIsNotAnAnswer(string? info, string? version)
+    {
+        await Assert.That(LoginCommandReading.Answered(info, version)).IsFalse();
+    }
+
+    /// <summary>
     /// The Dead Souls mudlib reads as the engine it is.
     /// </summary>
     /// <remarks>

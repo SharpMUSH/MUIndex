@@ -85,6 +85,13 @@ public sealed class InMemoryCrawlTargetRepository : ICrawlTargetRepository
         return Task.CompletedTask;
     }
 
+    public Task RecordLoginCommandsAsync(Guid id, LoginCommandMemory memory, CancellationToken ct)
+    {
+        Replace(id, target => target with { LoginCommands = memory });
+
+        return Task.CompletedTask;
+    }
+
     public Task AttachGameAsync(Guid id, Guid gameId, CancellationToken ct)
     {
         Replace(id, target => target.GameId is null ? target with { GameId = gameId } : target);

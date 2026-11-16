@@ -86,6 +86,34 @@ public static partial class LoginCommandReading
     }
 
     /// <summary>
+    /// Whether these replies held anything a reader downstream would stand behind.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The question <c>LoginCommands.Learn</c> asks of a session: was typing <c>INFO</c> and
+    /// <c>VERSION</c> at this login prompt worth it? Answered by the consumers themselves rather than
+    /// by the shape of the text, so it cannot say yes to a reply nothing reads or no to one something
+    /// does: a codebase or a name (<c>FieldObservations</c>, <c>CatalogueBinder</c>,
+    /// <c>IdentityMatcher</c>), a count (<c>PresenceChoice</c>), and the MUCK reading that both
+    /// replies feed (<see cref="MuckNaming"/>).
+    /// </para>
+    /// <para>
+    /// <c>MuLikeness</c>'s vocabulary signal is not consulted. Its one consumer only reads it for a
+    /// submission still awaiting §7.8, and such a game is asked every session whatever this says.
+    /// </para>
+    /// <para>
+    /// A name prompt and a plain <c>Huh?</c> are the same answer here. Either way there was nothing to
+    /// read; the difference matters only within a session, where a name prompt to <c>INFO</c> also
+    /// spares the game our <c>VERSION</c> (<see cref="NamePrompt"/>).
+    /// </para>
+    /// </remarks>
+    public static bool Answered(string? info, string? version) =>
+        MeaningfulCodebase(info, version) is not null
+        || MeaningfulName(info, version) is not null
+        || ConnectedPlayers(info) is not null
+        || MuckNaming.Assumed(info, version) is not null;
+
+    /// <summary>
     /// The game's own name as its <c>INFO</c> block gives it, or null.
     /// </summary>
     /// <remarks>

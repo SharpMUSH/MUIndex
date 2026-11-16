@@ -347,7 +347,7 @@ public sealed partial class WhoParser : IWhoParser
     /// <summary>
     /// Whether the server answered the login prompt rather than the question.
     /// </summary>
-    private static bool LooksLikeLoginPrompt(string line) => LoginPromptPattern().IsMatch(line);
+    private static bool LooksLikeLoginPrompt(string line) => NamePrompt.IsIn(line);
 
     private static string StripAnsi(string text) => AnsiEscapeParser.Parse(text).ToPlainText();
 
@@ -560,19 +560,4 @@ public sealed partial class WhoParser : IWhoParser
         + @"\b[^.\n]{0,40}?\b" + Connectivity + @"\b",
         RegexOptions.IgnoreCase)]
     private static partial Regex WordedOutOfPattern();
-
-    // Login prompts that mean WHO was eaten as a character name. Vocabulary is wider than one
-    // codebase: a game may ask for an *account* name rather than a character's, print nothing but
-    // "Name:", refuse a disliked name outright ("Illegal name, try again.", "That name is reserved
-    // for a senior member of the mud."), or ask us to confirm the spelling ("Did I get that right,
-    // Who (Y/N)?").
-    [GeneratedRegex(
-        @"no\s+character\s+by\s+that\s+name|enter\s+(?:the\s+|your\s+)?(?:\w+\s+)?name"
-        + @"|create\s+a\s+new\s+(?:character|account|player)"
-        + @"|what\s+is\s+your\s+name|password\s*:|type\s+'?new'?|\bname\s*:\s*$"
-        + @"|\billegal\s+name\b|\bno\s+record\s+found\s+for\b|\bname\s+is\s+reserved\b"
-        + @"|\bdid\s+i\s+get\s+that\s+right\b",
-        RegexOptions.IgnoreCase)]
-    private static partial Regex LoginPromptPattern();
-
 }

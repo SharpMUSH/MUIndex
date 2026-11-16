@@ -96,10 +96,17 @@ our host is unreachable and perfectly alive.
   and a count. The engine clause is load-bearing and was measured — without it, two games lose the
   only reading that says what they run (`northern-crossroads-ncmud` declares `NC-7.0.357.7940b961`,
   `primal-darkness-ii` declares `PD/NM III`). `FAMILY` may **not** stand in for it: both of those
-  games declare one. **`INFO` and `VERSION` have no `AwaitingCorroboration` escape and are still
-  typed at the family above, every crawl** — issue #182 is where that is being thought about, and it
-  is not the same problem: there is nothing they would publish, so "not asking must imply publishing"
-  has nothing to hold on to.
+  games declare one.
+- **Type `INFO` or `VERSION` at an address that has never answered them.** A game with no MSSP can
+  never pass `MsspSelfDescription`, so the family above was typed at every crawl: `INFO` read as a
+  character name, `VERSION` answered *create a new character called version? (y/n)* (issue #182).
+  `crawl_target.login_commands_*` (migration 0046) is the memory and `LoginCommands` the one place
+  that reads it: three sessions running in which `LoginCommandReading.Answered` finds nothing silence
+  the address, a retrial every thirty days can end the silence, and a submission still awaiting §7.8
+  is always asked. **Only a session that typed `INFO` counts** (`ProbeResult.InfoAsked`): there is
+  nothing they would publish, so "not asking must imply publishing" has nothing to hold on to, and the
+  rule 5 hazard instead is our silence counted as theirs. Within a session, `INFO` answered by a name
+  prompt (`NamePrompt`) also spares the game our `VERSION`; a plain `Huh?` does not.
 - **Type `MSSP-REQUEST` at an address that has reported over option 70, or that left its trial
   unanswered.** The plaintext form is text at a login prompt, and eight of twenty surveyed games read
   it as a character name. `crawl_target.mssp_route` (migration 0042) remembers each address's answer

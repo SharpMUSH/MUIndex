@@ -132,11 +132,18 @@ if (LoginCommandReading.ConnectedPlayers(result.Info) is { } fromInfo)
     Console.WriteLine($"info count    {fromInfo} (declared in the INFO block)");
 }
 
-Reply("info", result.Info);
-Reply("version", result.Version);
+// "not asked" and "no reply" are different facts, and only the second is about the game.
+Reply("info", result.Info, result.InfoAsked);
+Reply("version", result.Version, result.VersionAsked);
 
-static void Reply(string label, string? text)
+static void Reply(string label, string? text, bool asked)
 {
+    if (!asked)
+    {
+        Console.WriteLine($"{label,-13} (not asked)");
+        return;
+    }
+
     var lines = (text ?? string.Empty)
         .Split('\n')
         .Select(line => line.TrimEnd())

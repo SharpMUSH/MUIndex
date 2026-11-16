@@ -902,14 +902,26 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 && MsspSelfDescription.AnswersTheLoginCommands(
                     MsspReport.From(seen.Mssp, WireEncoding.Fallback));
 
-            if (Live(connection) && !described)
+            //
+            // And an address that has been asked both, session after session, and never once said
+            // anything a reader here could use (ProbeTarget.AskLoginCommands, issue #182). Whether to
+            // stop is the crawl loop's call, made from this address's history; this only obeys it.
+            var ask = !described && target.AskLoginCommands;
+
+            if (Live(connection) && ask)
             {
-                cursors.Info = cursors.Version = await AskAsync(InfoCommand, cursors.Who, _options.SilenceGrace);
+                cursors.Info = cursors.Version = await AskAsync(
+                    InfoCommand, cursors.Who, _options.SilenceGrace, () => seen.InfoAsked = true);
             }
 
-            if (Live(connection) && !described)
+            // Within the session, too: a login prompt that took INFO for a character name will take
+            // VERSION for one, and at fs.twkang.net:5555 that is "create a new character called
+            // version? (y/n)". Only a name prompt stops it. A plain "Huh?" to INFO says nothing about
+            // VERSION, which some codebases answer without answering INFO.
+            if (Live(connection) && ask && !TookForAName(lines, cursors.Who, cursors.Info, seen, target))
             {
-                cursors.Version = await AskAsync(VersionCommand, cursors.Info, _options.SilenceGrace);
+                cursors.Version = await AskAsync(
+                    VersionCommand, cursors.Info, _options.SilenceGrace, () => seen.VersionAsked = true);
             }
         }
         catch (Exception error) when (HungUp(error) && Measured(lines, cursors.Banner, seen))
@@ -967,8 +979,8 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// nothing, publish no MSSP, state their count on the screen in Chinese, and read every line we
     /// send as a character name: <c>WHO</c> comes back <em>請重新輸入您的英文名字</em> ("re-enter your
     /// English name"), reproducibly, on every crawl. See <c>ChineseCount</c> for the reading that
-    /// makes the screen answer, and issue #182 for <c>INFO</c> and <c>VERSION</c>, which are still
-    /// typed at the same prompt.
+    /// makes the screen answer, and <see cref="ProbeTarget.AskLoginCommands"/> for <c>INFO</c> and
+    /// <c>VERSION</c> at the same prompt (issue #182).
     /// </para>
     /// </remarks>
     private async Task<int?> PublishedCountAsync(
@@ -1021,6 +1033,40 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         var banner = string.Join("\n", text);
 
         return BannerCount.Find(PuebloSignal.IsPresent(banner) ? PuebloSignal.StripKnown(banner) : banner);
+    }
+
+    /// <summary>
+    /// Whether the reply between these two cursors is a login prompt that read our command as a
+    /// character name, and offered nothing else.
+    /// </summary>
+    /// <remarks>
+    /// Decoded the way <see cref="PublishedCountAsync"/> decodes the connect screen, and for the same
+    /// reason: the session-wide charset decision is still ahead, and this has to be answered before
+    /// the next line is sent. A reply that a reader could use is never a name prompt here, whatever
+    /// else it contains: a real <c>INFO</c> block may well say <c>Name:</c>.
+    /// </remarks>
+    private static bool TookForAName(List<byte[]> lines, int from, int to, Observations seen, ProbeTarget target)
+    {
+        if (to <= from)
+        {
+            return false;
+        }
+
+        List<byte[]> reply;
+        lock (lines)
+        {
+            reply = [.. lines.Skip(from).Take(to - from)];
+        }
+
+        var text = string.Join(
+            "\n",
+            WireEncoding.Read(reply, target.Charset, MsspReport.RawValues(seen.Mssp), target.MsspCharset).Lines);
+
+        return !LoginCommandReading.Answered(text, null)
+            && global::MarkupString.Ansi.AnsiEscapeParser.Parse(text).ToPlainText()
+                .Split('\n')
+                .Select(line => line.TrimEnd())
+                .Any(NamePrompt.IsIn);
     }
 
     /// <summary>Builds the <see cref="ProbeOutcome.Answered"/> result from a completed session.</summary>
@@ -1103,6 +1149,8 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 : (asked ? PayloadRedaction.Replayable(whoText) : null),
             Info = infoText.Length == 0 ? null : infoText,
             Version = versionText.Length == 0 ? null : versionText,
+            InfoAsked = seen.InfoAsked,
+            VersionAsked = seen.VersionAsked,
             // `published` is the count that bought this game its silence — see PublishedCountAsync for
             // why not asking must imply publishing. Second, not first: the session-wide charset
             // decision is made above and a screen this decode reads better is read better.
@@ -1664,6 +1712,15 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         /// <summary>Set while a plaintext <c>MSSP-REQUEST</c> waits for its reply.</summary>
         public volatile bool AskingPlaintext;
         public int? MsspRejectedBytes;
+
+        /// <summary>
+        /// Whether <c>INFO</c> and <c>VERSION</c> left this session, each set between its write and
+        /// its wait. See <see cref="ProbeResult.InfoAsked"/>.
+        /// </summary>
+        public bool InfoAsked;
+
+        /// <inheritdoc cref="InfoAsked"/>
+        public bool VersionAsked;
         public string? Charset;
         public bool Prompts;
         public int? CompressionVersion;

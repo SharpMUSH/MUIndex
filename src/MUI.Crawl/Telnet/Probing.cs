@@ -63,6 +63,27 @@ public sealed record ProbeTarget(string Host, int Port)
     /// </remarks>
     public bool AwaitingCorroboration { get; init; } = true;
 
+    /// <summary>
+    /// Whether <c>INFO</c> and <c>VERSION</c> may be typed at this address's login prompt.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// False means this address has been asked both, session after session, and nothing in any reply
+    /// was something a reader here would stand behind — so it is not asked again until a retrial
+    /// falls due. A codebase that does not answer <c>INFO</c> today almost certainly never will, and
+    /// at <c>fs.twkang.net:5555</c> each word is read as a character name: <c>VERSION</c> comes back
+    /// as <em>create a new character called version? (y/n)</em>, every crawl (issue #182).
+    /// </para>
+    /// <para>
+    /// True by default, so a caller that cannot say keeps asking, as with
+    /// <see cref="AwaitingCorroboration"/>. Only the crawl loop answers it, from
+    /// <c>crawl_target.login_commands_quiet_at</c> (migration 0046, see <c>LoginCommands</c>). An MSSP
+    /// report that already answers both (<see cref="MsspSelfDescription"/>) stops them whatever this
+    /// says.
+    /// </para>
+    /// </remarks>
+    public bool AskLoginCommands { get; init; } = true;
+
     /// <summary>Whether to open this dial with a TLS handshake rather than in the clear.</summary>
     /// <remarks>
     /// <para>
