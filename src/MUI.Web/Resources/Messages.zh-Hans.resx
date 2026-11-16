@@ -2125,9 +2125,6 @@
   <data name="capability.disagree.declaredNotOffered" xml:space="preserve">
     <value>游戏自述具备该项，而服务器在握手中从未提供过它。</value>
   </data>
-  <data name="capability.disagree.declaredRefused" xml:space="preserve">
-    <value>游戏自述了一个 WebSocket 地址，而我们连接时，它没有以 telnet 会话应答。</value>
-  </data>
   <data name="capability.disagree.offeredNotDeclared" xml:space="preserve">
     <value>服务器提供该项，而游戏自己的记录说它没有。</value>
   </data>

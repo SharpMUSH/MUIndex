@@ -21,26 +21,6 @@ public class CapabilityMatrixTests
     private static Task<string> MatrixAsync() =>
         Render.ComponentAsync<CapabilityMatrix>(new() { ["Rows"] = Rows, ["Now"] = Now });
 
-    /// <summary>
-    /// WEBSOCKET is measured by dialling the URL a game declares, not in a handshake, so its
-    /// disagreement may not be described as one (rule 5).
-    /// </summary>
-    [Test]
-    public async Task ARefusedWebSocketUrlIsNotDescribedAsAHandshake()
-    {
-        var html = Render.Words(await Render.ComponentAsync<CapabilityMatrix>(new()
-        {
-            ["Rows"] = new CapabilityRow[]
-            {
-                new("WEBSOCKET", CapabilityState.Absent, CapabilityState.Present, Now.AddHours(-2)),
-            },
-            ["Now"] = Now,
-        }));
-
-        await Assert.That(html).Contains("when we dialled it, it did not answer with a telnet session");
-        await Assert.That(html).DoesNotContain("handshake");
-    }
-
     [Test]
     public async Task DisagreementsSortToTheTop()
     {

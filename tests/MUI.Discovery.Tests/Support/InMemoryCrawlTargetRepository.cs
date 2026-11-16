@@ -85,13 +85,6 @@ public sealed class InMemoryCrawlTargetRepository : ICrawlTargetRepository
         return Task.CompletedTask;
     }
 
-    public Task RecordWebSocketCheckAsync(Guid id, DateTimeOffset at, CancellationToken ct)
-    {
-        Replace(id, target => target with { WebSocketCheckedAt = at });
-
-        return Task.CompletedTask;
-    }
-
     public Task AttachGameAsync(Guid id, Guid gameId, CancellationToken ct)
     {
         Replace(id, target => target.GameId is null ? target with { GameId = gameId } : target);

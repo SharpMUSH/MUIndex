@@ -140,18 +140,6 @@ public sealed record ProbeTarget(string Host, int Port)
     /// </remarks>
     public Uri? WebSocket { get; init; }
 
-    /// <summary>
-    /// Whether to read the connect screen and the negotiation that comes with it, and type nothing.
-    /// </summary>
-    /// <remarks>
-    /// For a check of a second door to a game already measured through its first — the WebSocket URL
-    /// its MSSP declares, say. The measurement already asked what there was to ask; asking again
-    /// through another door is the same noise on the same console, for an answer we already hold.
-    /// No prompt is answered either, so a game behind a press-enter gate shows only the gate, which
-    /// is still a telnet session answering.
-    /// </remarks>
-    public bool AsksNothing { get; init; }
-
     /// <summary>A target that dials <paramref name="uri"/> as a WebSocket.</summary>
     /// <exception cref="ArgumentException"><paramref name="uri"/> is not an absolute <c>ws</c> or <c>wss</c> URI.</exception>
     public static ProbeTarget ForWebSocket(Uri uri)

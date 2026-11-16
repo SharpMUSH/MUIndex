@@ -162,34 +162,6 @@ public class WebSocketTransportTests
         await Assert.That(result.Transport).IsEqualTo(ProbeTransport.WebSocket);
     }
 
-    /// <summary>
-    /// A check types nothing: the measurement already asked what there was to ask.
-    /// </summary>
-    [Test]
-    public async Task ACheckReadsTheScreenAndTypesNothing()
-    {
-        await using var game = new WebSocketGame { Banner = "Welcome.\r\nBy what name are you known? " };
-
-        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target with { AsksNothing = true });
-
-        await Assert.That(game.Fault?.ToString() ?? "none").IsEqualTo("none");
-        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
-        await Assert.That(result.Banner).Contains("Welcome.");
-        await Assert.That(result.Who.Attempted).IsFalse();
-        await Assert.That(game.Received).IsEmpty();
-    }
-
-    /// <summary>The control for the test above: the same screen, measured, is asked WHO.</summary>
-    [Test]
-    public async Task AMeasurementOfTheSameScreenAsksWho()
-    {
-        await using var game = new WebSocketGame { Banner = "Welcome.\r\nBy what name are you known? " };
-
-        await new TelnetProbe(Fast()).ProbeAsync(game.Target);
-
-        await Assert.That(game.Received).Contains(TelnetProbe.WhoCommand);
-    }
-
     [Test]
     public async Task ARefusedConnectIsClassifiedThroughTheWrappers()
     {
@@ -264,20 +236,6 @@ public class WebSocketTransportTests
 
         public Exception? Fault { get; private set; }
 
-        /// <summary>Every line the probe sent, in order.</summary>
-        public IReadOnlyList<string> Received
-        {
-            get
-            {
-                lock (_received)
-                {
-                    return [.. _received];
-                }
-            }
-        }
-
-        private readonly List<string> _received = [];
-
         /// <summary>Every message a server with no telnet layer was sent.</summary>
         public IReadOnlyList<byte[]> RawReceived
         {
@@ -346,7 +304,7 @@ public class WebSocketTransportTests
                     + (Chosen is null ? string.Empty : $"Sec-WebSocket-Protocol: {Chosen}\r\n")
                     + "\r\n"));
 
-                using var socket = WebSocket.CreateFromStream(
+                using var socket = System.Net.WebSockets.WebSocket.CreateFromStream(
                     stream, new WebSocketCreationOptions { IsServer = true, SubProtocol = Chosen });
 
                 if (Chosen == MudWebSocketSubprotocols.Terminal)
@@ -358,15 +316,7 @@ public class WebSocketTransportTests
                 var builder = new TelnetInterpreterBuilder()
                     .UseMode(TelnetInterpreter.TelnetMode.Server)
                     .UseLogger(NullLogger.Instance)
-                    .OnSubmit((bytes, encoding, _) =>
-                    {
-                        lock (_received)
-                        {
-                            _received.Add(encoding.GetString(bytes).Trim());
-                        }
-
-                        return ValueTask.CompletedTask;
-                    });
+                    .OnSubmit((_, _, _) => ValueTask.CompletedTask);
 
                 if (Mssp)
                 {
@@ -399,7 +349,7 @@ public class WebSocketTransportTests
         /// <c>terminal.mudstandards.org</c>: the screen in a BINARY message, and every message the
         /// client sends kept as it arrived.
         /// </summary>
-        private async Task ServeTerminalAsync(WebSocket socket)
+        private async Task ServeTerminalAsync(System.Net.WebSockets.WebSocket socket)
         {
             await socket.SendAsync(Encoding.UTF8.GetBytes(Banner), WebSocketMessageType.Binary, true, _stopping.Token);
 

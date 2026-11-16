@@ -20,7 +20,7 @@ public static class CapabilityFields
     public static IReadOnlyList<string> Names { get; } =
     [
         "ANSI", "ATCP", "CHARSET", "EOR", "GMCP", "MCCP", "MCP", "MSDP", "MSP", "MSSP", "MXP",
-        "NAWS", "NEW-ENVIRON", "PUEBLO", "TLS", "TTYPE", "UTF-8", "VT100", "WEBSOCKET",
+        "NAWS", "NEW-ENVIRON", "PUEBLO", "TLS", "TTYPE", "UTF-8", "VT100",
         "XTERM 256 COLORS", "ZMP",
     ];
 

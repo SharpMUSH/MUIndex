@@ -146,12 +146,6 @@ public sealed record CrawlTarget
     /// known to answer one (migration 0043). <see cref="WhoAnswers"/> owns how it changes.
     /// </summary>
     public DateTimeOffset? WhoAnswersAt { get; init; }
-
-    /// <summary>
-    /// When the WebSocket URL this address's MSSP declares was last dialled, or null when it never
-    /// has been (migration 0045). Spaces the check out; see <c>WebSocketCheck</c>.
-    /// </summary>
-    public DateTimeOffset? WebSocketCheckedAt { get; init; }
 }
 
 /// <summary>
@@ -211,12 +205,6 @@ public interface ICrawlTargetRepository
     /// <see cref="RecordMsspRouteAsync"/>.
     /// </summary>
     Task RecordWhoAnswersAsync(Guid id, DateTimeOffset? at, CancellationToken ct);
-
-    /// <summary>
-    /// Records that the WebSocket URL this address declares was dialled at <paramref name="at"/>,
-    /// whatever the dial found, so the next check waits its interval.
-    /// </summary>
-    Task RecordWebSocketCheckAsync(Guid id, DateTimeOffset at, CancellationToken ct);
 
     Task AttachGameAsync(Guid id, Guid gameId, CancellationToken ct);
 }

@@ -2125,9 +2125,6 @@
   <data name="capability.disagree.declaredNotOffered" xml:space="preserve">
     <value>das Spiel gibt es an, und der Server hat es in keinem Handshake je angeboten.</value>
   </data>
-  <data name="capability.disagree.declaredRefused" xml:space="preserve">
-    <value>das Spiel gibt eine WebSocket-Adresse an, und als wir sie anwählten, antwortete sie nicht mit einer Telnet-Sitzung.</value>
-  </data>
   <data name="capability.disagree.offeredNotDeclared" xml:space="preserve">
     <value>der Server bietet es an, und die eigene Angabe des Spiels sagt, dass er es nicht tut.</value>
   </data>

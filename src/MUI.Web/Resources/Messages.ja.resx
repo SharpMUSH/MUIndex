@@ -2125,9 +2125,6 @@
   <data name="capability.disagree.declaredNotOffered" xml:space="preserve">
     <value>ゲームは申告しているが、サーバーはハンドシェイクで一度も提供していない。</value>
   </data>
-  <data name="capability.disagree.declaredRefused" xml:space="preserve">
-    <value>ゲームはWebSocketのアドレスを申告しているが、接続したところtelnetセッションで応答しなかった。</value>
-  </data>
   <data name="capability.disagree.offeredNotDeclared" xml:space="preserve">
     <value>サーバーは提供しているが、ゲーム自身の記載では非対応となっている。</value>
   </data>
