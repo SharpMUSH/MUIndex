@@ -478,6 +478,10 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
             new("TLS", State("TLS"), CapabilityState.Unknown, Now.AddMinutes(-4)),
             new("GMCP", State("GMCP"), CapabilityState.Present, Now.AddYears(-6)),
             new("MXP", CapabilityState.Unknown, CapabilityState.Unknown, null),
+            .. g.Slug == "ashen-court"
+                ? [new CapabilityRow("WEBSOCKET", CapabilityState.Present, CapabilityState.Present, Now.AddMinutes(-4),
+                    WebSocketSupport.Standard, "telnet.mudstandards.org")]
+                : Array.Empty<CapabilityRow>(),
         ];
     }
 

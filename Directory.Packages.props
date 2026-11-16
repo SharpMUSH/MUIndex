@@ -18,9 +18,15 @@
       3.0.0 inflates a stream started with MCCP v1's marker, which both Children of the Night servers
       send in answer to DO COMPRESS2; before it, everything after their connect screens, MSSP report
       included, arrived as zlib read as text.
+
+      4.13 runs every read loop through one ITelnetTransport and hands back a TelnetConnection, so
+      the probe's socket, TLS tunnel and WebSocket differ in ProbeLine and nowhere else. OnStarting
+      gives callbacks their interpreter before the first byte is read, which PromptSink used to
+      argue around. 4.13.4 reads a WebSocket server that picked gmcp or terminal rather than
+      telnet (Evennia) through a bridge, which ProbeLine offers.
     -->
-    <PackageVersion Include="TelnetNegotiationCore" Version="4.6.1" />
-    <PackageVersion Include="MarkupString.Ansi" Version="2.31.0" />
+    <PackageVersion Include="TelnetNegotiationCore" Version="4.13.5" />
+    <PackageVersion Include="MarkupString.Ansi" Version="2.31.3" />
 
     <!--
       No logging, hosting or DI *abstractions* here. The crawler is an in-process BackgroundService in

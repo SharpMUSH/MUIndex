@@ -1,12 +1,12 @@
 using System.Diagnostics;
-using System.Net.Security;
 using System.Net.Sockets;
+using System.Net.WebSockets;
 using System.Security.Authentication;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using TelnetNegotiationCore.Builders;
+using TelnetNegotiationCore.Connections;
 using TelnetNegotiationCore.Interpreters;
 using TelnetNegotiationCore.Models;
 using TelnetNegotiationCore.Protocols;
@@ -106,6 +106,13 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// <summary>The measurement: one session, and the other transport when the first learnt nothing.</summary>
     private async Task<ProbeResult> MeasureAsync(ProbeTarget target, CancellationToken cancellationToken)
     {
+        // A URL has one door. Silence on it says nothing a socket dial to the same host could
+        // explain, so there is no second transport to try — see ProbeTarget.WebSocket.
+        if (target.WebSocket is not null)
+        {
+            return (await SessionAsync(target, ProbeTransport.WebSocket, cancellationToken)).Result;
+        }
+
         var session = await SessionAsync(
             target,
             target.UseTls ? ProbeTransport.Tls : ProbeTransport.Telnet,
@@ -259,14 +266,9 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         var lines = new List<byte[]>();
         var seen = new Observations();
 
-        using var client = new TcpClient();
-
-        // Held at method scope rather than in the branch that makes it, so it outlives the
-        // interpreter reading through it and is torn down after that interpreter, never under it.
-        SslStream? tunnel = null;
-
-        // Whether the tunnel above ever finished being built. See Session.HandshakeIncomplete.
-        var handshaken = transport is not ProbeTransport.Tls;
+        // Held at method scope, so it outlives the connection reading through it and is torn down
+        // after that connection's interpreter, never under it.
+        await using var line = new ProbeLine();
 
         bool Heard()
         {
@@ -278,51 +280,29 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
         try
         {
-            // The vetted addresses when the caller has them, the name otherwise. See
-            // ProbeTarget.Addresses for why re-resolving a name the scope guard already ruled on is
-            // both a hole in the guard and a second chance to fail on a transient lookup.
-            await (target.Addresses.Count > 0
-                ? client.ConnectAsync([.. target.Addresses], target.Port, budget.Token)
-                : client.ConnectAsync(target.Host, target.Port, budget.Token));
+            await line.OpenAsync(target, transport, budget.Token);
 
-            if (transport is ProbeTransport.Tls)
-            {
-                tunnel = await HandshakeAsync(client, target, budget.Token);
-                handshaken = true;
-            }
-
-            var prompts = new PromptSink(lines);
-            var builder = Build(seen, lines, prompts, target.PlaintextMssp is PlaintextMsspAsk.Ask);
-
-            // The stream overload and the TcpClient one differ only in where the pipe comes from, so
-            // everything above the socket — negotiation, MSSP, the WHO parser, the encoding decision
-            // — runs identically inside the tunnel. That is the whole reason TLS needs no special
-            // case beyond this line, and why a TLS game keeps every capability a cleartext one has.
-            var built = tunnel is null
-                ? await builder.BuildAndStartAsync(client, budget.Token)
-                : await builder.BuildAndStartAsync(tunnel, budget.Token);
-
-            // Before anything can be read from the socket in practice — see PromptSink.Reads.
-            prompts.Reads(built.Interpreter);
-
-            // The MCP package list is a property of the plugin rather than a callback, because a
-            // server that lists nothing is a fact worth having too and no callback fires for it.
-            seen.ReadsMcp(built.Interpreter.PluginManager?.GetPlugin<MudClientProtocol>());
-
-            // Must be disposed *before* the socket it reads. The interpreter owns a byte channel, the
+            // Everything above the transport — negotiation, MSSP, the WHO parser, the encoding
+            // decision — runs identically whatever carries it. That is the whole reason TLS and
+            // WebSocket need no special case beyond ProbeLine, and why a game reached either way
+            // keeps every capability a cleartext one has.
+            //
+            // Must be disposed *before* the line it reads. The interpreter owns a byte channel, the
             // draining task, and every plugin — MCCP's holds zlib streams that nothing else reclaims,
             // and an undisposed interpreter per probe was measured leaking megabytes an hour.
-            // Declared here (not beside `client`, which is disposed after this method returns) so the
-            // interpreter — still doing work during its own teardown — goes first, before the
-            // transport it depends on is torn down under it.
-            await using var telnet = built.Interpreter;
+            // Declared after `line` so it goes first, before the transport it depends on is torn
+            // down under it.
+            await using var connection = await Build(seen, lines, target.PlaintextMssp is PlaintextMsspAsk.Ask)
+                .StartAsync(line.Transport, budget.Token);
+
+            var telnet = connection.Interpreter;
 
             // Observed rather than awaited — on a server that just sits there (most of them), the
-            // loop only ends when `client` is disposed on the way out of this method, so awaiting it
-            // here would wait on our own exit. Not dropped entirely either: a defect in the
-            // interpreter would otherwise look identical to an ordinary socket teardown from out
+            // loop only ends when the connection is disposed on the way out of this method, so
+            // awaiting it here would wait on our own exit. Not dropped entirely either: a defect in
+            // the interpreter would otherwise look identical to an ordinary socket teardown from out
             // here, so it's logged if it's not one of the expected HungUp shapes.
-            _ = ObserveReadLoopAsync(built.ReadTask, target);
+            _ = ObserveReadLoopAsync(connection.Completion, target);
 
             int Arrived()
             {
@@ -337,7 +317,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // measurement.
             await SettleInitialBannerAsync(telnet, Arrived, lines, budget.Token);
 
-            var answeredAPrompt = await AnswerPromptsAsync(telnet, Arrived, lines, client, budget.Token);
+            var answeredAPrompt = await AnswerPromptsAsync(telnet, Arrived, lines, connection, budget.Token);
 
             // Every cursor below is a line count into the same `lines` list, marking where one
             // phase's slice ends and the next begins. Named fields rather than a bag of same-typed
@@ -353,7 +333,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // that is thrown away for the same reason the flush line's reaction is: it is a reaction
             // to text we sent, not the game's screen.
             var plaintext = target.PlaintextMssp is PlaintextMsspAsk.Ask
-                ? await AskPlaintextMsspAsync(telnet, client, seen, target, budget.Token)
+                ? await AskPlaintextMsspAsync(telnet, connection, seen, target, budget.Token)
                 : PlaintextMsspOutcome.NotAsked;
 
             // A who's-online menu option is different from every category the prompt loop above
@@ -365,7 +345,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // — parsed through the identical WhoParser a literal WHO answer would be, so
             // PresenceChoice.From (spec §5.2) cannot tell which route produced the reading.
             var (whoFromMenu, whoFromMenuShape) =
-                await TryAnswerWhoMenuAsync(telnet, Arrived, lines, client, cursors.Banner, budget.Token);
+                await TryAnswerWhoMenuAsync(telnet, Arrived, lines, connection, cursors.Banner, budget.Token);
 
             // Phase 2 — an empty line, and everything it produces is thrown away.
             //
@@ -390,7 +370,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             var published = await AskFollowUpsAsync(
                 telnet,
                 Arrived,
-                client,
+                connection,
                 lines,
                 seen,
                 cursors,
@@ -451,7 +431,9 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             or OperationCanceledException
             or IOException
             or ObjectDisposedException
-            or AuthenticationException)
+            or AuthenticationException
+            or WebSocketException
+            or HttpRequestException)
         {
             return new Session(
                 new ProbeResult
@@ -468,15 +450,8 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 },
                 Heard())
             {
-                HandshakeIncomplete = !handshaken,
+                HandshakeIncomplete = line.HandshakeIncomplete,
             };
-        }
-        finally
-        {
-            if (tunnel is not null)
-            {
-                await tunnel.DisposeAsync();
-            }
         }
     }
 
@@ -500,14 +475,14 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// </remarks>
     private async Task<PlaintextMsspOutcome> AskPlaintextMsspAsync(
         TelnetInterpreter telnet,
-        TcpClient client,
+        TelnetConnection connection,
         Observations seen,
         ProbeTarget target,
         CancellationToken cancellationToken)
     {
         if (seen.Supported.Contains("MSSP")
             || seen.MsspOutcome is not MsspOutcome.NotOffered
-            || !Live(client)
+            || !Live(connection)
             || telnet.PluginManager?.GetPlugin<MSSPPlaintextProtocol>() is not { } plaintext)
         {
             return PlaintextMsspOutcome.NotAsked;
@@ -566,31 +541,19 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         var lines = new List<byte[]>();
         var seen = new Observations();
 
-        using var client = new TcpClient();
-        SslStream? tunnel = null;
+        await using var line = new ProbeLine();
 
         try
         {
-            await (target.Addresses.Count > 0
-                ? client.ConnectAsync([.. target.Addresses], target.Port, budget.Token)
-                : client.ConnectAsync(target.Host, target.Port, budget.Token));
-
             // The door the measurement just came through, not the one the target was dialled with:
             // the measurement may have had to try the other one.
-            if (measured.Transport is ProbeTransport.Tls)
-            {
-                tunnel = await HandshakeAsync(client, target, budget.Token);
-            }
+            await line.OpenAsync(target, measured.Transport, budget.Token);
 
-            var prompts = new PromptSink(lines);
-            var builder = Build(seen, lines, prompts, plaintextMssp: true);
-            var built = tunnel is null
-                ? await builder.BuildAndStartAsync(client, budget.Token)
-                : await builder.BuildAndStartAsync(tunnel, budget.Token);
+            await using var connection = await Build(seen, lines, plaintextMssp: true)
+                .StartAsync(line.Transport, budget.Token);
 
-            prompts.Reads(built.Interpreter);
-            await using var telnet = built.Interpreter;
-            _ = ObserveReadLoopAsync(built.ReadTask, target);
+            var telnet = connection.Interpreter;
+            _ = ObserveReadLoopAsync(connection.Completion, target);
 
             int Arrived()
             {
@@ -603,9 +566,9 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // The same approach to the name prompt the measurement takes, so the request lands where
             // a SMAUG-family nanny reads it — not on a colour question or a press-enter gate.
             await SettleInitialBannerAsync(telnet, Arrived, lines, budget.Token);
-            await AnswerPromptsAsync(telnet, Arrived, lines, client, budget.Token);
+            await AnswerPromptsAsync(telnet, Arrived, lines, connection, budget.Token);
 
-            var outcome = await AskPlaintextMsspAsync(telnet, client, seen, target, budget.Token);
+            var outcome = await AskPlaintextMsspAsync(telnet, connection, seen, target, budget.Token);
 
             _logger.LogDebug(
                 "{Host}:{Port} plaintext MSSP-REQUEST: {Outcome}", target.Host, target.Port, outcome);
@@ -649,7 +612,9 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         catch (Exception error)
         {
             if (HungUp(error)
-                || error is SocketException or OperationCanceledException or AuthenticationException)
+                || error is OperationCanceledException
+                    or AuthenticationException
+                    or HttpRequestException)
             {
                 _logger.LogDebug(
                     "{Host}:{Port} plaintext MSSP trial did not get as far as asking ({Error})",
@@ -665,54 +630,6 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
             return measured;
         }
-        finally
-        {
-            if (tunnel is not null)
-            {
-                await tunnel.DisposeAsync();
-            }
-        }
-    }
-
-    /// <summary>
-    /// Opens the TLS tunnel this session will speak telnet inside.
-    /// </summary>
-    /// <remarks>
-    /// <b>Every certificate is accepted</b> — self-signed, expired, wrong name, any of it. The probe
-    /// reads a login screen a server shows to strangers, so there is nothing here for a chain to
-    /// protect, and MU* TLS ports routinely serve a certificate no public root signed. What this
-    /// costs is precision of language downstream, not safety: <see cref="ProbeTransport.Tls"/> means
-    /// a handshake completed and must never be rendered as though somebody had verified anything.
-    /// Revocation checking is off for the same reason — it is a network round trip in service of a
-    /// question this probe is not asking.
-    /// </remarks>
-    private static async Task<SslStream> HandshakeAsync(
-        TcpClient client,
-        ProbeTarget target,
-        CancellationToken cancellationToken)
-    {
-        var tunnel = new SslStream(client.GetStream(), leaveInnerStreamOpen: false);
-
-        try
-        {
-            await tunnel.AuthenticateAsClientAsync(
-                new SslClientAuthenticationOptions
-                {
-                    // SNI: a host serving several games from one address picks by this, and sending
-                    // the dialled name is the only way to reach the right one.
-                    TargetHost = target.Host,
-                    RemoteCertificateValidationCallback = static (_, _, _, _) => true,
-                    CertificateRevocationCheckMode = X509RevocationMode.NoCheck,
-                },
-                cancellationToken);
-        }
-        catch
-        {
-            await tunnel.DisposeAsync();
-            throw;
-        }
-
-        return tunnel;
     }
 
     /// <summary>
@@ -759,7 +676,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         TelnetInterpreter telnet,
         Func<int> arrived,
         List<byte[]> lines,
-        TcpClient client,
+        TelnetConnection connection,
         CancellationToken cancellationToken)
     {
         var roundStart = 0;
@@ -770,7 +687,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             if (LoginPromptGate.Classify(BannerSoFar(lines, roundStart, arrived()))
                     is not { Category: not LoginPromptCategory.WhoMenu } prompt
                 || !IsPermittedPromptAnswer(prompt.Answer)
-                || !Live(client))
+                || !Live(connection))
             {
                 break;
             }
@@ -795,11 +712,11 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         TelnetInterpreter telnet,
         Func<int> arrived,
         List<byte[]> lines,
-        TcpClient client,
+        TelnetConnection connection,
         int bannerLines,
         CancellationToken cancellationToken)
     {
-        if (!Live(client)
+        if (!Live(connection)
             || LoginPromptGate.Classify(BannerSoFar(lines, 0, bannerLines))
                 is not { Category: LoginPromptCategory.WhoMenu } menu
             || !IsPermittedPromptAnswer(menu.Answer))
@@ -839,7 +756,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     private async Task<int?> AskFollowUpsAsync(
         TelnetInterpreter telnet,
         Func<int> arrived,
-        TcpClient client,
+        TelnetConnection connection,
         List<byte[]> lines,
         Observations seen,
         PhaseCursors cursors,
@@ -965,7 +882,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 ? null
                 : await PublishedCountAsync(lines, seen, cursors, target, cancellationToken);
 
-            if (Live(client) && !whoAlreadyAnswered && published is null)
+            if (Live(connection) && !whoAlreadyAnswered && published is null)
             {
                 // WhoGrace, not SilenceGrace: some codebases sit on a login-screen WHO for
                 // seconds on purpose, and giving up early does not merely lose the count — it
@@ -985,12 +902,12 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 && MsspSelfDescription.AnswersTheLoginCommands(
                     MsspReport.From(seen.Mssp, WireEncoding.Fallback));
 
-            if (Live(client) && !described)
+            if (Live(connection) && !described)
             {
                 cursors.Info = cursors.Version = await AskAsync(InfoCommand, cursors.Who, _options.SilenceGrace);
             }
 
-            if (Live(client) && !described)
+            if (Live(connection) && !described)
             {
                 cursors.Version = await AskAsync(VersionCommand, cursors.Info, _options.SilenceGrace);
             }
@@ -1230,22 +1147,13 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
     /// <summary>Whether the far end is still there to be asked anything.</summary>
     /// <remarks>
-    /// A readable socket with nothing to read on it is one the peer has closed — TCP accepts the
-    /// first write after a FIN silently, so this is the only way to tell beforehand. Called between
-    /// phases, after the interpreter's own loop has drained every pending line, so "readable" here
-    /// means the close.
+    /// TCP accepts the first write after a FIN silently, so the close has to be noticed on the read
+    /// side, and the connection's read loop is always reading: it ends — and cancels
+    /// <see cref="TelnetConnection.Closed"/> — the moment the peer's close arrives, whichever
+    /// transport carried it. Called between phases, after the interpreter has drained every pending
+    /// line.
     /// </remarks>
-    private static bool Live(TcpClient client)
-    {
-        try
-        {
-            return !client.Client.Poll(0, SelectMode.SelectRead) || client.Client.Available > 0;
-        }
-        catch (Exception error) when (error is SocketException or ObjectDisposedException)
-        {
-            return false;
-        }
-    }
+    private static bool Live(TelnetConnection connection) => !connection.Closed.IsCancellationRequested;
 
     /// <summary>Whether an exception is the far end having gone, rather than us having given up.</summary>
     /// <remarks>
@@ -1257,6 +1165,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     private static bool HungUp(Exception error) => error
         is IOException
         or SocketException
+        or WebSocketException
         or ObjectDisposedException;
 
     /// <summary>
@@ -1429,10 +1338,8 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         /// Names the interpreter to read prompts from, once the builder has produced it.
         /// </summary>
         /// <remarks>
-        /// Assigned immediately after the build rather than during it, because the callbacks are
-        /// registered before the interpreter they read from exists. Nothing is lost in between: the
-        /// earliest prompt a peer can produce needs either a marker it has not sent yet or
-        /// <c>PromptHold</c> of silence, and this runs in the same continuation as the build.
+        /// Called from <c>OnStarting</c>, which runs after the interpreter exists and before its read
+        /// loop has read a byte, so no prompt can arrive while this is still unset.
         /// </remarks>
         public void Reads(TelnetInterpreter telnet) => _telnet = telnet;
 
@@ -1469,10 +1376,11 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     private TelnetInterpreterBuilder Build(
         Observations seen,
         List<byte[]> lines,
-        PromptSink prompts,
         bool plaintextMssp)
     {
         void Note(string protocol) => seen.Note(protocol);
+
+        var prompts = new PromptSink(lines);
 
         var mssp = new Watched.Mssp(Note)
             .WithMaxMessageSize(_options.MaxSubnegotiationBytes)
@@ -1592,6 +1500,18 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         var builder = new TelnetInterpreterBuilder()
             .UseMode(TelnetInterpreter.TelnetMode.Client)
             .UseLogger(_logger)
+
+            // Runs with the interpreter built and nothing read yet, so neither of these can miss a
+            // callback the peer's first bytes provoke.
+            .OnStarting(connection =>
+            {
+                prompts.Reads(connection.Interpreter);
+
+                // The MCP package list is a property of the plugin rather than a callback, because a
+                // server that lists nothing is a fact worth having too and no callback fires for it.
+                seen.ReadsMcp(connection.Interpreter.PluginManager?.GetPlugin<MudClientProtocol>());
+                return ValueTask.CompletedTask;
+            })
             .WithClientIdentity(_options.TerminalTypes.Count > 0 ? _options.TerminalTypes[0] : "MUINDEX-CRAWLER")
             .OnSubmit((bytes, _, _) =>
             {

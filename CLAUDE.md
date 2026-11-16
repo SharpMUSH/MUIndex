@@ -234,6 +234,17 @@ the same pattern anyway, so there is one way to do this in the tree. `mui-crawl 
 exception and says so at the call site: a process that makes one request and exits *is* the handler's
 lifetime.
 
+**The probe's WebSocket dial is not a third HTTP client either.** `ProbeLine` upgrades a `ws://` or
+`wss://` URL to telnet over a WebSocket (`telnet.mudstandards.org`, TelnetNegotiationCore 4.12+) with
+a `SocketsHttpHandler` that lives for one dial and whose `ConnectCallback` dials **the addresses the
+scope guard vetted**, never a fresh lookup of the name — the same rule the TCP path follows. No
+proxy, no cookies, no redirects. It is a probe transport, not a fetch: nothing it reads is anything
+but a telnet session. `mui-probe wss://…` dials one by hand. A server that picks `gmcp.` or
+`terminal.mudstandards.org` (Evennia) is read through TelnetNegotiationCore's client bridge, which
+drops our telnet commands rather than typing them at a login. The crawl loop's own check of a declared
+`WEBSOCKET` URL is `WebSocketProbe`, a handshake and nothing after it (migration 0045,
+`WebSocketEndpointWriter`), not this.
+
 `game_icon` and `icon_attempt` are the **two tables here that may be dropped and refilled**. The fact
 is the `ICON` field; those are bytes fetched from the URL it names and our own notes about fetching
 them, so §7.5's "nothing is ever deleted" does not reach either. A failed fetch writes **nothing

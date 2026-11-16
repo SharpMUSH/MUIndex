@@ -337,7 +337,12 @@ public sealed class CatalogueBinder(
                 // What carried the session that produced this result, which is what a reader would
                 // have to speak to reach the same screen. Measured rather than configured — and
                 // `tls` here means a handshake completed, never that a certificate was verified.
-                result.Transport is ProbeTransport.Tls ? EndpointKind.Tls : EndpointKind.Telnet,
+                result.Transport switch
+                {
+                    ProbeTransport.Tls => EndpointKind.Tls,
+                    ProbeTransport.WebSocket => EndpointKind.WebSocket,
+                    _ => EndpointKind.Telnet,
+                },
                 existing?.FirstSeenAt ?? now,
                 now,
                 EndpointState.Active),

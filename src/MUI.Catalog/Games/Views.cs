@@ -27,11 +27,20 @@ public sealed record ProvenanceChip(
 /// <summary>
 /// One capability, measured beside declared. Two columns, never merged into one badge.
 /// </summary>
+/// <param name="WebSocket">
+/// For the <c>WEBSOCKET</c> row only: which of the three answers the endpoints give. Null on every other
+/// row.
+/// </param>
+/// <param name="SubProtocol">
+/// For <see cref="WebSocketSupport.Standard"/>: the mudstandards.org subprotocol the server chose.
+/// </param>
 public sealed record CapabilityRow(
     string Protocol,
     CapabilityState Measured,
     CapabilityState Declared,
-    DateTimeOffset? LastConfirmedAt)
+    DateTimeOffset? LastConfirmedAt,
+    WebSocketSupport? WebSocket = null,
+    string? SubProtocol = null)
 {
     public bool Disagrees =>
         (Measured, Declared) is (CapabilityState.Absent, CapabilityState.Present)
@@ -50,6 +59,32 @@ public enum CapabilityState
     Present,
 
     Absent,
+}
+
+/// <summary>
+/// What a game's WebSocket endpoints showed, as the capability matrix reports it.
+/// </summary>
+/// <remarks>
+/// Read from the endpoints the crawl recorded (migration 0045), never from the declaration: a URL that
+/// did not upgrade writes no endpoint, so it is <see cref="Unknown"/> here, the same as a URL nobody
+/// declared. That is a fact about what we could see, not about the game (rule 5).
+/// </remarks>
+public enum WebSocketSupport
+{
+    /// <summary>No WebSocket endpoint we have measured.</summary>
+    Unknown,
+
+    /// <summary>
+    /// A WebSocket upgraded, but the server chose none of the mudstandards.org subprotocols, so a
+    /// client has to guess what it speaks (websockify, an Apache proxy).
+    /// </summary>
+    None,
+
+    /// <summary>
+    /// The server chose a mudstandards.org subprotocol (<c>telnet.</c>, <c>gmcp.</c>, <c>terminal.</c>
+    /// or <c>json.mudstandards.org</c>) when we offered them.
+    /// </summary>
+    Standard,
 }
 
 /// <summary>One hour of the activity grid. The three states of spec §5.4, ready to render.</summary>

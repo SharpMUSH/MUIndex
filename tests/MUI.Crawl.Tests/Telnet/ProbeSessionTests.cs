@@ -1758,8 +1758,8 @@ public class ProbeSessionTests
     /// garbage collector to notice.
     /// </summary>
     /// <remarks>
-    /// <c>BuildAndStartAsync</c> hands back an interpreter owning a byte channel, a processing task
-    /// and a dozen protocol plugins, including MCCP's zlib streams — real unmanaged resources, not
+    /// <c>StartAsync</c> hands back a connection whose interpreter owns a byte channel, a processing
+    /// task and a dozen protocol plugins, including MCCP's zlib streams — real unmanaged resources, not
     /// just a managed object waiting its turn. A probe that walked away without disposing it leaked
     /// one session's worth of those per run. Asserted against the library's own transcript rather
     /// than a memory reading, since a slow per-run leak is invisible over the life of a single test:
