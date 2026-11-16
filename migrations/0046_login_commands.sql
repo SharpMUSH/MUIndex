@@ -11,8 +11,9 @@
 --                              the replies was something a reader stands behind. Capped at the
 --                              threshold. Back to 0 on the first session that yields anything.
 --   login_commands_quiet_at    NULL: asked. Set: the run reached the threshold at this time, and
---                              INFO and VERSION are not typed again until a retrial falls due. A
---                              retrial that answers clears it; one that does not re-dates it.
+--                              INFO and VERSION are not typed here again. There is no retrial. The
+--                              one exception is a submission still awaiting corroboration, which
+--                              is asked regardless; an answer from it clears both columns.
 --
 -- A session in which we did not type INFO is no evidence either way and changes neither column, so
 -- our silence is never counted as theirs (rule 5). And none of this is a fact about the game on any

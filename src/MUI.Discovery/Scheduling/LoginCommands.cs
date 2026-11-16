@@ -11,7 +11,7 @@ namespace MUI.Discovery;
 /// behind, capped at <see cref="LoginCommands.Patience"/>.
 /// </param>
 /// <param name="QuietAt">
-/// When this address stopped being asked, or null while it is still asked.
+/// When this address stopped being asked, for good, or null while it is still asked.
 /// </param>
 public readonly record struct LoginCommandMemory(int Unanswered, DateTimeOffset? QuietAt);
 
@@ -46,27 +46,25 @@ public static class LoginCommands
     /// </remarks>
     public const int Patience = 3;
 
-    /// <summary>How long a quiet address goes before it is asked once more.</summary>
-    /// <remarks>
-    /// A game can change codebase, and the readers here can learn a reply they could not read before;
-    /// neither happens often, so a monthly retrial is enough to notice either without being noise.
-    /// One retrial that still yields nothing re-dates the quiet; one that yields anything ends it.
-    /// </remarks>
-    public static readonly TimeSpan Retrial = TimeSpan.FromDays(30);
-
     /// <summary>Whether this session may type <c>INFO</c> and <c>VERSION</c>.</summary>
     /// <remarks>
-    /// Always, for a game still awaiting §7.8: <c>MuLikeness</c> reads its vocabulary signal from
-    /// these replies, and for a game that negotiates nothing they may be the only evidence that it is
-    /// a game at all. The same escape <c>WHO</c> has (<see cref="ProbeTarget.AwaitingCorroboration"/>).
+    /// <para>
+    /// Never again, once an address has gone quiet. There is no retrial: a codebase that does not
+    /// answer <c>INFO</c> today almost certainly never will, and a monthly retrial would still be two
+    /// lines at a stranger's login prompt for an answer we already have. A game that changes codebase
+    /// is still read through its connect screen and MSSP, which are never gated by this.
+    /// </para>
+    /// <para>
+    /// The one exception is a game still awaiting §7.8: <c>MuLikeness</c> reads its vocabulary signal
+    /// from these replies, and for a game that negotiates nothing they may be the only evidence that it
+    /// is a game at all. The same escape <c>WHO</c> has (<see cref="ProbeTarget.AwaitingCorroboration"/>).
+    /// </para>
     /// </remarks>
-    public static bool Ask(CrawlTarget target, DateTimeOffset now)
+    public static bool Ask(CrawlTarget target)
     {
         ArgumentNullException.ThrowIfNull(target);
 
-        return target.AwaitingCorroboration
-            || target.LoginCommands.QuietAt is not { } quiet
-            || now - quiet >= Retrial;
+        return target.AwaitingCorroboration || target.LoginCommands.QuietAt is null;
     }
 
     /// <summary>
@@ -99,6 +97,8 @@ public static class LoginCommands
 
         var unanswered = Math.Min(current.Unanswered + 1, Patience);
 
-        return new LoginCommandMemory(unanswered, unanswered >= Patience ? now : null);
+        // Dated once, when the address went quiet. A miss while quiet (only a submission awaiting
+        // §7.8 is asked then) leaves the date where it was.
+        return new LoginCommandMemory(unanswered, unanswered >= Patience ? current.QuietAt ?? now : null);
     }
 }

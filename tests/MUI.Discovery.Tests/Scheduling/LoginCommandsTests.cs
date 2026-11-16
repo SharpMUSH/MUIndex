@@ -35,13 +35,13 @@ public class LoginCommandsTests
             memory = LoginCommands.Learn(memory, session % 2 == 0 ? Huh : NamePrompt, Now);
 
             await Assert.That(memory.QuietAt).IsNull();
-            await Assert.That(LoginCommands.Ask(Listed(memory), Now)).IsTrue();
+            await Assert.That(LoginCommands.Ask(Listed(memory))).IsTrue();
         }
 
         memory = LoginCommands.Learn(memory, NamePrompt, Now);
 
         await Assert.That(memory).IsEqualTo(new LoginCommandMemory(LoginCommands.Patience, Now));
-        await Assert.That(LoginCommands.Ask(Listed(memory), Now.AddDays(1))).IsFalse();
+        await Assert.That(LoginCommands.Ask(Listed(memory))).IsFalse();
     }
 
     [Test]
@@ -53,21 +53,28 @@ public class LoginCommandsTests
     }
 
     /// <summary>
-    /// A quiet address is asked once a month, and what that one session finds decides the next month.
+    /// A quiet address stays quiet: there is no retrial, however long it has been.
     /// </summary>
     [Test]
-    public async Task AQuietAddressIsRetriedAndTheRetrialDecides()
+    public async Task AQuietAddressIsNeverAskedAgain()
     {
-        var quiet = new LoginCommandMemory(LoginCommands.Patience, Now);
-        var due = Now + LoginCommands.Retrial;
+        var quiet = new LoginCommandMemory(LoginCommands.Patience, Now.AddYears(-2));
 
-        await Assert.That(LoginCommands.Ask(Listed(quiet), due.AddMinutes(-1))).IsFalse();
-        await Assert.That(LoginCommands.Ask(Listed(quiet), due)).IsTrue();
+        await Assert.That(LoginCommands.Ask(Listed(quiet))).IsFalse();
+    }
 
-        await Assert.That(LoginCommands.Learn(quiet, NamePrompt, due))
-            .IsEqualTo(new LoginCommandMemory(LoginCommands.Patience, due));
+    /// <summary>
+    /// A submission awaiting §7.8 is the one session asked while quiet. A miss there keeps the date
+    /// the address went quiet; an answer clears the memory.
+    /// </summary>
+    [Test]
+    public async Task AQuietSubmissionsMissKeepsTheDateAndItsAnswerClearsIt()
+    {
+        var since = Now.AddDays(-40);
+        var quiet = new LoginCommandMemory(LoginCommands.Patience, since);
 
-        await Assert.That(LoginCommands.Learn(quiet, InfoBlock, due)).IsEqualTo(Fresh);
+        await Assert.That(LoginCommands.Learn(quiet, NamePrompt, Now)).IsEqualTo(quiet);
+        await Assert.That(LoginCommands.Learn(quiet, InfoBlock, Now)).IsEqualTo(Fresh);
     }
 
     /// <summary>
@@ -97,13 +104,13 @@ public class LoginCommandsTests
     {
         var quiet = new LoginCommandMemory(LoginCommands.Patience, Now);
 
-        await Assert.That(LoginCommands.Ask(Listed(quiet) with { AwaitingCorroboration = true }, Now)).IsTrue();
+        await Assert.That(LoginCommands.Ask(Listed(quiet) with { AwaitingCorroboration = true })).IsTrue();
     }
 
     [Test]
     public async Task AnAddressWithNoHistoryIsAsked()
     {
-        await Assert.That(LoginCommands.Ask(Listed(Fresh), Now)).IsTrue();
+        await Assert.That(LoginCommands.Ask(Listed(Fresh))).IsTrue();
     }
 
     private static CrawlTarget Listed(LoginCommandMemory memory) => new()

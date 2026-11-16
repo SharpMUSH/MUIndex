@@ -274,7 +274,7 @@ public sealed class CrawlCycle(
 
                 // Whether INFO and VERSION have been answering here. See LoginCommands for both
                 // halves of that memory (issue #182).
-                AskLoginCommands = LoginCommands.Ask(target, time.GetUtcNow()),
+                AskLoginCommands = LoginCommands.Ask(target),
             },
             budget.Token);
 
@@ -554,11 +554,10 @@ public sealed class CrawlCycle(
             if (loginCommands.QuietAt is not null && target.LoginCommands.QuietAt is null)
             {
                 logger?.LogInformation(
-                    "{Host}:{Port} answered INFO and VERSION with nothing readable {Sessions} times running; not asking again for {Days} days",
+                    "{Host}:{Port} answered INFO and VERSION with nothing readable {Sessions} times running; not asking again",
                     target.Host,
                     target.Port,
-                    LoginCommands.Patience,
-                    LoginCommands.Retrial.TotalDays);
+                    LoginCommands.Patience);
             }
         }
     }

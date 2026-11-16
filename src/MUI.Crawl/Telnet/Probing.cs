@@ -69,8 +69,7 @@ public sealed record ProbeTarget(string Host, int Port)
     /// <remarks>
     /// <para>
     /// False means this address has been asked both, session after session, and nothing in any reply
-    /// was something a reader here would stand behind — so it is not asked again until a retrial
-    /// falls due. A codebase that does not answer <c>INFO</c> today almost certainly never will, and
+    /// was something a reader here would stand behind — so it is not asked again. A codebase that does not answer <c>INFO</c> today almost certainly never will, and
     /// at <c>fs.twkang.net:5555</c> each word is read as a character name: <c>VERSION</c> comes back
     /// as <em>create a new character called version? (y/n)</em>, every crawl (issue #182).
     /// </para>

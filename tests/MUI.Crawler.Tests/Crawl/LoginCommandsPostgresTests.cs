@@ -55,27 +55,27 @@ public class LoginCommandsPostgresTests
     }
 
     [Test]
-    public async Task ARetrialThatAnswersEndsTheQuiet()
+    public async Task AQuietAddressIsNotAskedHoweverLongAgoItWentQuiet()
     {
         await using var database = await PostgresFixture.MigratedAsync();
         var source = database.DataSource;
 
         await CrawlCycles.SeedAsync(source, new CrawlSeed(Host, Port));
 
+        // Bound to a listed game first, so the §7.8 escape does not apply.
+        var first = new ScriptedProbe(NamePrompt);
+        await CrawlCycles.Build(source, first, TimeProvider.System).RunAsync();
+
         await using var connection = await source.OpenConnectionAsync();
         await connection.ExecuteAsync(
-            "UPDATE crawl_target SET login_commands_unanswered = 3, login_commands_quiet_at = now() - interval '31 days'");
+            "UPDATE crawl_target SET login_commands_unanswered = 3, login_commands_quiet_at = now() - interval '2 years'");
+        await DueAgainAsync(connection);
 
-        var probe = new ScriptedProbe(target => Probes.Answered(
-            host: target.Host,
-            port: target.Port,
-            info: "### Begin INFO 1\r\nName: Mortal Realms\r\nConnected: 7\r\n### End INFO\r\n")
-            with { InfoAsked = target.AskLoginCommands });
+        var probe = new ScriptedProbe(NamePrompt);
         await CrawlCycles.Build(source, probe, TimeProvider.System).RunAsync();
 
-        await Assert.That(probe.Asked.Single().AskLoginCommands).IsTrue();
-        await Assert.That(await UnansweredAsync(connection)).IsEqualTo(0);
-        await Assert.That(await QuietAsync(connection)).IsFalse();
+        await Assert.That(probe.Asked.Single().AskLoginCommands).IsFalse();
+        await Assert.That(await QuietAsync(connection)).IsTrue();
     }
 
     private static Task<int> UnansweredAsync(Npgsql.NpgsqlConnection connection) =>
