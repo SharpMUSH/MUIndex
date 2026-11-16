@@ -25,7 +25,7 @@
       argue around. 4.13.4 reads a WebSocket server that picked gmcp or terminal rather than
       telnet (Evennia) through a bridge, which ProbeLine offers.
     -->
-    <PackageVersion Include="TelnetNegotiationCore" Version="4.13.5" />
+    <PackageVersion Include="TelnetNegotiationCore" Version="4.13.6" />
     <PackageVersion Include="MarkupString.Ansi" Version="2.31.3" />
 
     <!--

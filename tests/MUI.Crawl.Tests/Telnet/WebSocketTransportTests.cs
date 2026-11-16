@@ -160,6 +160,10 @@ public class WebSocketTransportTests
         await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Failed);
         await Assert.That(result.Banner).IsNull();
         await Assert.That(result.Transport).IsEqualTo(ProbeTransport.WebSocket);
+        // The retry with no subprotocol is TelnetNegotiationCore's, and it goes through the same
+        // vetted dial.
+        await Assert.That(game.Requests.Count).IsEqualTo(2);
+        await Assert.That(game.Requests[1].Count).IsEqualTo(0);
     }
 
     [Test]
@@ -236,6 +240,26 @@ public class WebSocketTransportTests
 
         public Exception? Fault { get; private set; }
 
+        /// <summary>The subprotocols each refused upgrade offered, in order (empty for no offer).</summary>
+        public List<IReadOnlyList<string>> Requests { get; } = [];
+
+        private const string NotFound = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+
+        /// <summary>
+        /// TelnetNegotiationCore dials once more, offering nothing, after an HTTP error; that one is
+        /// refused too.
+        /// </summary>
+        private async Task RefuseTheRetryAsync()
+        {
+            using var client = await _listener.AcceptTcpClientAsync(_stopping.Token);
+            var stream = client.GetStream();
+            var request = await ReadRequestAsync(stream);
+            var offer = request.Split("\r\n")
+                .FirstOrDefault(line => line.StartsWith("Sec-WebSocket-Protocol:", StringComparison.OrdinalIgnoreCase));
+            Requests.Add(offer is null ? [] : [.. offer.Split(':', 2)[1].Split(',', StringSplitOptions.TrimEntries)]);
+            await stream.WriteAsync(Encoding.ASCII.GetBytes(NotFound));
+        }
+
         /// <summary>Every message a server with no telnet layer was sent.</summary>
         public IReadOnlyList<byte[]> RawReceived
         {
@@ -290,8 +314,10 @@ public class WebSocketTransportTests
 
                 if (RefuseUpgrade)
                 {
-                    await stream.WriteAsync(Encoding.ASCII.GetBytes(
-                        "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"));
+                    Requests.Add(Offered);
+                    await stream.WriteAsync(Encoding.ASCII.GetBytes(NotFound));
+                    client.Dispose();
+                    await RefuseTheRetryAsync();
                     return;
                 }
 

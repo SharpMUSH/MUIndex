@@ -91,10 +91,10 @@ internal sealed class ProbeLine : IAsyncDisposable
     /// server had offered it, so the session above reads the same either way.
     /// </para>
     /// <para>
-    /// That helper is not used directly because it resolves the name itself, and the scope guard's
-    /// ruling is on addresses (spec §7.2): the
-    /// <see cref="SocketsHttpHandler.ConnectCallback"/> here dials exactly the addresses the guard
-    /// vetted, the same as the TCP path.
+    /// The helper is handed an invoker of ours, because the scope guard's ruling is on addresses
+    /// (spec §7.2): the <see cref="SocketsHttpHandler.ConnectCallback"/> here dials exactly the
+    /// addresses the guard vetted, the same as the TCP path, and the helper's second dial (with no
+    /// subprotocol, after a server answers the first with an HTTP error) goes through it too.
     /// </para>
     /// <para>
     /// The handler lives for one dial and is disposed with the line, so none of the DNS-pinning
@@ -138,16 +138,7 @@ internal sealed class ProbeLine : IAsyncDisposable
             },
             disposeHandler: true);
 
-        _socket = new ClientWebSocket();
-        _socket.Options.AddSubProtocol(MudWebSocketSubprotocols.Telnet);
-        _socket.Options.AddSubProtocol(MudWebSocketSubprotocols.TelnetAlias);
-
-        foreach (var name in Bridges.Names)
-        {
-            _socket.Options.AddSubProtocol(name);
-        }
-
-        await _socket.ConnectAsync(uri, _invoker, cancellationToken);
+        _socket = await TelnetWebSocketClient.ConnectAsync(uri, _invoker, null, Bridges, cancellationToken);
 
         // Throws ArgumentException for a server that picked a subprotocol that is neither telnet nor
         // bridged. It cannot, having been offered only those, but if it does that is not a game this

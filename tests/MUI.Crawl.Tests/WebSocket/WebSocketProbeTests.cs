@@ -83,6 +83,22 @@ public class WebSocketProbeTests
     }
 
     [Test]
+    public async Task TheRetryWithNoOfferGoesToTheRuledAddressToo()
+    {
+        // The name does not resolve, and the bridge refuses the offer: the second dial upgrades only if it
+        // goes through the same ruled addresses as the first.
+        await using var bridge = Bridge.Start(refuseAnyOffer: true);
+
+        var handshake = await new WebSocketProbe().HandshakeAsync(
+            new WebSocketAddress("unresolvable.invalid", bridge.Port, false, "/"),
+            [IPAddress.Loopback]);
+
+        await Assert.That(handshake.Answered).IsTrue();
+        await Assert.That(bridge.Offers.Count).IsEqualTo(2);
+        await Assert.That(bridge.Offers[1]).IsNull();
+    }
+
+    [Test]
     public async Task ASilentServerRunsOutOfBudget()
     {
         using var silent = new TcpListener(IPAddress.Loopback, 0);
