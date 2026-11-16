@@ -271,6 +271,10 @@ public sealed class CrawlCycle(
                 // Whether WHO is a working command here, so a stated count does not stand in for it.
                 // See WhoAnswers for how the memory changes.
                 WhoAnswers = target.WhoAnswersAt is not null,
+
+                // Whether INFO and VERSION have been answering here. See LoginCommands for both
+                // halves of that memory (issue #182).
+                AskLoginCommands = LoginCommands.Ask(target),
             },
             budget.Token);
 
@@ -539,6 +543,22 @@ public sealed class CrawlCycle(
             && whoAnswers != target.WhoAnswersAt)
         {
             await targets.RecordWhoAnswersAsync(target.Id, whoAnswers, cancellationToken);
+        }
+
+        // And whether INFO and VERSION are worth typing here, on the same terms.
+        if (LoginCommands.Learn(target.LoginCommands, result, now) is var loginCommands
+            && loginCommands != target.LoginCommands)
+        {
+            await targets.RecordLoginCommandsAsync(target.Id, loginCommands, cancellationToken);
+
+            if (loginCommands.QuietAt is not null && target.LoginCommands.QuietAt is null)
+            {
+                logger?.LogInformation(
+                    "{Host}:{Port} answered INFO and VERSION with nothing readable {Sessions} times running; not asking again",
+                    target.Host,
+                    target.Port,
+                    LoginCommands.Patience);
+            }
         }
     }
 

@@ -186,6 +186,9 @@ public class StoredCrawlerPulseTests
         public Task RecordWhoAnswersAsync(Guid id, DateTimeOffset? at, CancellationToken ct) =>
             throw new NotSupportedException();
 
+        public Task RecordLoginCommandsAsync(Guid id, LoginCommandMemory memory, CancellationToken ct) =>
+            throw new NotSupportedException();
+
         public Task AttachGameAsync(Guid id, Guid gameId, CancellationToken ct) =>
             throw new NotSupportedException();
     }

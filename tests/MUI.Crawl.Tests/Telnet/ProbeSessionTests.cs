@@ -24,6 +24,95 @@ namespace MUI.Crawl.Tests;
 public class ProbeSessionTests
 {
     /// <summary>Short, so the suite settles in a moment rather than in the live defaults.</summary>
+    /// <summary>
+    /// An address the crawl loop has stopped asking is not typed at: neither word leaves, and the
+    /// result says we did not ask rather than that nothing came back (issue #182).
+    /// </summary>
+    [Test]
+    public async Task AnAddressNotToBeAskedIsNotTypedAt()
+    {
+        await using var game = new FakeGame
+        {
+            Banner = "Welcome to Mortal Realms\r\n",
+            BannerTail = "By what name do you wish to be known? ",
+            WhoReply = "7 Players logged in, 22 record, no maximum.\r\n",
+            InfoReply = "### Begin INFO 1\r\nName: Mortal Realms\r\nConnected: 7\r\n### End INFO\r\n",
+            VersionReply = "Version 1.2.3\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast())
+            .ProbeAsync(game.Target with { AskLoginCommands = false });
+
+        var received = game.Received.Select(line => line.Trim()).ToList();
+
+        await Assert.That(received).Contains(TelnetProbe.WhoCommand);
+        await Assert.That(received).DoesNotContain(TelnetProbe.InfoCommand);
+        await Assert.That(received).DoesNotContain(TelnetProbe.VersionCommand);
+        await Assert.That(result.InfoAsked).IsFalse();
+        await Assert.That(result.VersionAsked).IsFalse();
+        await Assert.That(result.Info).IsNull();
+    }
+
+    /// <summary>
+    /// A login prompt that took <c>INFO</c> for a character name is not handed <c>VERSION</c> as a
+    /// second one.
+    /// </summary>
+    /// <remarks>
+    /// Measured at <c>fs.twkang.net:5555</c>: <c>INFO</c> came back as the name prompt again, and
+    /// <c>VERSION</c> as <em>create a new character called version? (y/n)</em>. This fixture says the
+    /// same words, on the wire as UTF-8.
+    /// </remarks>
+    [Test]
+    public async Task VersionIsNotSentWhereInfoWasTakenForAName()
+    {
+        static string OnTheWire(string text) => Encoding.Latin1.GetString(Encoding.UTF8.GetBytes(text));
+
+        await using var game = new FakeGame
+        {
+            Banner = OnTheWire("\u72C2\u60F3\u7A7A\u9593\r\n"),
+            BannerTail = OnTheWire("請輸入您的英文名字: "),
+            WhoReply = OnTheWire("好吧﹐那麼請重新輸入您的英文名字﹕\r\n"),
+            InfoReply = OnTheWire("好吧﹐那麼請重新輸入您的英文名字﹕\r\n"),
+            VersionReply = OnTheWire("使用 version 這個名字將會創造一個新的人物﹐您確定嗎(y/n)﹖\r\n"),
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        var received = game.Received.Select(line => line.Trim()).ToList();
+
+        await Assert.That(received).Contains(TelnetProbe.InfoCommand);
+        await Assert.That(received).DoesNotContain(TelnetProbe.VersionCommand);
+        await Assert.That(result.InfoAsked).IsTrue();
+        await Assert.That(result.VersionAsked).IsFalse();
+
+        // And WHO at the same prompt reads as what it is, not as a dialect we failed to parse.
+        await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.LoginPrompt);
+    }
+
+    /// <summary>
+    /// A plain "Huh?" to <c>INFO</c> is not a name prompt and says nothing about <c>VERSION</c>, which
+    /// is still asked.
+    /// </summary>
+    [Test]
+    public async Task VersionIsStillSentWhereInfoWasMerelyNotUnderstood()
+    {
+        await using var game = new FakeGame
+        {
+            Banner = "Welcome to Mortal Realms\r\n",
+            BannerTail = "By what name do you wish to be known? ",
+            WhoReply = "7 Players logged in, 22 record, no maximum.\r\n",
+            InfoReply = "Huh?  (Type \"help\" for help.)\r\n",
+            VersionReply = "PennMUSH version 1.8.8 patchlevel 0\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(game.Received.Select(line => line.Trim())).Contains(TelnetProbe.VersionCommand);
+        await Assert.That(result.InfoAsked).IsTrue();
+        await Assert.That(result.VersionAsked).IsTrue();
+        await Assert.That(LoginCommandReading.MeaningfulCodebase(result.Info, result.Version)).IsNotNull();
+    }
+
     private static ProbeOptions Fast() => new()
     {
         QuietPeriod = TimeSpan.FromMilliseconds(120),
