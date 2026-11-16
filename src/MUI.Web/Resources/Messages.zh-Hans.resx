@@ -847,6 +847,21 @@
   <data name="capability.denied" xml:space="preserve">
     <value>已拒绝</value>
   </data>
+  <data name="capability.websocket.standard" xml:space="preserve">
+    <value>标准</value>
+  </data>
+  <data name="capability.websocket.none" xml:space="preserve">
+    <value>无</value>
+  </data>
+  <data name="capability.websocket.none.title" xml:space="preserve">
+    <value>WebSocket 已建立，但未选择任何 mudstandards.org 子协议</value>
+  </data>
+  <data name="capability.websocket.unknown" xml:space="preserve">
+    <value>未知</value>
+  </data>
+  <data name="capability.websocket.unknown.title" xml:space="preserve">
+    <value>没有我们测量过的 WebSocket</value>
+  </data>
   <data name="capability.claimed" xml:space="preserve">
     <value>自述有</value>
   </data>

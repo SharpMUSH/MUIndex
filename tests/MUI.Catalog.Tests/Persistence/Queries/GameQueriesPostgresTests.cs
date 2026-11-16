@@ -976,6 +976,67 @@ public class GameQueriesPostgresTests
         await Assert.That(plain.Url).IsEqualTo("ws://mume.org:8080/");
     }
 
+    /// <summary>
+    /// The <c>WEBSOCKET</c> row's measured side is the endpoints: a declared URL with none is unknown,
+    /// an upgrade with no mudstandards.org subprotocol is none, and one that chose one is standard.
+    /// </summary>
+    [Test]
+    public async Task TheWebSocketRowSaysUnknownNoneOrStandardFromTheEndpoints()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var fields = new NpgsqlGameFieldStore(db.DataSource);
+        var endpoints = new NpgsqlEndpointStore(db.DataSource);
+
+        await fields.UpsertAsync(new GameField(
+            game, CapabilityFields.Declared("WEBSOCKET"), FieldSource.Mssp, "true", Now, Now));
+
+        var declaredOnly = (await QueriesOn(db).FindAsync("corvid"))!.Capabilities.Single(c => c.Protocol == "WEBSOCKET");
+
+        await Assert.That(declaredOnly.WebSocket).IsEqualTo(WebSocketSupport.Unknown);
+        await Assert.That(declaredOnly.Measured).IsEqualTo(CapabilityState.Unknown);
+        await Assert.That(declaredOnly.Declared).IsEqualTo(CapabilityState.Present);
+        await Assert.That(declaredOnly.Disagrees).IsFalse();
+
+        // A standard choice that is gone does not count; the live one chose nothing.
+        await endpoints.UpsertAsync(new GameEndpoint(
+            game, "mume.org", 8443, EndpointKind.SecureWebSocket, Now.AddDays(-90), Now.AddDays(-60), EndpointState.Gone,
+            "/old/", "telnet.mudstandards.org"));
+        await endpoints.UpsertAsync(new GameEndpoint(
+            game, "mume.org", 443, EndpointKind.SecureWebSocket, Now, Now, EndpointState.Active, "/ws-play/"));
+
+        var none = (await QueriesOn(db).FindAsync("corvid"))!.Capabilities.Single(c => c.Protocol == "WEBSOCKET");
+
+        await Assert.That(none.WebSocket).IsEqualTo(WebSocketSupport.None);
+        await Assert.That(none.Measured).IsEqualTo(CapabilityState.Present);
+        await Assert.That(none.SubProtocol).IsNull();
+
+        await endpoints.UpsertAsync(new GameEndpoint(
+            game, "mume.org", 4443, EndpointKind.SecureWebSocket, Now, Now, EndpointState.Active, "/play/", "telnet.mudstandards.org"));
+
+        var standard = (await QueriesOn(db).FindAsync("corvid"))!.Capabilities.Single(c => c.Protocol == "WEBSOCKET");
+
+        await Assert.That(standard.WebSocket).IsEqualTo(WebSocketSupport.Standard);
+        await Assert.That(standard.SubProtocol).IsEqualTo("telnet.mudstandards.org");
+    }
+
+    /// <summary>A WebSocket endpoint with nothing declared still gets its row.</summary>
+    [Test]
+    public async Task AWebSocketEndpointNobodyDeclaredStillGetsTheRow()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+
+        await new NpgsqlEndpointStore(db.DataSource).UpsertAsync(new GameEndpoint(
+            game, "evennia.example", 4002, EndpointKind.WebSocket, Now, Now, EndpointState.Active, "/", "gmcp.mudstandards.org"));
+
+        var row = (await QueriesOn(db).FindAsync("corvid"))!.Capabilities.Single(c => c.Protocol == "WEBSOCKET");
+
+        await Assert.That(row.WebSocket).IsEqualTo(WebSocketSupport.Standard);
+        await Assert.That(row.SubProtocol).IsEqualTo("gmcp.mudstandards.org");
+        await Assert.That(row.Declared).IsEqualTo(CapabilityState.Unknown);
+    }
+
     [Test]
     public async Task OnlyAWebSocketEndpointCarriesAPath()
     {

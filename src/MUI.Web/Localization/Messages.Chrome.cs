@@ -335,6 +335,11 @@ public static partial class Messages
         ["capability.denied"] = "denied",
         ["capability.claimed"] = "claimed",
         ["capability.disagrees"] = "disagrees",
+        ["capability.websocket.standard"] = "standard",
+        ["capability.websocket.none"] = "none",
+        ["capability.websocket.none.title"] = "a WebSocket upgraded, but chose no mudstandards.org subprotocol",
+        ["capability.websocket.unknown"] = "unknown",
+        ["capability.websocket.unknown.title"] = "no WebSocket we have measured",
         ["capability.whereTheyDisagree"] = "where they disagree ({count})",
 
         // ── the week of hours, said in words ──────────────────────────────────────────────────

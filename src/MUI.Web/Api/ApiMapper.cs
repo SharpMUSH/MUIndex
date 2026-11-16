@@ -158,7 +158,9 @@ public static class ApiMapper
             row.Disagrees,
             row.LastConfirmedAt,
             age?.TotalSeconds,
-            age is { } span ? Relative.Format(Locales.SourceTag, span) : null);
+            age is { } span ? Relative.Format(Locales.SourceTag, span) : null,
+            row.WebSocket,
+            row.SubProtocol);
     }
 
     /// <summary>

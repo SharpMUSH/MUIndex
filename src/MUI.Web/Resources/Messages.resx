@@ -1114,6 +1114,26 @@
     <value>denied</value>
     <comment>the game page's own headings</comment>
   </data>
+  <data name="capability.websocket.standard" xml:space="preserve">
+    <value>standard</value>
+    <comment>the game page's own headings</comment>
+  </data>
+  <data name="capability.websocket.none" xml:space="preserve">
+    <value>none</value>
+    <comment>the game page's own headings</comment>
+  </data>
+  <data name="capability.websocket.none.title" xml:space="preserve">
+    <value>a WebSocket upgraded, but chose no mudstandards.org subprotocol</value>
+    <comment>the game page's own headings</comment>
+  </data>
+  <data name="capability.websocket.unknown" xml:space="preserve">
+    <value>unknown</value>
+    <comment>the game page's own headings</comment>
+  </data>
+  <data name="capability.websocket.unknown.title" xml:space="preserve">
+    <value>no WebSocket we have measured</value>
+    <comment>the game page's own headings</comment>
+  </data>
   <data name="capability.claimed" xml:space="preserve">
     <value>claimed</value>
     <comment>the game page's own headings</comment>
