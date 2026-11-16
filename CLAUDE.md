@@ -96,10 +96,17 @@ our host is unreachable and perfectly alive.
   and a count. The engine clause is load-bearing and was measured — without it, two games lose the
   only reading that says what they run (`northern-crossroads-ncmud` declares `NC-7.0.357.7940b961`,
   `primal-darkness-ii` declares `PD/NM III`). `FAMILY` may **not** stand in for it: both of those
-  games declare one. **`INFO` and `VERSION` have no `AwaitingCorroboration` escape and are still
-  typed at the family above, every crawl** — issue #182 is where that is being thought about, and it
-  is not the same problem: there is nothing they would publish, so "not asking must imply publishing"
-  has nothing to hold on to.
+  games declare one.
+- **Type `INFO` or `VERSION` at an address that has never answered them.** A game with no MSSP can
+  never pass `MsspSelfDescription`, so the family above was typed at every crawl: `INFO` read as a
+  character name, `VERSION` answered *create a new character called version? (y/n)* (issue #182).
+  `crawl_target.login_commands_*` (migration 0046) is the memory and `LoginCommands` the one place
+  that reads it: three sessions running in which `LoginCommandReading.Answered` finds nothing silence
+  the address **for good** (there is deliberately no retrial), and a submission still
+  awaiting §7.8 is always asked. **Only a session that typed `INFO` counts** (`ProbeResult.InfoAsked`): there is
+  nothing they would publish, so "not asking must imply publishing" has nothing to hold on to, and the
+  rule 5 hazard instead is our silence counted as theirs. Within a session, `INFO` answered by a name
+  prompt (`NamePrompt`) also spares the game our `VERSION`; a plain `Huh?` does not.
 - **Type `MSSP-REQUEST` at an address that has reported over option 70, or that left its trial
   unanswered.** The plaintext form is text at a login prompt, and eight of twenty surveyed games read
   it as a character name. `crawl_target.mssp_route` (migration 0042) remembers each address's answer
@@ -233,6 +240,17 @@ owner-supplied, so the DNS-pinning argument is weaker than `IconFetcher`'s — t
 the same pattern anyway, so there is one way to do this in the tree. `mui-crawl --ares` is the single
 exception and says so at the call site: a process that makes one request and exits *is* the handler's
 lifetime.
+
+**The probe's WebSocket dial is not a third HTTP client either.** `ProbeLine` upgrades a `ws://` or
+`wss://` URL to telnet over a WebSocket (`telnet.mudstandards.org`, TelnetNegotiationCore 4.12+) with
+a `SocketsHttpHandler` that lives for one dial and whose `ConnectCallback` dials **the addresses the
+scope guard vetted**, never a fresh lookup of the name — the same rule the TCP path follows. No
+proxy, no cookies, no redirects. It is a probe transport, not a fetch: nothing it reads is anything
+but a telnet session. `mui-probe wss://…` dials one by hand. A server that picks `gmcp.` or
+`terminal.mudstandards.org` (Evennia) is read through TelnetNegotiationCore's client bridge, which
+drops our telnet commands rather than typing them at a login. The crawl loop's own check of a declared
+`WEBSOCKET` URL is `WebSocketProbe`, a handshake and nothing after it (migration 0045,
+`WebSocketEndpointWriter`), not this.
 
 `game_icon` and `icon_attempt` are the **two tables here that may be dropped and refilled**. The fact
 is the `ICON` field; those are bytes fetched from the URL it names and our own notes about fetching

@@ -63,6 +63,26 @@ public sealed record ProbeTarget(string Host, int Port)
     /// </remarks>
     public bool AwaitingCorroboration { get; init; } = true;
 
+    /// <summary>
+    /// Whether <c>INFO</c> and <c>VERSION</c> may be typed at this address's login prompt.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// False means this address has been asked both, session after session, and nothing in any reply
+    /// was something a reader here would stand behind — so it is not asked again. A codebase that does not answer <c>INFO</c> today almost certainly never will, and
+    /// at <c>fs.twkang.net:5555</c> each word is read as a character name: <c>VERSION</c> comes back
+    /// as <em>create a new character called version? (y/n)</em>, every crawl (issue #182).
+    /// </para>
+    /// <para>
+    /// True by default, so a caller that cannot say keeps asking, as with
+    /// <see cref="AwaitingCorroboration"/>. Only the crawl loop answers it, from
+    /// <c>crawl_target.login_commands_quiet_at</c> (migration 0046, see <c>LoginCommands</c>). An MSSP
+    /// report that already answers both (<see cref="MsspSelfDescription"/>) stops them whatever this
+    /// says.
+    /// </para>
+    /// </remarks>
+    public bool AskLoginCommands { get; init; } = true;
+
     /// <summary>Whether to open this dial with a TLS handshake rather than in the clear.</summary>
     /// <remarks>
     /// <para>
@@ -121,7 +141,41 @@ public sealed record ProbeTarget(string Host, int Port)
     /// </remarks>
     public bool WhoAnswers { get; init; }
 
-    public override string ToString() => Host.Contains(':') ? $"[{Host}]:{Port}" : $"{Host}:{Port}";
+    /// <summary>
+    /// The <c>ws://</c> or <c>wss://</c> address to reach this game at, when it is to be dialled as
+    /// a WebSocket rather than a socket.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Null on every target except one made by <see cref="ForWebSocket"/>, which also sets
+    /// <see cref="Host"/> and <see cref="Port"/> from it, so the scope guard rules on the same host the
+    /// upgrade request goes to and <see cref="Addresses"/> means what it means for a socket.
+    /// </para>
+    /// <para>
+    /// Telnet over a WebSocket is the whole telnet stream in BINARY frames
+    /// (<c>telnet.mudstandards.org</c>), so the session is the same one a socket carries, negotiation
+    /// and MSSP included. There is no fallback to the other transports and none from them: a URL is a
+    /// different address, not a different door to the same one.
+    /// </para>
+    /// </remarks>
+    public Uri? WebSocket { get; init; }
+
+    /// <summary>A target that dials <paramref name="uri"/> as a WebSocket.</summary>
+    /// <exception cref="ArgumentException"><paramref name="uri"/> is not an absolute <c>ws</c> or <c>wss</c> URI.</exception>
+    public static ProbeTarget ForWebSocket(Uri uri)
+    {
+        ArgumentNullException.ThrowIfNull(uri);
+
+        if (!uri.IsAbsoluteUri || uri.Scheme is not ("ws" or "wss"))
+        {
+            throw new ArgumentException($"'{uri}' is not a ws:// or wss:// address.", nameof(uri));
+        }
+
+        return new ProbeTarget(uri.IdnHost, uri.Port) { WebSocket = uri };
+    }
+
+    public override string ToString() =>
+        WebSocket?.ToString() ?? (Host.Contains(':') ? $"[{Host}]:{Port}" : $"{Host}:{Port}");
 }
 
 /// <summary>What a probe does about the plaintext <c>MSSP-REQUEST</c> form.</summary>
@@ -175,6 +229,16 @@ public enum ProbeTransport
 
     /// <summary>The same telnet session, inside a TLS tunnel.</summary>
     Tls,
+
+    /// <summary>
+    /// The same telnet session, in the BINARY frames of a WebSocket (<c>telnet.mudstandards.org</c>),
+    /// to the URL in <see cref="ProbeTarget.WebSocket"/>.
+    /// </summary>
+    /// <remarks>
+    /// Says nothing about TLS either way: a <c>wss://</c> URL carries its own handshake, and like
+    /// <see cref="Tls"/> nothing about its certificate was checked.
+    /// </remarks>
+    WebSocket,
 }
 
 /// <summary>

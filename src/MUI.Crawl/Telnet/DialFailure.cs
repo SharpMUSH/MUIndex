@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using System.Net.WebSockets;
 using System.Security.Authentication;
 
 namespace MUI.Crawl;
@@ -21,6 +22,14 @@ public static class DialFailure
     public static FailureDetail Classify(Exception error)
     {
         ArgumentNullException.ThrowIfNull(error);
+
+        // A WebSocket dial reports a failed connect or handshake as a WebSocketException around an
+        // HttpRequestException around the socket's or the tunnel's own error. The innermost is the
+        // measurement; the wrappers only say which layer noticed.
+        if (error is WebSocketException or HttpRequestException && error.InnerException is { } inner)
+        {
+            return Classify(inner);
+        }
 
         return error switch
         {
@@ -45,7 +54,7 @@ public static class DialFailure
                     or SocketError.HostUnreachable
                     or SocketError.NetworkDown,
             } => new(DialFailureCause.NoRoute, error.Message),
-            // Only reachable on a dial that asked for TLS: nothing else here builds an SslStream.
+            // Only reachable on a dial that asked for TLS, raw or wss://.
             // "It answered and would not do TLS" is a fact about the far end, so it gets the word
             // the catalogue's own cause vocabulary has carried since migration 0028.
             AuthenticationException => new(DialFailureCause.Tls, error.Message),

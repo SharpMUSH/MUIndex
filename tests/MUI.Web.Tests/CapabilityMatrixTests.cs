@@ -94,4 +94,45 @@ public class CapabilityMatrixTests
         await Assert.That(mxpRow[..300]).Contains("– silent");
         await Assert.That(mxpRow[..300]).DoesNotContain("✕ absent");
     }
+
+    [Test]
+    public async Task AStandardWebSocketLinksTheStandardAndNamesTheSubprotocol()
+    {
+        CapabilityRow[] rows =
+        [
+            new("WEBSOCKET", CapabilityState.Present, CapabilityState.Present, Now,
+                WebSocketSupport.Standard, "telnet.mudstandards.org"),
+        ];
+
+        var html = await Render.ComponentAsync<CapabilityMatrix>(new() { ["Rows"] = rows, ["Now"] = Now });
+
+        await Assert.That(html).Contains($"<a href=\"{CapabilityMatrix.WebSocketStandard}\" rel=\"noopener\">standard</a>");
+        await Assert.That(html).Contains("telnet.mudstandards.org");
+    }
+
+    /// <summary>
+    /// "None" is an upgrade with no standard subprotocol, never the ✕ of a refused capability; and a
+    /// declared URL that never upgraded is unknown, never absent (rule 5).
+    /// </summary>
+    [Test]
+    public async Task NoneAndUnknownAreNeitherAbsentNorLinked()
+    {
+        CapabilityRow[] rows =
+        [
+            new("WEBSOCKET", CapabilityState.Present, CapabilityState.Present, Now, WebSocketSupport.None),
+        ];
+
+        var none = await Render.ComponentAsync<CapabilityMatrix>(new() { ["Rows"] = rows, ["Now"] = Now });
+
+        await Assert.That(none).Contains("○ none");
+        await Assert.That(none).DoesNotContain("✕");
+        await Assert.That(none).DoesNotContain(CapabilityMatrix.WebSocketStandard);
+
+        rows = [new("WEBSOCKET", CapabilityState.Unknown, CapabilityState.Present, Now, WebSocketSupport.Unknown)];
+
+        var unknown = await Render.ComponentAsync<CapabilityMatrix>(new() { ["Rows"] = rows, ["Now"] = Now });
+
+        await Assert.That(unknown).Contains("– unknown");
+        await Assert.That(unknown).DoesNotContain("✕");
+    }
 }

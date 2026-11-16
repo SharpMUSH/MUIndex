@@ -167,7 +167,7 @@ public sealed partial class NpgsqlGameQueries
                 StringComparison.Ordinal),
             ReachableFraction: Reachability.FractionReachable(intervals, RecentlyReachable * 3, now),
             LongestOutage: Reachability.LongestOutage(intervals, RecentlyReachable * 3, now),
-            Capabilities: CapabilitiesOf(fields),
+            Capabilities: CapabilitiesOf(fields, endpoints),
             Activity: activity,
             Declared: DeclaredOf(fields, now),
             Changes: changes.Select(Describe).ToList(),
@@ -271,12 +271,24 @@ public sealed partial class NpgsqlGameQueries
     /// <see cref="CapabilityState.Unknown"/> and renders as a dash — nothing said either way is not
     /// the same fact as "it is not there", and only one of them is a measurement.
     /// </summary>
-    private static IReadOnlyList<CapabilityRow> CapabilitiesOf(IReadOnlyList<GameField> fields)
+    private static IReadOnlyList<CapabilityRow> CapabilitiesOf(
+        IReadOnlyList<GameField> fields,
+        IReadOnlyList<GameEndpoint> endpoints)
     {
         var rows = new List<CapabilityRow>();
 
         foreach (var capability in CapabilityFields.Names)
         {
+            if (capability is WebSocketCapability)
+            {
+                if (WebSocketRow(Winner(fields, CapabilityFields.Declared(capability)), endpoints) is { } row)
+                {
+                    rows.Add(row);
+                }
+
+                continue;
+            }
+
             var measured = Winner(fields, CapabilityFields.Measured(capability));
             var declared = Winner(fields, CapabilityFields.Declared(capability));
 
@@ -298,12 +310,76 @@ public sealed partial class NpgsqlGameQueries
 
         return rows;
 
-        static CapabilityState StateOf(GameField? field) => field?.Value switch
+    }
+
+    private static CapabilityState StateOf(GameField? field) => field?.Value switch
+    {
+        "true" => CapabilityState.Present,
+        "false" => CapabilityState.Absent,
+        _ => CapabilityState.Unknown,
+    };
+
+    /// <summary>The capability whose measured side comes from endpoints rather than a handshake.</summary>
+    private const string WebSocketCapability = "WEBSOCKET";
+
+    /// <summary>
+    /// The <c>WEBSOCKET</c> row: declared from MSSP like any other, measured from the WebSocket
+    /// endpoints the crawl recorded, which no telnet handshake can show.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Only endpoints that are not gone count. <see cref="WebSocketSupport.Standard"/> when any of them
+    /// chose a mudstandards.org subprotocol, <see cref="WebSocketSupport.None"/> when they upgraded but
+    /// chose none, and <see cref="WebSocketSupport.Unknown"/> when there are none, which is also what a
+    /// declared URL that never upgraded looks like. The measured state is never
+    /// <see cref="CapabilityState.Absent"/>: a failed upgrade writes no endpoint, so nothing here can
+    /// say a game has no WebSocket (rule 5).
+    /// </para>
+    /// <para>
+    /// No row at all when nothing was declared and nothing measured, as for every other capability.
+    /// </para>
+    /// </remarks>
+    private static CapabilityRow? WebSocketRow(GameField? declared, IReadOnlyList<GameEndpoint> endpoints)
+    {
+        var live = endpoints.Where(e => e.IsWebSocket && e.State is not EndpointState.Gone).ToList();
+
+        if (declared is null && live.Count == 0)
         {
-            "true" => CapabilityState.Present,
-            "false" => CapabilityState.Absent,
-            _ => CapabilityState.Unknown,
+            return null;
+        }
+
+        var standard = live
+            .Where(e => IsStandard(e.SubProtocol))
+            .OrderBy(e => e.SubProtocol == "telnet.mudstandards.org" ? 0 : 1)
+            .ThenByDescending(e => e.LastSeenAt)
+            .FirstOrDefault();
+
+        var support = (standard, live.Count) switch
+        {
+            ({ }, _) => WebSocketSupport.Standard,
+            (null, > 0) => WebSocketSupport.None,
+            _ => WebSocketSupport.Unknown,
         };
+
+        DateTimeOffset? seen = live.Count > 0 ? live.Max(e => e.LastSeenAt) : null;
+        DateTimeOffset? confirmed = (seen, declared?.LastConfirmedAt) switch
+        {
+            ({ } s, { } d) => s > d ? s : d,
+            ({ } s, null) => s,
+            (null, { } d) => d,
+            _ => null,
+        };
+
+        return new CapabilityRow(
+            WebSocketCapability,
+            support is WebSocketSupport.Unknown ? CapabilityState.Unknown : CapabilityState.Present,
+            StateOf(declared),
+            confirmed,
+            support,
+            standard?.SubProtocol);
+
+        static bool IsStandard(string? subProtocol) =>
+            subProtocol is not null && subProtocol.EndsWith(".mudstandards.org", StringComparison.OrdinalIgnoreCase);
     }
 
     private IReadOnlyDictionary<string, ProvenanceChip> DeclaredOf(

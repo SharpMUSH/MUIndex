@@ -478,7 +478,10 @@ and `us.muds.net:4000` answer `negotiated (none observed)`, `mssp NotOffered`, a
 chain is `WHO` → *好吧﹐那麼請重新輸入您的英文名字﹕* → `INFO` → the same → `VERSION` →
 *使用 version 這個名字將會創造一個新的人物﹐您確定嗎(y/n)﹖*. `ProbeTarget.AwaitingCorroboration`
 stops the `WHO`, on the argument that §7.8's signals are read by exactly one caller and only for an
-uncorroborated submission. `INFO` and `VERSION` are not stopped — see issue #182.
+uncorroborated submission. `INFO` and `VERSION` were not stopped until issue #182: an address now
+stops being asked them after three sessions in which nothing in either reply was readable
+(`LoginCommands`, `crawl_target.login_commands_*`), and `VERSION` is not sent at all once `INFO` has
+come back as this name prompt.
 
 ### Verified against live servers, 2026-08-20
 

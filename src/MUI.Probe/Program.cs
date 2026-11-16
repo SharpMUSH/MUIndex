@@ -38,7 +38,13 @@ var options = Environment.GetEnvironmentVariable("MUI_CRAWL_INFO_URL") is { Leng
 
 options.Validate();
 
-var result = await new TelnetProbe(options).ProbeAsync(new ProbeTarget(host, port)
+// A ws:// or wss:// URL in place of the host dials it as a WebSocket speaking telnet
+// (telnet.mudstandards.org), the way a game's MSSP WEBSOCKET says it can be reached.
+var target = Uri.TryCreate(host, UriKind.Absolute, out var url) && url.Scheme is "ws" or "wss"
+    ? ProbeTarget.ForWebSocket(url)
+    : new ProbeTarget(host, port);
+
+var result = await new TelnetProbe(options).ProbeAsync(target with
 {
     Charset = charset,
     MsspCharset = msspCharset,
@@ -46,7 +52,7 @@ var result = await new TelnetProbe(options).ProbeAsync(new ProbeTarget(host, por
     PlaintextMssp = plaintextMssp,
 });
 
-Console.WriteLine($"target        {result.Host}:{result.Port}");
+Console.WriteLine($"target        {target}");
 Console.WriteLine($"outcome       {result.Outcome}");
 // Measured rather than asked for: a plain dial that heard nothing is retried behind a handshake, so
 // this says which door actually answered. `tls` means one completed, never that a certificate was
@@ -126,11 +132,18 @@ if (LoginCommandReading.ConnectedPlayers(result.Info) is { } fromInfo)
     Console.WriteLine($"info count    {fromInfo} (declared in the INFO block)");
 }
 
-Reply("info", result.Info);
-Reply("version", result.Version);
+// "not asked" and "no reply" are different facts, and only the second is about the game.
+Reply("info", result.Info, result.InfoAsked);
+Reply("version", result.Version, result.VersionAsked);
 
-static void Reply(string label, string? text)
+static void Reply(string label, string? text, bool asked)
 {
+    if (!asked)
+    {
+        Console.WriteLine($"{label,-13} (not asked)");
+        return;
+    }
+
     var lines = (text ?? string.Empty)
         .Split('\n')
         .Select(line => line.TrimEnd())

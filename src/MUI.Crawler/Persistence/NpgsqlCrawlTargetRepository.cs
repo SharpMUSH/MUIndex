@@ -43,6 +43,7 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
         discovered_from_game_id AS DiscoveredFromGameId, depth AS Depth,
         is_operator_seed AS IsOperatorSeed, submitted_at AS SubmittedAt,
         discovered_via AS DiscoveredVia, mssp_route AS MsspRoute, who_answers_at AS WhoAnswersAt,
+        login_commands_unanswered AS LoginCommandsUnanswered, login_commands_quiet_at AS LoginCommandsQuietAt,
         (SELECT f.value
            FROM game_field f
           WHERE f.game_id = crawl_target.game_id
@@ -214,6 +215,21 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
             cancellationToken: ct));
     }
 
+    public async Task RecordLoginCommandsAsync(Guid id, LoginCommandMemory memory, CancellationToken ct)
+    {
+        await using var connection = await source.OpenConnectionAsync(ct);
+
+        await connection.ExecuteAsync(new CommandDefinition(
+            """
+            UPDATE crawl_target
+               SET login_commands_unanswered = @unanswered,
+                   login_commands_quiet_at = @quietAt
+             WHERE id = @id
+            """,
+            new { id, unanswered = (short)memory.Unanswered, quietAt = memory.QuietAt?.ToUniversalTime() },
+            cancellationToken: ct));
+    }
+
     /// <summary>
     /// Attaches the game this address turned out to be.
     /// </summary>
@@ -274,6 +290,10 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
 
         public DateTimeOffset? WhoAnswersAt { get; init; }
 
+        public short LoginCommandsUnanswered { get; init; }
+
+        public DateTimeOffset? LoginCommandsQuietAt { get; init; }
+
         /// <remarks>
         /// Nullable because the subquery has no row to read for a target not yet bound to a game,
         /// and null there means the same as true: an address that has proved nothing yet is asked
@@ -304,6 +324,7 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
             AwaitingCorroboration = AwaitingCorroboration ?? true,
             MsspRoute = MsspRouteSpelling.From(MsspRoute),
             WhoAnswersAt = WhoAnswersAt,
+            LoginCommands = new LoginCommandMemory(LoginCommandsUnanswered, LoginCommandsQuietAt),
         };
     }
 }

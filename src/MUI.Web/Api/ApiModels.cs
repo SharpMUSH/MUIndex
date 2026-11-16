@@ -40,6 +40,11 @@ public sealed record ProvenanceView(
 /// capability matrix and a boolean can't hold it. Each side is three states — <c>present</c>,
 /// <c>absent</c>, <c>unknown</c> — because never having seen it said is not the same as absent.
 /// </remarks>
+/// <param name="WebSocket">
+/// On the <c>WEBSOCKET</c> row only, and absent on every other: <c>unknown</c> (no WebSocket endpoint
+/// measured), <c>none</c> (one upgraded but chose no mudstandards.org subprotocol) or <c>standard</c>.
+/// </param>
+/// <param name="SubProtocol">With <c>standard</c>: the mudstandards.org subprotocol the server chose.</param>
 public sealed record CapabilityView(
     string Protocol,
     CapabilityState Measured,
@@ -47,7 +52,9 @@ public sealed record CapabilityView(
     bool Disagrees,
     DateTimeOffset? LastConfirmedAt,
     double? AgeSeconds,
-    string? Age);
+    string? Age,
+    WebSocketSupport? WebSocket = null,
+    string? SubProtocol = null);
 
 /// <summary>Which of the three states an hour of the presence grid is in (spec §5.4).</summary>
 public enum PresenceState

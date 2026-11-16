@@ -100,6 +100,22 @@ public sealed record ProbeResult
     /// <summary>The reply to <c>VERSION</c> at the login screen, when one arrived.</summary>
     public string? Version { get; init; }
 
+    /// <summary>Whether <c>INFO</c> was typed at the login screen this session.</summary>
+    /// <remarks>
+    /// The difference between "not asked" and "asked, and nothing came back", which a null
+    /// <see cref="Info"/> cannot carry: it is null for both. <c>LoginCommands.Learn</c> counts a
+    /// session against a game only when this is true, so a session in which we held our tongue is
+    /// never read as one in which the game said nothing (rule 5, the <c>who_not_offered</c> lesson).
+    /// </remarks>
+    public bool InfoAsked { get; init; }
+
+    /// <summary>Whether <c>VERSION</c> was typed at the login screen this session.</summary>
+    /// <remarks>
+    /// Never without <see cref="InfoAsked"/>, and not always with it: a login prompt that took
+    /// <c>INFO</c> for a character name is not handed <c>VERSION</c> as a second one.
+    /// </remarks>
+    public bool VersionAsked { get; init; }
+
     /// <summary>
     /// Layer 4 — MSSP as the server reported it over telnet option 70. Every variable, every value,
     /// in wire order.

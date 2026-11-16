@@ -271,6 +271,10 @@ public sealed class CrawlCycle(
                 // Whether WHO is a working command here, so a stated count does not stand in for it.
                 // See WhoAnswers for how the memory changes.
                 WhoAnswers = target.WhoAnswersAt is not null,
+
+                // Whether INFO and VERSION have been answering here. See LoginCommands for both
+                // halves of that memory (issue #182).
+                AskLoginCommands = LoginCommands.Ask(target),
             },
             budget.Token);
 
@@ -509,9 +513,11 @@ public sealed class CrawlCycle(
         // Only on a session that actually got somewhere, and only when it disagrees with the row.
         // A failed dial says nothing about which door to knock on next time — writing the transport
         // of a probe that never had a conversation would unlearn a good answer on one bad night.
+        // A WebSocket session answers a different question — which URL, not which door on this
+        // port — so it teaches the flag nothing either way.
         var transport = result.Transport is ProbeTransport.Tls;
 
-        if (answered && transport != target.UseTls)
+        if (answered && result.Transport is not ProbeTransport.WebSocket && transport != target.UseTls)
         {
             await targets.RecordTransportAsync(target.Id, transport, cancellationToken);
         }
@@ -537,6 +543,22 @@ public sealed class CrawlCycle(
             && whoAnswers != target.WhoAnswersAt)
         {
             await targets.RecordWhoAnswersAsync(target.Id, whoAnswers, cancellationToken);
+        }
+
+        // And whether INFO and VERSION are worth typing here, on the same terms.
+        if (LoginCommands.Learn(target.LoginCommands, result, now) is var loginCommands
+            && loginCommands != target.LoginCommands)
+        {
+            await targets.RecordLoginCommandsAsync(target.Id, loginCommands, cancellationToken);
+
+            if (loginCommands.QuietAt is not null && target.LoginCommands.QuietAt is null)
+            {
+                logger?.LogInformation(
+                    "{Host}:{Port} answered INFO and VERSION with nothing readable {Sessions} times running; not asking again",
+                    target.Host,
+                    target.Port,
+                    LoginCommands.Patience);
+            }
         }
     }
 
