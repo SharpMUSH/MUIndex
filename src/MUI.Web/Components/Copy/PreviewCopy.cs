@@ -208,7 +208,10 @@ public static class PreviewCopy
     /// <summary>Where you connect, which is the fact a reader most often wanted the page for.</summary>
     private static string? Address(GamePage page)
     {
-        var endpoint = page.Endpoints.FirstOrDefault(e => e.IsCurrent) ?? page.Endpoints.FirstOrDefault();
+        var endpoint = page.Endpoints.FirstOrDefault(e => e.IsCurrent && !e.IsWebSocket)
+            ?? page.Endpoints.FirstOrDefault(e => !e.IsWebSocket)
+            ?? page.Endpoints.FirstOrDefault(e => e.IsCurrent)
+            ?? page.Endpoints.FirstOrDefault();
 
         if (endpoint is null)
         {
@@ -217,7 +220,7 @@ public static class PreviewCopy
 
         var codebase = page.Summary.Codebase is { } known ? $"{known} at " : string.Empty;
 
-        return $"{codebase}{endpoint.Host} {endpoint.Port.ToString(CultureInfo.InvariantCulture)}";
+        return $"{codebase}{endpoint.Url ?? $"{endpoint.Host} {endpoint.Port.ToString(CultureInfo.InvariantCulture)}"}";
     }
 
     /// <summary>

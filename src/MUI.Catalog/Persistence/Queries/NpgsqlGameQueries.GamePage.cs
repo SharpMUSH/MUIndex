@@ -150,11 +150,15 @@ public sealed partial class NpgsqlGameQueries
                 .Select(e => new GameEndpointView(
                     e.Host,
                     e.Port,
-                    SqlEnums.ToDb(e.Kind),
-                    TlsMeasured: e.Kind is EndpointKind.Tls,
+                    // The API's vocabulary keeps one word per protocol and says TLS beside it: a
+                    // `wss` row reads as `websocket` with tlsMeasured, as a `tls` row is telnet's.
+                    e.IsWebSocket ? SqlEnums.ToDb(EndpointKind.WebSocket) : SqlEnums.ToDb(e.Kind),
+                    TlsMeasured: e.Kind is EndpointKind.Tls or EndpointKind.SecureWebSocket,
                     e.FirstSeenAt,
                     e.LastSeenAt,
-                    SqlEnums.ToDb(e.State)))
+                    SqlEnums.ToDb(e.State),
+                    e.Path,
+                    e.SubProtocol))
                 .ToList(),
             ConnectScreen: Winner(fields, InternalFields.ConnectScreen)?.Value,
             ConnectScreenSuppressed: string.Equals(

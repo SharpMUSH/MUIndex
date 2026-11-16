@@ -210,6 +210,7 @@ public static class SqlEnums
         EndpointKind.Telnet => "telnet",
         EndpointKind.Tls => "tls",
         EndpointKind.WebSocket => "websocket",
+        EndpointKind.SecureWebSocket => "wss",
         EndpointKind.Http => "http",
         _ => throw Unmapped(kind),
     };
@@ -219,6 +220,7 @@ public static class SqlEnums
         "telnet" => EndpointKind.Telnet,
         "tls" => EndpointKind.Tls,
         "websocket" => EndpointKind.WebSocket,
+        "wss" => EndpointKind.SecureWebSocket,
         "http" => EndpointKind.Http,
         _ => throw Unread(value, nameof(EndpointKind)),
     };

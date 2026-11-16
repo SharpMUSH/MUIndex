@@ -79,9 +79,13 @@ public static class PlainText
             // to turn it off, not -servername to turn it on), and spelling it out again would put
             // the line past Columns for any ordinary hostname, which is what the eighty-column rule
             // is there to stop.
-            b.AppendLine(e.TlsMeasured
-                ? $"openssl s_client -crlf -connect {e.Host}:{e.Port}"
-                : $"telnet {e.Host} {e.Port}");
+            //
+            // A WebSocket has no command a terminal reliably has, so it is the URL itself: what a
+            // reader pastes into a client that speaks it.
+            b.AppendLine(e.Url
+                ?? (e.TlsMeasured
+                    ? $"openssl s_client -crlf -connect {e.Host}:{e.Port}"
+                    : $"telnet {e.Host} {e.Port}"));
         }
 
         // How this site came to know about the game, and when. Rendered here as well as on the
